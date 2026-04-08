@@ -39,10 +39,12 @@ async function init() {
     CREATE TABLE IF NOT EXISTS machines (
       id SERIAL PRIMARY KEY,
       machine_name TEXT NOT NULL,
+      firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
       notes TEXT DEFAULT '',
       items JSONB NOT NULL DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY,
       user_id INT NOT NULL,
