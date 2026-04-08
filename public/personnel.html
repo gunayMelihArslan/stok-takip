@@ -25,10 +25,10 @@
   <div class="sidebar-nav">
     <div class="nav-item active" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
     <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
-    <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🔧</span>Makine İçin Al</div>
+    <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
     <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
     <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📋</span>İşlem Geçmişim</div>
-    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">📐</span>Makine İhtiyaçları</div>
+    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Listesi</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip">
@@ -97,14 +97,20 @@
       <div style="max-width:560px">
         <div class="card">
           <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.95rem;font-weight:800">Makine İçin Toplu Alım</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Makineyi seçin, gerekli tüm ürünler otomatik düşülür</p>
+            <h3 style="font-size:.95rem;font-weight:800">Vinç İçin Toplu Alım</h3>
+            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Firmayı seçin, ardından vinci seçin — gerekli tüm ürünler otomatik düşülür</p>
           </div>
           <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.9rem">
             <div class="form-group" style="margin:0">
-              <label>Makine Seçin</label>
-              <select id="bulkMachine" onchange="loadMachinePreview()">
-                <option value="">— Makine seçin —</option>
+              <label>Firma</label>
+              <select id="bulkFirmFilter" onchange="filterMachinesByFirm()">
+                <option value="">— Önce firma seçin —</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Vinç Seçin</label>
+              <select id="bulkMachine" onchange="loadMachinePreview()" disabled>
+                <option value="">— Vinç seçin —</option>
               </select>
             </div>
             <div id="machinePreview" style="display:none"></div>
@@ -215,7 +221,7 @@ async function loadMyHistory(){
   renderHistory();
 }
 
-const pageTitles={stock:'Stok Durumu',take:'Ürün Al',bulktake:'Makine İçin Al',return:'Ürün İade',history:'İşlem Geçmişim',machines:'Makine İhtiyaçları'};
+const pageTitles={stock:'Stok Durumu',take:'Ürün Al',bulktake:'Vinç İçin Al',return:'Ürün İade',history:'İşlem Geçmişim',machines:'Vinç Listesi'};
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -301,8 +307,26 @@ function updateProductInfo(){
 
 // ── Take form ─────────────────────────────────────────────────────────────
 function renderTakeForm(){
-  const sel=document.getElementById('bulkMachine');
-  sel.innerHTML='<option value="">— Makine seçin —</option>'+machines.map(m=>`<option value="${m.id}">${esc(m.machine_name)}</option>`).join('');
+  // Firma dropdown
+  const firmSel=document.getElementById('bulkFirmFilter');
+  if(firmSel){
+    firmSel.innerHTML='<option value="">— Önce firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+    firmSel.innerHTML += '<option value="all">Tümünü Göster</option>';
+  }
+  // Vinç dropdown başta disabled
+  const macSel=document.getElementById('bulkMachine');
+  if(macSel){ macSel.innerHTML='<option value="">— Vinç seçin —</option>'; macSel.disabled=true; }
+}
+
+function filterMachinesByFirm(){
+  const firmId=document.getElementById('bulkFirmFilter').value;
+  const macSel=document.getElementById('bulkMachine');
+  document.getElementById('machinePreview').style.display='none';
+  document.getElementById('bulkSubmitBtn').disabled=true;
+  if(!firmId){ macSel.innerHTML='<option value="">— Vinç seçin —</option>'; macSel.disabled=true; return; }
+  const filtered = firmId==='all' ? machines : machines.filter(m=>String(m.firm_id)===firmId);
+  macSel.innerHTML='<option value="">— Vinç seçin —</option>'+filtered.map(m=>`<option value="${m.id}">🏗️ ${esc(m.machine_name)}</option>`).join('');
+  macSel.disabled=false;
 }
 
 async function submitTake(){
@@ -359,7 +383,7 @@ async function submitBulkTake(){
   if (!machine_id){ toast('Makine seçin','error'); return; }
   if (!company){ toast('Firma adını girin','error'); return; }
   const m=machines.find(x=>x.id==machine_id);
-  if (!confirm(`"${m?.machine_name}" için ${m?.items?.length||0} ürün stoktan düşülecek. Onaylıyor musunuz?`)) return;
+  if (!confirm(`"${m?.machine_name}" vinci için ${m?.items?.length||0} ürün stoktan düşülecek. Onaylıyor musunuz?`)) return;
   const r=await api('/api/transactions/bulk','POST',{machine_id,company,notes});
   if (!r) return;
   document.getElementById('bulkMachine').value='';
@@ -401,19 +425,34 @@ function renderHistory(){
 // ── Machines view ─────────────────────────────────────────────────────────
 function renderMachines(){
   const div=document.getElementById('machineCards');
-  if (!machines.length){ div.innerHTML='<div class="card empty"><div class="icon">🔧</div>Makine kaydı yok</div>'; return; }
-  const firstCol=columns[0]; const numCol=columns.find(c=>c.data_type==='number');
-  div.innerHTML=machines.map(m=>{
-    const rows=(m.items||[]).map(it=>{
-      const prod=products.find(p=>p.id===Number(it.product_id));
-      const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;
-      const enough=stock!==null?stock>=it.quantity:null;
-      return `<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td>
-        <td>${stock!==null?(enough?`<span class="badge badge-ok">Yeterli (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td></tr>`;
+  if (!machines.length){ div.innerHTML='<div class="card empty"><div class="icon">🏗️</div>Vinç kaydı yok</div>'; return; }
+  const numCol=columns.find(c=>c.data_type==='number');
+  // Firma bazlı grupla
+  const grouped={};
+  machines.forEach(m=>{ const k=m.firm_name||'__no_firm__'; if(!grouped[k])grouped[k]=[]; grouped[k].push(m); });
+  let html='';
+  Object.entries(grouped).forEach(([firmName,list])=>{
+    if(firmName!=='__no_firm__') html+=`<div style="display:flex;align-items:center;gap:.75rem;margin:1rem 0 .5rem"><div style="height:1px;flex:0 0 16px;background:var(--border)"></div><span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);text-transform:uppercase;letter-spacing:.12em">🏢 ${esc(firmName)}</span><div style="height:1px;flex:1;background:var(--border)"></div></div>`;
+    html+=list.map(m=>{
+      const rows=(m.items||[]).map(it=>{
+        const prod=products.find(p=>p.id===Number(it.product_id));
+        const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;
+        const enough=stock!==null?stock>=it.quantity:null;
+        return `<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td><td>${stock!==null?(enough?`<span class="badge badge-ok">Yeterli (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td></tr>`;
+      }).join('');
+      return `<div class="card" style="margin-bottom:.75rem">
+        <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span style="font-weight:800;font-size:.92rem">🏗️ ${esc(m.machine_name)}</span>
+            ${m.firm_name?`<span class="badge badge-admin">${esc(m.firm_name)}</span>`:''}
+          </div>
+          ${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">${esc(m.notes)}</div>`:''}
+        </div>
+        <div style="padding:.9rem 1.1rem">${m.items?.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gereken</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün yok</span>'}</div>
+      </div>`;
     }).join('');
-    return `<div class="card"><div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border)"><div style="font-weight:800;font-size:.92rem">${esc(m.machine_name)}</div>${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>`:''}</div>
-      <div style="padding:.9rem 1.1rem">${m.items?.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gereken</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün yok</span>'}</div></div>`;
-  }).join('');
+  });
+  div.innerHTML=html;
 }
 
 function esc(s){ if(s==null)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
