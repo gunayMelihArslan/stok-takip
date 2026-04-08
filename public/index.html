@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -205,6 +206,7 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      localStorage.setItem('stok_token', data.token);
       window.location.href = data.role === 'admin' ? '/admin.html' : '/personnel.html';
     } catch (e) {
       err.textContent = e.message;
@@ -215,9 +217,12 @@
   }
 
   // Auto redirect if already logged in
-  fetch('/api/me').then(r => r.ok ? r.json() : null).then(u => {
-    if (u) window.location.href = u.role === 'admin' ? '/admin.html' : '/personnel.html';
-  });
+  const t = localStorage.getItem('stok_token');
+  if (t) {
+    fetch('/api/me', {headers:{'Authorization':'Bearer '+t}}).then(r => r.ok ? r.json() : null).then(u => {
+      if (u) window.location.href = u.role === 'admin' ? '/admin.html' : '/personnel.html';
+    });
+  }
 </script>
 </body>
 </html>
