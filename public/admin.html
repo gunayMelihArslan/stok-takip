@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yönetici Paneli — Stok Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="mobile-bar">
+  <div class="brand"><div class="icon">🏭</div><span>Stok Takip</span></div>
+  <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="icon">🏭</div>
+    <div><div class="title">Stok Takip</div><div class="subtitle">Yönetici</div></div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Genel</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
+    <div class="nav-section-label">Stok</div>
+    <div class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span>Ürünler</div>
+    <div class="nav-item" onclick="showPage('columns')"><span class="nav-icon">⚙️</span>Sütun Yönetimi</div>
+    <div class="nav-section-label">Tanımlar</div>
+    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🔧</span>Makine İhtiyaçları</div>
+    <div class="nav-item" onclick="showPage('firms')"><span class="nav-icon">🏢</span>Firma Yönetimi</div>
+    <div class="nav-section-label">İşlemler</div>
+    <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📋</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.65rem;margin-left:auto"></span></div>
+    <div class="nav-section-label">Sistem</div>
+    <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="avatar" id="avatarInit">A</div>
+      <div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div>
+    </div>
+    <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">Gösterge Paneli</h2>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span id="liveIndicator" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">● bağlanıyor</span>
+      <span class="meta" id="pageTime"></span>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-row" id="statsRow"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" id="dashGrid">
+        <div class="card">
+          <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-weight:700;font-size:.88rem">Son İşlemler</span>
+            <span id="newTxBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:2px 8px;font-size:.7rem;cursor:pointer" onclick="loadTransactions();renderTransactions();hideNewTxBadge()">Yeni!</span>
+          </div>
+          <div class="table-wrap"><table id="dashTxTable"><thead><tr><th>Zaman</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Adet</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="card">
+          <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border)"><span style="font-weight:700;font-size:.88rem">Düşük Stok</span></div>
+          <div id="lowStockList" style="padding:1rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products -->
+    <div class="page" id="page-products">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()">
+        </div>
+        <button class="btn btn-primary" onclick="addProductRow()">+ Yeni Ürün</button>
+        <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="loadProducts();renderProducts()">↺</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- Columns -->
+    <div class="page" id="page-columns">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openColumnModal()">+ Yeni Sütun</button></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- Machines -->
+    <div class="page" id="page-machines">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openMachineModal()">+ Yeni Makine</button></div>
+      <div id="machineList" style="display:grid;gap:.85rem"></div>
+    </div>
+
+    <!-- Firms -->
+    <div class="page" id="page-firms">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openFirmModal()">+ Yeni Firma</button></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="page" id="page-transactions">
+      <div class="toolbar">
+        <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:240px" oninput="filterTx()">
+        <select id="txTypeFilter" style="max-width:130px" onchange="filterTx()">
+          <option value="">Tüm türler</option>
+          <option value="out">Çıkış</option>
+          <option value="return">İade</option>
+        </select>
+        <button class="btn btn-ghost" onclick="window.location='/api/export/transactions'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="loadTransactions();renderTransactions()">↺</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead>
+        <tbody id="txTbody"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- Users -->
+    <div class="page" id="page-users">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Column Modal -->
+<div class="modal-overlay" id="columnModal">
+  <div class="modal"><div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="editColId">
+    <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName" placeholder="Örn: Raf No"></div>
+    <div class="form-group"><label>Veri Tipi</label><select id="colType"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
+    <div class="form-group" id="minStockGroup" style="display:none"><label>Minimum Stok Uyarı Seviyesi</label><input type="number" id="colMinStock" value="5" min="0"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" onclick="saveColumn()">Kaydet</button></div></div>
+</div>
+
+<!-- Machine Modal -->
+<div class="modal-overlay" id="machineModal">
+  <div class="modal" style="max-width:580px"><div class="modal-header"><h3 id="machineModalTitle">Yeni Makine</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="editMachineId">
+    <div class="form-group"><label>Makine Adı / Modeli</label><input type="text" id="machineName" placeholder="Örn: Köprülü Vinç 10T"></div>
+    <div class="form-group"><label>Notlar</label><textarea id="machineNotes" placeholder="Opsiyonel..."></textarea></div>
+    <div class="form-group"><label>Gerekli Ürünler</label>
+      <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" onclick="saveMachine()">Kaydet</button></div></div>
+</div>
+
+<!-- Firm Modal -->
+<div class="modal-overlay" id="firmModal">
+  <div class="modal"><div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="editFirmId">
+    <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName" placeholder="ABC Mühendislik A.Ş."></div>
+    <div class="form-group"><label>Not</label><input type="text" id="firmNotes" placeholder="Opsiyonel"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div></div>
+</div>
+
+<!-- User Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal"><div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="editUserId">
+    <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
+    <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
+    <div class="form-group"><label>Şifre <span id="passOptional" style="color:var(--muted);font-size:.7em">(değiştirmek için doldurun)</span></label><input type="password" id="userPassword"></div>
+    <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div></div>
+</div>
+
+<!-- Product History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:620px"><div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
+  <div class="modal-body" style="padding:0">
+    <div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div>
+  </div></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let columns=[],products=[],transactions=[],users=[],machines=[],firms=[];
+let editingCell=null;
+let newTxCount=0;
+let eventSource=null;
+
+async function init(){
+  const me=await api('/api/me');
+  if (!me) return window.location.href='/';
+  document.getElementById('userName').textContent=me.display_name||me.username;
+  document.getElementById('avatarInit').textContent=(me.display_name||me.username)[0].toUpperCase();
+  updateTime(); setInterval(updateTime,30000);
+  await loadAll();
+  showPage('dashboard');
+  connectSSE();
+}
+
+function connectSSE(){
+  eventSource=new EventSource('/api/events');
+  eventSource.addEventListener('connected',()=>{
+    document.getElementById('liveIndicator').textContent='● canlı';
+    document.getElementById('liveIndicator').style.color='var(--success)';
+  });
+  eventSource.addEventListener('tx_new',async e=>{
+    const d=JSON.parse(e.data);
+    await loadTransactions();
+    if (currentPage==='transactions') renderTransactions();
+    if (currentPage==='dashboard') renderDashboard();
+    else { newTxCount++; showNewTxBadge(); }
+    document.getElementById('txBadge').textContent=newTxCount;
+    document.getElementById('txBadge').style.display='inline';
+  });
+  eventSource.addEventListener('stock_update',async ()=>{
+    await loadProducts();
+    if (currentPage==='products') renderProducts();
+    if (currentPage==='dashboard') renderDashboard();
+  });
+  eventSource.onerror=()=>{
+    document.getElementById('liveIndicator').textContent='● bağlantı kesildi';
+    document.getElementById('liveIndicator').style.color='var(--danger)';
+    setTimeout(connectSSE,5000);
+  };
+}
+function showNewTxBadge(){ document.getElementById('newTxBadge').style.display='inline'; }
+function hideNewTxBadge(){ document.getElementById('newTxBadge').style.display='none'; newTxCount=0; document.getElementById('txBadge').style.display='none'; }
+
+async function loadAll(){ await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms()]); }
+async function loadColumns(){ columns=await api('/api/columns')||[]; }
+async function loadProducts(){ products=await api('/api/products')||[]; }
+async function loadTransactions(){ transactions=await api('/api/transactions?limit=300')||[]; }
+async function loadUsers(){ users=await api('/api/users')||[]; }
+async function loadMachines(){ machines=await api('/api/machines')||[]; }
+async function loadFirms(){ firms=await api('/api/firms')||[]; }
+
+async function api(url,method='GET',body=null){
+  try {
+    const opts={method,headers:{'Content-Type':'application/json'}};
+    if (body) opts.body=JSON.stringify(body);
+    const res=await fetch(url,opts);
+    const data=await res.json();
+    if (!res.ok){ toast(data.error||'Hata','error'); return null; }
+    return data;
+  } catch(e){ toast('Bağlantı hatası','error'); return null; }
+}
+
+let currentPage='dashboard';
+const pageTitles={dashboard:'Gösterge Paneli',products:'Ürün Yönetimi',columns:'Sütun Yönetimi',machines:'Makine İhtiyaçları',firms:'Firma Yönetimi',transactions:'İşlem Geçmişi',users:'Kullanıcı Yönetimi'};
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active'); });
+  document.getElementById('pageTitle').textContent=pageTitles[name]||name;
+  currentPage=name;
+  if(name==='transactions'){ hideNewTxBadge(); }
+  const renders={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,machines:renderMachines,firms:renderFirms,transactions:renderTransactions,users:renderUsers};
+  renders[name]?.();
+}
+
+function updateTime(){ document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR'); }
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const numCol=columns.find(c=>c.data_type==='number');
+  const minStock=numCol?.min_stock||5;
+  const lowProducts=numCol?products.filter(p=>parseFloat(p.values?.[numCol.id]||0)<minStock):[];
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat-card"><div class="label">Toplam Ürün</div><div class="value">${products.length}</div><div class="sub">stok kalemi</div></div>
+    <div class="stat-card"><div class="label">Düşük Stok</div><div class="value" style="color:var(--danger)">${lowProducts.length}</div><div class="sub">kritik seviye</div></div>
+    <div class="stat-card"><div class="label">İşlem</div><div class="value">${transactions.length}</div><div class="sub">toplam kayıt</div></div>
+    <div class="stat-card"><div class="label">Firmalar</div><div class="value">${firms.length}</div><div class="sub">kayıtlı firma</div></div>`;
+  const tbody=document.querySelector('#dashTxTable tbody');
+  const recent=transactions.slice(0,8);
+  tbody.innerHTML=recent.length?recent.map(t=>`<tr>
+    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(t.created_at)}</td>
+    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
+    <td><span style="font-family:var(--mono)">${t.quantity}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
+  const ll=document.getElementById('lowStockList');
+  const firstCol=columns[0];
+  ll.innerHTML=lowProducts.length?lowProducts.map(p=>{
+    const name=firstCol?(p.values?.[firstCol.id]||'—'):`#${p.id}`;
+    const qty=numCol?(p.values?.[numCol.id]||0):'?';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border)"><span style="font-size:.83rem">${esc(name)}</span><span class="badge badge-low">${qty}</span></div>`;
+  }).join(''):'<div class="empty"><div class="icon">✅</div>Stok normal</div>';
+}
+
+// ── PRODUCTS ─────────────────────────────────────────────────────────────
+function renderProducts(){
+  const thead=document.getElementById('productThead').querySelector('tr');
+  thead.innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Geçmiş</th><th>İşlem</th>';
+  renderProductRows(products);
+}
+function renderProductRows(prods){
+  const numCol=columns.find(c=>c.data_type==='number');
+  const tbody=document.getElementById('productTbody');
+  if (!prods.length){ tbody.innerHTML=`<tr><td colspan="${columns.length+2}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`; return; }
+  tbody.innerHTML=prods.map(p=>{
+    const cells=columns.map(c=>{
+      const val=p.values?.[c.id]||'';
+      const isNum=c.data_type==='number';
+      const minS=c.min_stock||5;
+      const isLow=isNum&&parseFloat(val)<minS;
+      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')" title="Çift tıkla düzenle">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
+    }).join('');
+    return `<tr data-pid="${p.id}">${cells}
+      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;
+  }).join('');
+}
+function filterProducts(){
+  const q=document.getElementById('productSearch').value.toLowerCase();
+  renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);
+}
+async function addProductRow(){
+  const r=await api('/api/products','POST',{values:{}});
+  if (!r) return;
+  await loadProducts(); renderProducts(); toast('Yeni ürün eklendi','success');
+}
+async function deleteProduct(id){
+  if (!confirm('Bu ürünü silmek istediğinizden emin misiniz?')) return;
+  await api('/api/products/'+id,'DELETE');
+  await loadProducts(); renderProducts(); toast('Ürün silindi','success');
+}
+function startEdit(td,productId,columnId,dtype){
+  if (editingCell) cancelEdit();
+  const oldVal=td.textContent.trim().replace(/^\s*\d*\s*/,'');
+  editingCell={td,productId,columnId,oldVal};
+  td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="handleEditKey(event)">`;
+  td.querySelector('input').focus(); td.querySelector('input').select();
+}
+function handleEditKey(e){ if(e.key==='Enter') commitEdit(); if(e.key==='Escape') cancelEdit(); }
+async function commitEdit(){
+  if (!editingCell) return;
+  const {td,productId,columnId,oldVal}=editingCell;
+  const input=td.querySelector('input');
+  const newVal=input?input.value:oldVal;
+  editingCell=null;
+  td.textContent=newVal;
+  if (newVal!==oldVal){ await api('/api/products/'+productId,'PUT',{values:{[columnId]:newVal}}); await loadProducts(); renderProducts(); }
+}
+function cancelEdit(){ if(!editingCell)return; editingCell.td.textContent=editingCell.oldVal; editingCell=null; }
+
+async function showHistory(pid){
+  const txs=await api('/api/transactions?product_id='+pid+'&limit=100');
+  const prod=products.find(p=>p.id===pid);
+  const firstCol=columns[0];
+  const name=prod&&firstCol?(prod.values?.[firstCol.id]||`#${pid}`):`#${pid}`;
+  document.getElementById('historyModalTitle').textContent=`Stok Hareketi — ${name}`;
+  const tbody=document.getElementById('historyTbody');
+  tbody.innerHTML=(txs||[]).length?(txs||[]).map(t=>`<tr>
+    <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(t.created_at)}</td>
+    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.company)}</td>
+    <td><span style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</span></td>
+    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
+  </tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
+  openModal('historyModal');
+}
+
+// ── COLUMNS ────────────────────────────────────────────────────────────────
+function renderColumns(){
+  document.getElementById('columnsTbody').innerHTML=columns.map(c=>`<tr>
+    <td><span style="font-family:var(--mono);color:var(--muted)">${c.display_order}</span></td>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td><span class="badge" style="background:var(--accent-dim);color:var(--accent)">${c.data_type==='number'?'Sayı':'Metin'}</span></td>
+    <td><span style="font-family:var(--mono)">${c.data_type==='number'?(c.min_stock||5):'—'}</span></td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editColumn(${c.id})">Düzenle</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteColumn(${c.id})">Sil</button>
+    </td></tr>`).join('');
+}
+function openColumnModal(){ document.getElementById('editColId').value=''; document.getElementById('colName').value=''; document.getElementById('colType').value='text'; document.getElementById('colMinStock').value=5; document.getElementById('minStockGroup').style.display='none'; document.getElementById('columnModalTitle').textContent='Yeni Sütun'; openModal('columnModal'); }
+function editColumn(id){ const col=columns.find(c=>c.id===id); if(!col)return; document.getElementById('editColId').value=id; document.getElementById('colName').value=col.name; document.getElementById('colType').value=col.data_type; document.getElementById('colMinStock').value=col.min_stock||5; document.getElementById('minStockGroup').style.display=col.data_type==='number'?'block':'none'; document.getElementById('columnModalTitle').textContent='Sütun Düzenle'; openModal('columnModal'); }
+document.getElementById('colType').addEventListener('change',e=>{ document.getElementById('minStockGroup').style.display=e.target.value==='number'?'block':'none'; });
+async function saveColumn(){ const id=document.getElementById('editColId').value; const name=document.getElementById('colName').value.trim(); const data_type=document.getElementById('colType').value; const min_stock=parseInt(document.getElementById('colMinStock').value)||0; if(!name){toast('Sütun adı gerekli','error');return;} if(id) await api('/api/columns/'+id,'PUT',{name,data_type,display_order:columns.find(c=>c.id==id)?.display_order||0,min_stock}); else await api('/api/columns','POST',{name,data_type,min_stock}); closeModal('columnModal'); await loadColumns(); await loadProducts(); renderColumns(); toast('Kaydedildi','success'); }
+async function deleteColumn(id){ if(!confirm('Bu sütunu silmek istediğinizden emin misiniz?'))return; await api('/api/columns/'+id,'DELETE'); await loadColumns(); await loadProducts(); renderColumns(); toast('Sütun silindi','success'); }
+
+// ── MACHINES ──────────────────────────────────────────────────────────────
+function renderMachines(){
+  const list=document.getElementById('machineList');
+  if (!machines.length){ list.innerHTML='<div class="card empty"><div class="icon">🔧</div>Makine kaydı yok</div>'; return; }
+  list.innerHTML=machines.map(m=>`<div class="card">
+    <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem">
+      <div><div style="font-weight:800;font-size:.92rem">${esc(m.machine_name)}</div>${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>`:''}</div>
+      <div style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button></div>
+    </div>
+    <div style="padding:.9rem 1.1rem">${m.items.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gerekli Miktar</th></tr></thead><tbody>${m.items.map(it=>`<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td></tr>`).join('')}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün eklenmemiş</span>'}</div>
+  </div>`).join('');
+}
+function openMachineModal(){ document.getElementById('editMachineId').value=''; document.getElementById('machineName').value=''; document.getElementById('machineNotes').value=''; document.getElementById('machineItems').innerHTML=''; document.getElementById('machineModalTitle').textContent='Yeni Makine'; openModal('machineModal'); }
+function editMachine(id){ const m=machines.find(x=>x.id===id); if(!m)return; document.getElementById('editMachineId').value=id; document.getElementById('machineName').value=m.machine_name; document.getElementById('machineNotes').value=m.notes||''; document.getElementById('machineItems').innerHTML=''; m.items.forEach(it=>addMachineItem(it.product_id,it.quantity)); document.getElementById('machineModalTitle').textContent='Makine Düzenle'; openModal('machineModal'); }
+function addMachineItem(pid='',qty=1){
+  const firstCol=columns[0];
+  const opts=products.map(p=>{ const n=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`; return `<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(n)}</option>`; }).join('');
+  const div=document.createElement('div'); div.style.cssText='display:flex;gap:.4rem;align-items:center';
+  div.innerHTML=`<select style="flex:1">${opts}</select><input type="number" value="${qty}" min="0" step="any" style="width:90px" placeholder="Miktar"><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;
+  document.getElementById('machineItems').appendChild(div);
+}
+async function saveMachine(){ const id=document.getElementById('editMachineId').value; const machine_name=document.getElementById('machineName').value.trim(); const notes=document.getElementById('machineNotes').value.trim(); if(!machine_name){toast('Makine adı gerekli','error');return;} const rows=document.getElementById('machineItems').children; const items=Array.from(rows).map(r=>({product_id:r.querySelector('select').value,quantity:parseFloat(r.querySelector('input').value)||1})).filter(i=>i.product_id); if(id) await api('/api/machines/'+id,'PUT',{machine_name,notes,items}); else await api('/api/machines','POST',{machine_name,notes,items}); closeModal('machineModal'); await loadMachines(); renderMachines(); toast('Kaydedildi','success'); }
+async function deleteMachine(id){ if(!confirm('Silmek istediğinizden emin misiniz?'))return; await api('/api/machines/'+id,'DELETE'); await loadMachines(); renderMachines(); toast('Silindi','success'); }
+
+// ── FIRMS ─────────────────────────────────────────────────────────────────
+function renderFirms(){
+  document.getElementById('firmsTbody').innerHTML=firms.length?firms.map(f=>`<tr>
+    <td><strong>${esc(f.name)}</strong></td>
+    <td style="color:var(--text2);font-size:.82rem">${esc(f.notes||'')}</td>
+    <td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editFirm(${f.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteFirm(${f.id})">Sil</button></td>
+  </tr>`).join(''):'<tr><td colspan="3" class="empty">Firma yok</td></tr>';
+}
+function openFirmModal(){ document.getElementById('editFirmId').value=''; document.getElementById('firmName').value=''; document.getElementById('firmNotes').value=''; document.getElementById('firmModalTitle').textContent='Yeni Firma'; openModal('firmModal'); }
+function editFirm(id){ const f=firms.find(x=>x.id===id); if(!f)return; document.getElementById('editFirmId').value=id; document.getElementById('firmName').value=f.name; document.getElementById('firmNotes').value=f.notes||''; document.getElementById('firmModalTitle').textContent='Firma Düzenle'; openModal('firmModal'); }
+async function saveFirm(){ const id=document.getElementById('editFirmId').value; const name=document.getElementById('firmName').value.trim(); const notes=document.getElementById('firmNotes').value.trim(); if(!name){toast('Firma adı gerekli','error');return;} if(id) await api('/api/firms/'+id,'PUT',{name,notes}); else await api('/api/firms','POST',{name,notes}); closeModal('firmModal'); await loadFirms(); renderFirms(); toast('Kaydedildi','success'); }
+async function deleteFirm(id){ if(!confirm('Bu firmayı silmek istediğinizden emin misiniz?'))return; await api('/api/firms/'+id,'DELETE'); await loadFirms(); renderFirms(); toast('Silindi','success'); }
+
+// ── TRANSACTIONS ──────────────────────────────────────────────────────────
+function renderTransactions(){
+  const q=document.getElementById('txSearch').value.toLowerCase();
+  const typ=document.getElementById('txTypeFilter').value;
+  let txs=transactions;
+  if (q) txs=txs.filter(t=>(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q)||(t.user_name||'').toLowerCase().includes(q));
+  if (typ) txs=txs.filter(t=>(t.tx_type||'out')===typ);
+  document.getElementById('txTbody').innerHTML=txs.length?txs.map(t=>`<tr>
+    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
+    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
+    <td style="font-family:var(--mono)">${t.quantity}</td>
+    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
+    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})" title="İptal et">↩</button></td>
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">İşlem yok</td></tr>';
+}
+function filterTx(){ renderTransactions(); }
+async function deleteTx(id){ if(!confirm('Bu işlemi iptal edip stoku geri yüklemek istiyor musunuz?'))return; await api('/api/transactions/'+id,'DELETE'); await Promise.all([loadTransactions(),loadProducts()]); renderTransactions(); toast('İşlem iptal edildi, stok güncellendi','success'); }
+
+// ── USERS ─────────────────────────────────────────────────────────────────
+function renderUsers(){
+  document.getElementById('usersTbody').innerHTML=users.map(u=>`<tr>
+    <td><strong>${esc(u.display_name||u.username)}</strong></td>
+    <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
+    <td><span class="badge badge-${u.role}">${u.role==='admin'?'Yönetici':'Personel'}</span></td>
+    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
+    <td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button></td>
+  </tr>`).join('');
+}
+function openUserModal(){ document.getElementById('editUserId').value=''; document.getElementById('userDisplayName').value=''; document.getElementById('userUsername').value=''; document.getElementById('userPassword').value=''; document.getElementById('userRole').value='personnel'; document.getElementById('userUsername').disabled=false; document.getElementById('passOptional').style.display='none'; document.getElementById('userModalTitle').textContent='Yeni Kullanıcı'; openModal('userModal'); }
+function editUser(id){ const u=users.find(x=>x.id===id); if(!u)return; document.getElementById('editUserId').value=id; document.getElementById('userDisplayName').value=u.display_name||''; document.getElementById('userUsername').value=u.username; document.getElementById('userPassword').value=''; document.getElementById('userRole').value=u.role; document.getElementById('userUsername').disabled=true; document.getElementById('passOptional').style.display='inline'; document.getElementById('userModalTitle').textContent='Kullanıcı Düzenle'; openModal('userModal'); }
+async function saveUser(){ const id=document.getElementById('editUserId').value; const display_name=document.getElementById('userDisplayName').value.trim(); const username=document.getElementById('userUsername').value.trim(); const password=document.getElementById('userPassword').value; const role=document.getElementById('userRole').value; if(!display_name||(!id&&!username)||(!id&&!password)){toast('Lütfen tüm alanları doldurun','error');return;} if(id) await api('/api/users/'+id,'PUT',{display_name,role,password:password||undefined}); else await api('/api/users','POST',{username,password,role,display_name}); closeModal('userModal'); await loadUsers(); renderUsers(); toast('Kaydedildi','success'); }
+async function deleteUser(id){ if(!confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?'))return; await api('/api/users/'+id,'DELETE'); await loadUsers(); renderUsers(); toast('Kullanıcı silindi','success'); }
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function esc(s){ if(s==null)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(s){ return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+let toastTimer;
+function toast(msg,type='success'){ const el=document.getElementById('toast'); el.textContent=(type==='success'?'✓ ':'✗ ')+msg; el.className='show '+type; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',3000); }
+async function logout(){ await fetch('/api/logout',{method:'POST'}); window.location.href='/'; }
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{ if(window.innerWidth<=768) closeSidebar(); }));
+
+init();
+</script>
+</body>
+</html>

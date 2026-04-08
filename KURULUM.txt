@@ -1,0 +1,72 @@
+KURULUM KILAVUZU — Tarayıcıdan, komut satırı yok
+═════════════════════════════════════════════════
+Toplam süre: ~15 dakika. Bir kez yapılır, bir daha uğraşılmaz.
+
+
+ADIM 1 — GitHub hesabı aç (2 dk)
+──────────────────────────────────
+1. github.com → "Sign up"
+2. E-posta + şifre + kullanıcı adı
+3. Ücretsiz plan seç → Bitti
+
+
+ADIM 2 — Repo oluştur ve dosyaları yükle (5 dk)
+─────────────────────────────────────────────────
+1. github.com'da sağ üstte "+" → "New repository"
+2. Repository name: stok-takip
+3. Private seç (gizli olsun)
+4. "Create repository" tıkla
+5. Açılan sayfada "uploading an existing file" linkine tıkla
+6. stok-cloud.zip'i açıp İÇİNDEKİ dosyaları (stok-cloud klasörü değil,
+   içindeki her şeyi) sürükle bırak oraya
+7. Altta "Commit changes" → yeşil butona bas
+
+
+ADIM 3 — Railway'de deploy et (5 dk)
+──────────────────────────────────────
+1. railway.app → "Login with GitHub" ile giriş yap
+2. "New Project" → "Deploy from GitHub repo"
+3. stok-takip reposunu seç
+4. Deploy başlar (1-2 dakika bekle)
+
+
+ADIM 4 — Veritabanı ekle (3 dk)
+─────────────────────────────────
+1. Railway projesinde sağ üstte "+ New" → "Database" → "Add PostgreSQL"
+2. Oluşturulan PostgreSQL kutusuna tıkla
+3. "Connect" sekmesi → "DATABASE_URL" yanındaki kopyala ikonuna bas
+4. Geri git, uygulama servisine tıkla → "Variables" sekmesi
+5. "+ New Variable"
+   Name:  DATABASE_URL
+   Value: (kopyaladığını yapıştır)
+6. "Add" → uygulama otomatik yeniden başlar
+
+
+ADIM 5 — Adresini al
+──────────────────────
+1. Uygulama servisine tıkla → "Settings" sekmesi
+2. "Domains" bölümü → "Generate Domain"
+3. Çıkan adres kalıcı adresidir:
+   https://stok-takip-xxxx.up.railway.app
+
+Bu adresi istediğin kişilerle paylaş.
+Giriş: admin / admin123
+(Admin panelinden hemen şifreyi değiştir!)
+
+
+─────────────────────────────────────────────────
+SONRADAN GÜNCELLEME YAPMAK İSTERSEN
+─────────────────────────────────────────────────
+Dosyada değişiklik → GitHub'da dosyaya tıkla →
+kalem ikonu → düzenle → "Commit" → Railway otomatik deploy eder.
+─────────────────────────────────────────────────
+
+
+ÜCRETSİZ PLAN SINIRLAR
+──────────────────────────
+Railway ücretsiz: $5/ay kredi veriyor.
+Bu uygulama için yılda ~$1-2 tutar, yani ücretsiz kalır.
+Veritabanı: PostgreSQL 1GB — yüzlerce bin ürün kaydı sığar.
+
+Arama motorları: robots.txt ve noindex etiketi eklendi.
+Google bu siteyi bulamaz, listeleyemez.
