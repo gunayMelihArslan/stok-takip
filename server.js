@@ -135,21 +135,31 @@ app.delete('/api/products/:id', auth, admin, async (req, res) => {
 // ── MACHINES ─────────────────────────────────────────────────────────────
 app.get('/api/machines', auth, async (req, res) => {
   const firstCol = await getFirstCol();
-  const machines = await Promise.all((await query('SELECT * FROM machines ORDER BY created_at DESC')).rows.map(async m => ({
-    ...m, items: await Promise.all((m.items || []).map(async it => {
-      const p = await query('SELECT values FROM products WHERE id=$1', [it.product_id]);
-      return { ...it, product_name: firstCol ? (p.rows[0]?.values?.[firstCol.id] || '—') : '—' };
-    }))
-  })));
+  const firm_id = req.query.firm_id;
+  let sql = 'SELECT * FROM machines ORDER BY firm_id NULLS LAST, created_at DESC';
+  const rows = firm_id
+    ? (await query('SELECT * FROM machines WHERE firm_id=$1 ORDER BY created_at DESC', [firm_id])).rows
+    : (await query(sql)).rows;
+  const machines = await Promise.all(rows.map(async m => {
+    const firm = m.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [m.firm_id])).rows[0] : null;
+    return {
+      ...m,
+      firm_name: firm?.name || null,
+      items: await Promise.all((m.items || []).map(async it => {
+        const p = await query('SELECT values FROM products WHERE id=$1', [it.product_id]);
+        return { ...it, product_name: firstCol ? (p.rows[0]?.values?.[firstCol.id] || '—') : '—' };
+      }))
+    };
+  }));
   res.json(machines);
 });
 app.post('/api/machines', auth, admin, async (req, res) => {
-  const { machine_name, notes, items } = req.body;
-  if (!machine_name) return res.status(400).json({ error: 'Makine adı gerekli' });
-  res.json((await query('INSERT INTO machines(machine_name,notes,items) VALUES($1,$2,$3) RETURNING *', [machine_name, notes || '', JSON.stringify(items || [])])).rows[0]);
+  const { machine_name, notes, items, firm_id } = req.body;
+  if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
+  res.json((await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *', [machine_name, firm_id||null, notes || '', JSON.stringify(items || [])])).rows[0]);
 });
 app.put('/api/machines/:id', auth, admin, async (req, res) => {
-  await query('UPDATE machines SET machine_name=$1,notes=$2,items=$3 WHERE id=$4', [req.body.machine_name, req.body.notes || '', JSON.stringify(req.body.items || []), req.params.id]);
+  await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5', [req.body.machine_name, req.body.firm_id||null, req.body.notes || '', JSON.stringify(req.body.items || []), req.params.id]);
   res.json({ ok: true });
 });
 app.delete('/api/machines/:id', auth, admin, async (req, res) => { await query('DELETE FROM machines WHERE id=$1', [req.params.id]); res.json({ ok: true }); });
