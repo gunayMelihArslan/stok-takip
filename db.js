@@ -9,6 +9,26 @@ async function query(sql, params = []) {
   finally { client.release(); }
 }
 async function init() {
+  // ── Migrate: drop old task tables if they have wrong schema ──────────────
+  await query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='task_transfers' AND column_name='task_id'
+      ) THEN
+        DROP TABLE IF EXISTS task_transfers CASCADE;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='tasks' AND column_name='assigned_to'
+      ) THEN
+        DROP TABLE IF EXISTS task_stages CASCADE;
+        DROP TABLE IF EXISTS tasks CASCADE;
+      END IF;
+    END $$;
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
