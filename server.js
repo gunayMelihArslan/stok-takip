@@ -131,10 +131,16 @@ app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
 // ── SSE ───────────────────────────────────────────────────────────────────
-app.get('/api/events', auth, (req, res) => {
+app.get('/api/events', (req, res) => {
+  // SSE: EventSource tarayıcısı header gönderemez, token query param'dan alınır
+  const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).end();
+  try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).end(); }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   res.write('event: connected\ndata: {}\n\n');
   sseClients.add(res);
