@@ -314,8 +314,24 @@ function showPage(name){
   currentPage=name;
   if(name==='transactions'){newTxCount=0;document.getElementById('txBadge').style.display='none';}
   if(name==='tasks')document.getElementById('taskBadge').style.display='none';
-  const r={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,firms:renderFirms,machines:renderMachines,tasks:renderTasks,performance:loadPerformance,transactions:renderTransactions,users:renderUsers};
-  r[name]?.();
+
+  // 1) Hemen cache'deki veriyle render et (anlık tepki)
+  const renderNow={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,firms:renderFirms,machines:renderMachines,tasks:renderTasks,transactions:renderTransactions,users:renderUsers};
+  renderNow[name]?.();
+
+  // 2) Arka planda taze veri çek ve tekrar render et
+  const fetchMap={
+    dashboard:    async()=>{await loadAll();if(currentPage===name)renderDashboard();},
+    products:     async()=>{await loadProducts();if(currentPage===name)renderProducts();},
+    columns:      async()=>{await loadColumns();await loadProducts();if(currentPage===name)renderColumns();},
+    firms:        async()=>{await loadFirms();await loadMachines();if(currentPage===name)renderFirms();},
+    machines:     async()=>{await loadMachines();if(currentPage===name)renderMachines();},
+    tasks:        async()=>{await loadTasks();if(currentPage===name)renderTasks();},
+    transactions: async()=>{await loadTransactions();if(currentPage===name)renderTransactions();},
+    users:        async()=>{await loadUsers();if(currentPage===name)renderUsers();},
+    performance:  loadPerformance,
+  };
+  fetchMap[name]?.();
 }
 function updateTime(){document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR');}
 
