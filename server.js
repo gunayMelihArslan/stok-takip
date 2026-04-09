@@ -7,6 +7,7 @@ const { query, init, pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.SESSION_SECRET || 'stok-jwt-2024';
+const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
 app.set('trust proxy', 1);
 app.use(express.json());
@@ -63,18 +64,42 @@ async function enrichTx(rows) {
     return { ...t, user_name: u?.display_name || u?.username || '?', username: u?.username || '?', product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
   }));
 }
+
+// Enriches a task with its stages, firm, machine, user names
 async function enrichTask(t) {
-  const assignee = t.assigned_to ? (await query('SELECT id,username,display_name FROM users WHERE id=$1', [t.assigned_to])).rows[0] : null;
-  const creator = (await query('SELECT id,username,display_name FROM users WHERE id=$1', [t.created_by])).rows[0];
   const firm = t.firm_id ? (await query('SELECT id,name FROM firms WHERE id=$1', [t.firm_id])).rows[0] : null;
   const machine = t.machine_id ? (await query('SELECT id,machine_name FROM machines WHERE id=$1', [t.machine_id])).rows[0] : null;
-  const transfers = (await query('SELECT tt.*, u1.display_name as from_name, u2.display_name as to_name FROM task_transfers tt JOIN users u1 ON u1.id=tt.from_user_id JOIN users u2 ON u2.id=tt.to_user_id WHERE tt.task_id=$1 ORDER BY tt.created_at DESC', [t.id])).rows;
-  return { ...t, assignee_name: assignee?.display_name || assignee?.username || null, creator_name: creator?.display_name || creator?.username || '?', firm_name: firm?.name || null, machine_name: machine?.machine_name || null, transfers };
+  const creator = t.created_by ? (await query('SELECT id,username,display_name FROM users WHERE id=$1', [t.created_by])).rows[0] : null;
+  const stagesRaw = (await query('SELECT * FROM task_stages WHERE task_id=$1 ORDER BY stage_order', [t.id])).rows;
+  const stages = await Promise.all(stagesRaw.map(async s => {
+    const assignee = s.assigned_to ? (await query('SELECT id,username,display_name FROM users WHERE id=$1', [s.assigned_to])).rows[0] : null;
+    const pending_transfer = (await query("SELECT tt.*,u.display_name as from_name FROM task_transfers tt JOIN users u ON u.id=tt.from_user_id WHERE tt.stage_id=$1 AND tt.status='pending' LIMIT 1", [s.id])).rows[0] || null;
+    return { ...s, assignee_name: assignee?.display_name || assignee?.username || null, pending_transfer };
+  }));
+  // Derive overall status from stages
+  const allDone = stages.every(s => s.status === 'completed');
+  const anyActive = stages.some(s => s.status === 'in_progress' || s.status === 'pending_transfer');
+  const derivedStatus = allDone ? 'completed' : anyActive ? 'in_progress' : 'open';
+  if (derivedStatus !== t.status) {
+    await query('UPDATE tasks SET status=$1, updated_at=NOW() WHERE id=$2', [derivedStatus, t.id]);
+  }
+  return { ...t, status: derivedStatus, firm_name: firm?.name || null, machine_name: machine?.machine_name || null, creator_name: creator?.display_name || creator?.username || null, stages };
 }
 
-// ── Gold price cache ──────────────────────────────────────────────────────
-let goldCache = null;
-let goldLastFetch = 0;
+// Auto-create task + 3 stages for a machine
+async function autoCreateTask(machine_id, firm_id, machine_name) {
+  const existing = (await query('SELECT id FROM tasks WHERE machine_id=$1 AND is_auto=TRUE', [machine_id])).rows[0];
+  if (existing) return existing;
+  const t = (await query('INSERT INTO tasks(title,firm_id,machine_id,is_auto,status,priority) VALUES($1,$2,$3,TRUE,\'open\',\'normal\') RETURNING *',
+    [`${machine_name}`, firm_id || null, machine_id])).rows[0];
+  for (let i = 0; i < DEFAULT_STAGES.length; i++) {
+    await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, DEFAULT_STAGES[i]]);
+  }
+  return t;
+}
+
+// Gold cache
+let goldCache = null, goldLastFetch = 0;
 async function fetchGold() {
   if (Date.now() - goldLastFetch < 5 * 60 * 1000 && goldCache) return goldCache;
   try {
@@ -86,20 +111,17 @@ async function fetchGold() {
     const usdGold = gcData?.chart?.result?.[0]?.meta?.regularMarketPrice;
     const usdtry = fxData?.chart?.result?.[0]?.meta?.regularMarketPrice;
     if (!usdGold || !usdtry) throw new Error('No data');
-    const gramTRY = (usdGold * usdtry) / 31.1035;
-    goldCache = { price: gramTRY.toFixed(2), usd_oz: usdGold.toFixed(2), usdtry: usdtry.toFixed(4), updated: new Date().toISOString() };
+    goldCache = { price: ((usdGold * usdtry) / 31.1035).toFixed(2), usd_oz: usdGold.toFixed(2), usdtry: usdtry.toFixed(4), updated: new Date().toISOString() };
     goldLastFetch = Date.now();
     return goldCache;
-  } catch(e) {
-    return goldCache || { error: 'Veri alınamadı', updated: null };
-  }
+  } catch { return goldCache || { error: 'Veri alınamadı', updated: null }; }
 }
+setInterval(async () => { broadcast('gold_update', await fetchGold()); }, 5 * 60 * 1000);
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  const r = await query('SELECT * FROM users WHERE username=$1', [username]);
-  const user = r.rows[0];
+  const user = (await query('SELECT * FROM users WHERE username=$1', [username])).rows[0];
   if (!user || !bcrypt.compareSync(password, user.password_hash))
     return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
@@ -120,15 +142,7 @@ app.get('/api/events', auth, (req, res) => {
   req.on('close', () => { sseClients.delete(res); clearInterval(ping); });
 });
 
-// ── GOLD ──────────────────────────────────────────────────────────────────
-app.get('/api/gold', auth, async (req, res) => {
-  res.json(await fetchGold());
-});
-// Auto-push gold every 5 min
-setInterval(async () => {
-  const g = await fetchGold();
-  broadcast('gold_update', g);
-}, 5 * 60 * 1000);
+app.get('/api/gold', auth, async (req, res) => res.json(await fetchGold()));
 
 // ── COLUMNS ───────────────────────────────────────────────────────────────
 app.get('/api/columns', auth, async (req, res) => res.json((await query('SELECT * FROM column_defs ORDER BY display_order')).rows));
@@ -136,11 +150,11 @@ app.post('/api/columns', auth, admin, async (req, res) => {
   const { name, data_type, min_stock } = req.body;
   if (!name) return res.status(400).json({ error: 'Sütun adı gerekli' });
   const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM column_defs')).rows[0].m;
-  res.json((await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type||'text', mo+1, min_stock||5])).rows[0]);
+  res.json((await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', mo + 1, min_stock || 5])).rows[0]);
 });
 app.put('/api/columns/:id', auth, admin, async (req, res) => {
   const { name, data_type, display_order, min_stock } = req.body;
-  await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, display_order, min_stock||0, req.params.id]);
+  await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, display_order, min_stock || 0, req.params.id]);
   res.json({ ok: true });
 });
 app.delete('/api/columns/:id', auth, admin, async (req, res) => {
@@ -154,13 +168,13 @@ app.delete('/api/columns/:id', auth, admin, async (req, res) => {
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
 app.get('/api/products', auth, async (req, res) => res.json((await query('SELECT * FROM products ORDER BY created_at DESC')).rows));
 app.post('/api/products', auth, admin, async (req, res) => {
-  const r = await query('INSERT INTO products(values) VALUES($1) RETURNING *', [JSON.stringify(req.body.values||{})]);
+  const r = await query('INSERT INTO products(values) VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
   broadcast('stock_update', {}); res.json(r.rows[0]);
 });
 app.put('/api/products/:id', auth, admin, async (req, res) => {
   const cur = (await query('SELECT values FROM products WHERE id=$1', [req.params.id])).rows[0];
   if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
-  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2', [JSON.stringify({...cur.values,...req.body.values}), req.params.id]);
+  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
   broadcast('stock_update', {}); res.json({ ok: true });
 });
 app.delete('/api/products/:id', auth, admin, async (req, res) => {
@@ -170,13 +184,12 @@ app.delete('/api/products/:id', auth, admin, async (req, res) => {
 // ── FIRMS ─────────────────────────────────────────────────────────────────
 app.get('/api/firms', auth, async (req, res) => res.json((await query('SELECT * FROM firms ORDER BY name')).rows));
 app.post('/api/firms', auth, admin, async (req, res) => {
-  const { name, notes } = req.body;
-  if (!name) return res.status(400).json({ error: 'Firma adı gerekli' });
-  try { res.json((await query('INSERT INTO firms(name,notes) VALUES($1,$2) RETURNING *', [name, notes||''])).rows[0]); }
+  if (!req.body.name) return res.status(400).json({ error: 'Firma adı gerekli' });
+  try { res.json((await query('INSERT INTO firms(name,notes) VALUES($1,$2) RETURNING *', [req.body.name, req.body.notes || ''])).rows[0]); }
   catch { res.status(409).json({ error: 'Bu firma zaten mevcut' }); }
 });
 app.put('/api/firms/:id', auth, admin, async (req, res) => {
-  await query('UPDATE firms SET name=$1,notes=$2 WHERE id=$3', [req.body.name, req.body.notes||'', req.params.id]); res.json({ ok: true });
+  await query('UPDATE firms SET name=$1,notes=$2 WHERE id=$3', [req.body.name, req.body.notes || '', req.params.id]); res.json({ ok: true });
 });
 app.delete('/api/firms/:id', auth, admin, async (req, res) => {
   await query('DELETE FROM firms WHERE id=$1', [req.params.id]); res.json({ ok: true });
@@ -187,10 +200,11 @@ async function enrichMachines(rows) {
   const firstCol = await getFirstCol();
   return Promise.all(rows.map(async m => {
     const firm = m.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [m.firm_id])).rows[0] : null;
-    return { ...m, firm_name: firm?.name||null,
-      items: await Promise.all((m.items||[]).map(async it => {
+    return {
+      ...m, firm_name: firm?.name || null,
+      items: await Promise.all((m.items || []).map(async it => {
         const p = (await query('SELECT values FROM products WHERE id=$1', [it.product_id])).rows[0];
-        return { ...it, product_name: firstCol?(p?.values?.[firstCol.id]||'—'):'—' };
+        return { ...it, product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
       }))
     };
   }));
@@ -205,11 +219,20 @@ app.get('/api/machines', auth, async (req, res) => {
 app.post('/api/machines', auth, admin, async (req, res) => {
   const { machine_name, notes, items, firm_id } = req.body;
   if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
-  res.json((await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *', [machine_name, firm_id||null, notes||'', JSON.stringify(items||[])])).rows[0]);
+  const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *',
+    [machine_name, firm_id || null, notes || '', JSON.stringify(items || [])])).rows[0];
+  // Auto-create task with 3 stages
+  await autoCreateTask(r.id, firm_id || null, machine_name);
+  broadcast('task_update', { action: 'auto_created', machine: machine_name });
+  res.json(r);
 });
 app.put('/api/machines/:id', auth, admin, async (req, res) => {
   const { machine_name, notes, items, firm_id } = req.body;
-  await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5', [machine_name, firm_id||null, notes||'', JSON.stringify(items||[]), req.params.id]);
+  await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5',
+    [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), req.params.id]);
+  // Update task title + firm if auto task exists
+  await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
+    [machine_name, firm_id || null, req.params.id]);
   res.json({ ok: true });
 });
 app.delete('/api/machines/:id', auth, admin, async (req, res) => {
@@ -218,44 +241,43 @@ app.delete('/api/machines/:id', auth, admin, async (req, res) => {
 
 // ── TRANSACTIONS ─────────────────────────────────────────────────────────
 app.get('/api/transactions', auth, async (req, res) => {
-  const limit = parseInt(req.query.limit)||300;
+  const limit = parseInt(req.query.limit) || 300;
   const pid = req.query.product_id;
   const sql = pid ? 'SELECT * FROM transactions WHERE product_id=$1 ORDER BY created_at DESC LIMIT $2' : 'SELECT * FROM transactions ORDER BY created_at DESC LIMIT $1';
-  const params = pid ? [pid, limit] : [limit];
-  res.json(await enrichTx((await query(sql, params)).rows));
+  res.json(await enrichTx((await query(sql, pid ? [pid, limit] : [limit])).rows));
 });
 app.post('/api/transactions', auth, async (req, res) => {
   const { product_id, company, quantity, notes, tx_type } = req.body;
-  if (!product_id||!company||!quantity) return res.status(400).json({ error: 'Ürün, firma ve miktar zorunlu' });
-  const type = tx_type||'out';
+  if (!product_id || !company || !quantity) return res.status(400).json({ error: 'Ürün, firma ve miktar zorunlu' });
+  const type = tx_type || 'out';
   const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
-    [req.user.id, Number(product_id), company, Number(quantity), notes||'', type]);
+    [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
   const numCol = await getNumCol();
-  if (type==='out') await deductStock(product_id, Number(quantity), numCol);
-  else if (type==='return') await restoreStock(product_id, Number(quantity), numCol);
+  if (type === 'out') await deductStock(product_id, Number(quantity), numCol);
+  else if (type === 'return') await restoreStock(product_id, Number(quantity), numCol);
   broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
   res.json({ id: r.rows[0].id });
 });
 app.post('/api/transactions/bulk', auth, async (req, res) => {
   const { machine_id, company, notes } = req.body;
-  if (!machine_id||!company) return res.status(400).json({ error: 'Vinç ve firma zorunlu' });
+  if (!machine_id || !company) return res.status(400).json({ error: 'Vinç ve firma zorunlu' });
   const machine = (await query('SELECT * FROM machines WHERE id=$1', [machine_id])).rows[0];
   if (!machine) return res.status(404).json({ error: 'Vinç bulunamadı' });
   const numCol = await getNumCol(); const ids = [];
-  for (const item of (machine.items||[])) {
+  for (const item of (machine.items || [])) {
     const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',
-      [req.user.id, Number(item.product_id), company, Number(item.quantity), `${machine.machine_name} için toplu alım${notes?' — '+notes:''}`, 'out']);
+      [req.user.id, Number(item.product_id), company, Number(item.quantity), `${machine.machine_name} — toplu alım${notes ? ' — ' + notes : ''}`, 'out']);
     await deductStock(item.product_id, Number(item.quantity), numCol);
     ids.push(r.rows[0].id);
   }
-  broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
+  broadcast('tx_new', {}); broadcast('stock_update', {});
   res.json({ ids, count: ids.length });
 });
 app.delete('/api/transactions/:id', auth, admin, async (req, res) => {
   const tx = (await query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
-  if (!tx) return res.status(404).json({ error: 'İşlem bulunamadı' });
+  if (!tx) return res.status(404).json({ error: 'Bulunamadı' });
   const numCol = await getNumCol();
-  if (tx.tx_type!=='return') await restoreStock(tx.product_id, parseFloat(tx.quantity), numCol);
+  if (tx.tx_type !== 'return') await restoreStock(tx.product_id, parseFloat(tx.quantity), numCol);
   else await deductStock(tx.product_id, parseFloat(tx.quantity), numCol);
   await query('DELETE FROM transactions WHERE id=$1', [req.params.id]);
   broadcast('stock_update', {}); res.json({ ok: true });
@@ -263,110 +285,130 @@ app.delete('/api/transactions/:id', auth, admin, async (req, res) => {
 
 // ── TASKS ─────────────────────────────────────────────────────────────────
 app.get('/api/tasks', auth, async (req, res) => {
-  const { status, assigned_to, firm_id } = req.query;
+  const { firm_id, status } = req.query;
   let sql = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
-  if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
-  if (assigned_to) { params.push(assigned_to); sql += ` AND assigned_to=$${params.length}`; }
   if (firm_id) { params.push(firm_id); sql += ` AND firm_id=$${params.length}`; }
-  sql += ' ORDER BY CASE priority WHEN \'urgent\' THEN 1 WHEN \'high\' THEN 2 WHEN \'normal\' THEN 3 ELSE 4 END, created_at DESC';
+  if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
+  sql += ' ORDER BY created_at DESC';
   const rows = (await query(sql, params)).rows;
   res.json(await Promise.all(rows.map(enrichTask)));
 });
 
+// Manual task creation
 app.post('/api/tasks', auth, async (req, res) => {
-  const { title, task_type, firm_id, machine_id, assigned_to, priority, notes, due_date } = req.body;
-  if (!title) return res.status(400).json({ error: 'İş başlığı gerekli' });
-  const status = assigned_to ? 'in_progress' : 'open';
-  const started_at = assigned_to ? 'NOW()' : null;
-  const r = await query(
-    `INSERT INTO tasks(title,task_type,firm_id,machine_id,assigned_to,created_by,status,priority,notes,due_date${assigned_to?',started_at':''})
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10${assigned_to?',NOW()':''}) RETURNING *`,
-    [title, task_type||'Genel', firm_id||null, machine_id||null, assigned_to||null, req.user.id, status, priority||'normal', notes||'', due_date||null]
-  );
-  broadcast('task_update', { action: 'created', user: req.user.display_name });
-  res.json(await enrichTask(r.rows[0]));
+  const { title, firm_id, machine_id, priority, notes, stage_names } = req.body;
+  if (!title) return res.status(400).json({ error: 'Başlık gerekli' });
+  const t = (await query('INSERT INTO tasks(title,firm_id,machine_id,created_by,is_auto,priority,notes) VALUES($1,$2,$3,$4,FALSE,$5,$6) RETURNING *',
+    [title, firm_id || null, machine_id || null, req.user.id, priority || 'normal', notes || ''])).rows[0];
+  const stages = stage_names?.length ? stage_names : DEFAULT_STAGES;
+  for (let i = 0; i < stages.length; i++) {
+    await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, stages[i]]);
+  }
+  broadcast('task_update', { action: 'created' });
+  res.json(await enrichTask(t));
 });
 
-app.put('/api/tasks/:id', auth, async (req, res) => {
-  const { title, task_type, firm_id, machine_id, priority, notes, due_date } = req.body;
-  await query('UPDATE tasks SET title=$1,task_type=$2,firm_id=$3,machine_id=$4,priority=$5,notes=$6,due_date=$7,updated_at=NOW() WHERE id=$8',
-    [title, task_type, firm_id||null, machine_id||null, priority, notes||'', due_date||null, req.params.id]);
-  broadcast('task_update', { action: 'updated' });
-  res.json({ ok: true });
+app.put('/api/tasks/:id', auth, admin, async (req, res) => {
+  const { title, firm_id, machine_id, priority, notes } = req.body;
+  await query('UPDATE tasks SET title=$1,firm_id=$2,machine_id=$3,priority=$4,notes=$5,updated_at=NOW() WHERE id=$6',
+    [title, firm_id || null, machine_id || null, priority || 'normal', notes || '', req.params.id]);
+  broadcast('task_update', {}); res.json({ ok: true });
 });
 
-// Personel işi üstlenir
-app.post('/api/tasks/:id/take', auth, async (req, res) => {
-  const task = (await query('SELECT * FROM tasks WHERE id=$1', [req.params.id])).rows[0];
-  if (!task) return res.status(404).json({ error: 'İş bulunamadı' });
-  if (task.status !== 'open') return res.status(400).json({ error: 'Bu iş zaten alınmış' });
-  await query("UPDATE tasks SET assigned_to=$1,status='in_progress',started_at=NOW(),updated_at=NOW() WHERE id=$2", [req.user.id, req.params.id]);
+app.delete('/api/tasks/:id', auth, admin, async (req, res) => {
+  await query('DELETE FROM task_stages WHERE task_id=$1', [req.params.id]);
+  await query('DELETE FROM tasks WHERE id=$1', [req.params.id]);
+  broadcast('task_update', {}); res.json({ ok: true });
+});
+
+// Admin assigns a stage
+app.post('/api/task-stages/:id/assign', auth, admin, async (req, res) => {
+  const { user_id } = req.body;
+  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+  if (user_id) {
+    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [user_id, req.params.id]);
+  } else {
+    await query("UPDATE task_stages SET assigned_to=NULL,status='open',started_at=NULL WHERE id=$1", [req.params.id]);
+  }
+  const t = (await query('SELECT * FROM tasks WHERE id=$1', [stage.task_id])).rows[0];
+  broadcast('task_update', { action: 'assigned' });
+  res.json(await enrichTask(t));
+});
+
+// Personnel self-assigns (take)
+app.post('/api/task-stages/:id/take', auth, async (req, res) => {
+  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+  if (stage.status !== 'open') return res.status(400).json({ error: 'Bu aşama zaten alınmış' });
+  await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=NOW() WHERE id=$2", [req.user.id, req.params.id]);
   broadcast('task_update', { action: 'taken', user: req.user.display_name });
   res.json({ ok: true });
 });
 
-// İşi tamamla
-app.post('/api/tasks/:id/complete', auth, async (req, res) => {
-  const task = (await query('SELECT * FROM tasks WHERE id=$1', [req.params.id])).rows[0];
-  if (!task) return res.status(404).json({ error: 'İş bulunamadı' });
-  if (task.assigned_to !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Bu iş size ait değil' });
-  await query("UPDATE tasks SET status='completed',completed_at=NOW(),updated_at=NOW() WHERE id=$1", [req.params.id]);
-  broadcast('task_update', { action: 'completed', user: req.user.display_name });
+// Complete a stage
+app.post('/api/task-stages/:id/complete', auth, async (req, res) => {
+  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+  if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
+    return res.status(403).json({ error: 'Bu aşama size ait değil' });
+  await query("UPDATE task_stages SET status='completed',completed_at=NOW() WHERE id=$1", [req.params.id]);
+  broadcast('task_update', { action: 'stage_completed', user: req.user.display_name });
   res.json({ ok: true });
 });
 
-// Devir talebi gönder
-app.post('/api/tasks/:id/transfer', auth, async (req, res) => {
+// Request transfer (peer-to-peer)
+app.post('/api/task-stages/:id/transfer', auth, async (req, res) => {
   const { to_user_id, message } = req.body;
   if (!to_user_id) return res.status(400).json({ error: 'Hedef personel gerekli' });
-  const task = (await query('SELECT * FROM tasks WHERE id=$1', [req.params.id])).rows[0];
-  if (!task) return res.status(404).json({ error: 'İş bulunamadı' });
-  if (task.assigned_to !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Bu iş size ait değil' });
-  // Admin direkt devreder
+  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+  if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
+    return res.status(403).json({ error: 'Bu aşama size ait değil' });
+  // Cancel any existing pending transfer for this stage
+  await query("UPDATE task_transfers SET status='rejected',resolved_at=NOW() WHERE stage_id=$1 AND status='pending'", [req.params.id]);
   if (req.user.role === 'admin') {
-    await query('INSERT INTO task_transfers(task_id,from_user_id,to_user_id,message,status,resolved_at) VALUES($1,$2,$3,$4,\'accepted\',NOW())',
-      [req.params.id, req.user.id, to_user_id, message||'Yönetici tarafından devredildi']);
-    await query("UPDATE tasks SET assigned_to=$1,status='in_progress',updated_at=NOW() WHERE id=$2", [to_user_id, req.params.id]);
+    // Admin: direct transfer, no approval
+    await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message,status,resolved_at) VALUES($1,$2,$3,$4,\'accepted\',NOW())',
+      [req.params.id, req.user.id, to_user_id, message || 'Yönetici tarafından devredildi']);
+    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [to_user_id, req.params.id]);
   } else {
-    await query("DELETE FROM task_transfers WHERE task_id=$1 AND status='pending'", [req.params.id]);
-    await query('INSERT INTO task_transfers(task_id,from_user_id,to_user_id,message) VALUES($1,$2,$3,$4)',
-      [req.params.id, req.user.id, to_user_id, message||'']);
-    await query("UPDATE tasks SET status='pending_transfer',updated_at=NOW() WHERE id=$1", [req.params.id]);
+    // Personnel: needs approval
+    await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message) VALUES($1,$2,$3,$4)',
+      [req.params.id, req.user.id, to_user_id, message || '']);
+    await query("UPDATE task_stages SET status='pending_transfer' WHERE id=$1", [req.params.id]);
   }
-  broadcast('task_update', { action: 'transfer', user: req.user.display_name });
+  broadcast('task_update', { action: 'transfer_requested', user: req.user.display_name });
   res.json({ ok: true });
 });
 
-// Devir kabul/red
+// Respond to transfer request
 app.post('/api/task-transfers/:id/respond', auth, async (req, res) => {
   const { accept } = req.body;
   const tr = (await query('SELECT * FROM task_transfers WHERE id=$1', [req.params.id])).rows[0];
   if (!tr) return res.status(404).json({ error: 'Devir bulunamadı' });
   if (tr.to_user_id !== req.user.id) return res.status(403).json({ error: 'Bu devir size ait değil' });
-  await query("UPDATE task_transfers SET status=$1,resolved_at=NOW() WHERE id=$2", [accept?'accepted':'rejected', req.params.id]);
+  await query("UPDATE task_transfers SET status=$1,resolved_at=NOW() WHERE id=$2", [accept ? 'accepted' : 'rejected', req.params.id]);
   if (accept) {
-    await query("UPDATE tasks SET assigned_to=$1,status='in_progress',updated_at=NOW() WHERE id=$2", [req.user.id, tr.task_id]);
+    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [req.user.id, tr.stage_id]);
   } else {
-    await query("UPDATE tasks SET status='in_progress',updated_at=NOW() WHERE id=$1", [tr.task_id]);
+    await query("UPDATE task_stages SET status='in_progress' WHERE id=$1", [tr.stage_id]);
   }
-  broadcast('task_update', { action: accept?'transfer_accepted':'transfer_rejected', user: req.user.display_name });
+  broadcast('task_update', { action: accept ? 'transfer_accepted' : 'transfer_rejected', user: req.user.display_name });
   res.json({ ok: true });
 });
 
-app.delete('/api/tasks/:id', auth, admin, async (req, res) => {
-  await query('DELETE FROM task_transfers WHERE task_id=$1', [req.params.id]);
-  await query('DELETE FROM tasks WHERE id=$1', [req.params.id]);
-  broadcast('task_update', { action: 'deleted' });
-  res.json({ ok: true });
-});
-
-// Bekleyen devir talepleri
+// Get pending transfer requests for current user
 app.get('/api/task-transfers/pending', auth, async (req, res) => {
-  const rows = (await query(
-    'SELECT tt.*,t.title,u1.display_name as from_name FROM task_transfers tt JOIN tasks t ON t.id=tt.task_id JOIN users u1 ON u1.id=tt.from_user_id WHERE tt.to_user_id=$1 AND tt.status=\'pending\'',
-    [req.user.id]
-  )).rows;
+  const rows = (await query(`
+    SELECT tt.*, ts.stage_name, t.title as task_title, u.display_name as from_name
+    FROM task_transfers tt
+    JOIN task_stages ts ON ts.id = tt.stage_id
+    JOIN tasks t ON t.id = ts.task_id
+    JOIN users u ON u.id = tt.from_user_id
+    WHERE tt.to_user_id=$1 AND tt.status='pending'
+    ORDER BY tt.created_at DESC`, [req.user.id])).rows;
   res.json(rows);
 });
 
@@ -374,34 +416,34 @@ app.get('/api/task-transfers/pending', auth, async (req, res) => {
 app.get('/api/performance', auth, async (req, res) => {
   const users = (await query("SELECT id,username,display_name FROM users WHERE role='personnel' ORDER BY display_name")).rows;
   const results = await Promise.all(users.map(async u => {
-    const completed = parseInt((await query("SELECT COUNT(*) as c FROM tasks WHERE assigned_to=$1 AND status='completed'", [u.id])).rows[0].c);
-    const inProgress = parseInt((await query("SELECT COUNT(*) as c FROM tasks WHERE assigned_to=$1 AND status IN ('in_progress','pending_transfer')", [u.id])).rows[0].c);
+    const completed = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status='completed'", [u.id])).rows[0].c);
+    const inProgress = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status IN ('in_progress','pending_transfer')", [u.id])).rows[0].c);
     const txCount = parseInt((await query("SELECT COUNT(*) as c FROM transactions WHERE user_id=$1", [u.id])).rows[0].c);
-    const avgHoursRow = (await query("SELECT AVG(EXTRACT(EPOCH FROM (completed_at-started_at))/3600) as avg FROM tasks WHERE assigned_to=$1 AND status='completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL", [u.id])).rows[0];
-    const avgHours = avgHoursRow.avg ? parseFloat(avgHoursRow.avg).toFixed(1) : null;
+    const avgRow = (await query("SELECT AVG(EXTRACT(EPOCH FROM (completed_at-started_at))/3600) as avg FROM task_stages WHERE assigned_to=$1 AND status='completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL", [u.id])).rows[0];
+    const avgHours = avgRow.avg ? parseFloat(avgRow.avg).toFixed(1) : null;
     const score = completed * 10 + txCount * 2 + (avgHours && avgHours < 4 ? 5 : 0);
-    return { ...u, completed_tasks: completed, in_progress: inProgress, tx_count: txCount, avg_hours: avgHours, score };
+    return { ...u, completed_stages: completed, in_progress: inProgress, tx_count: txCount, avg_hours: avgHours, score };
   }));
   results.sort((a, b) => b.score - a.score);
   res.json(results);
 });
 
 // ── USERS ─────────────────────────────────────────────────────────────────
-app.get('/api/users', auth, admin, async (req, res) => res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at')).rows));
+app.get('/api/users', auth, async (req, res) => res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at')).rows));
 app.post('/api/users', auth, admin, async (req, res) => {
   const { username, password, role, display_name } = req.body;
-  if (!username||!password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
-  try { res.json({ id: (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [username, bcrypt.hashSync(password,10), role||'personnel', display_name||username])).rows[0].id }); }
+  if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
+  try { res.json({ id: (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [username, bcrypt.hashSync(password, 10), role || 'personnel', display_name || username])).rows[0].id }); }
   catch { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
 });
 app.put('/api/users/:id', auth, admin, async (req, res) => {
   const { display_name, role, password } = req.body;
-  if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password,10), req.params.id]);
+  if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password, 10), req.params.id]);
   else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [display_name, role, req.params.id]);
   res.json({ ok: true });
 });
 app.delete('/api/users/:id', auth, admin, async (req, res) => {
-  if (Number(req.params.id)===req.user.id) return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
+  if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
   await query('DELETE FROM users WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
 
@@ -409,26 +451,28 @@ app.delete('/api/users/:id', auth, admin, async (req, res) => {
 app.get('/api/export/stock', auth, async (req, res) => {
   const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
   const prods = (await query('SELECT * FROM products ORDER BY created_at DESC')).rows;
-  const e = v => { const s=String(v||''); return s.includes(',')||s.includes('"')?`"${s.replace(/"/g,'""')}"`:`${s}`; };
-  res.setHeader('Content-Type','text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition',`attachment; filename="stok-${new Date().toISOString().slice(0,10)}.csv"`);
-  res.send('\uFEFF'+[cols.map(c=>c.name).join(','),...prods.map(p=>cols.map(c=>e(p.values?.[c.id]||'')).join(','))].join('\n'));
+  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="stok-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send('\uFEFF' + [cols.map(c => c.name).join(','), ...prods.map(p => cols.map(c => e(p.values?.[c.id] || '')).join(','))].join('\n'));
 });
 app.get('/api/export/transactions', auth, async (req, res) => {
   const txs = await enrichTx((await query('SELECT * FROM transactions ORDER BY created_at DESC')).rows);
-  const e = v => { const s=String(v||''); return s.includes(',')||s.includes('"')?`"${s.replace(/"/g,'""')}"`:`${s}`; };
-  res.setHeader('Content-Type','text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition',`attachment; filename="islemler-${new Date().toISOString().slice(0,10)}.csv"`);
-  res.send('\uFEFF'+[['Tarih','Personel','Ürün','Firma','Miktar','Tür','Not'].join(','),...txs.map(t=>[t.created_at?.toString().slice(0,19),t.user_name,t.product_name,t.company,t.quantity,t.tx_type==='return'?'İade':'Çıkış',t.notes||''].map(e).join(','))].join('\n'));
+  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="islemler-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send('\uFEFF' + [['Tarih', 'Personel', 'Ürün', 'Firma', 'Miktar', 'Tür', 'Not'].join(','),
+    ...txs.map(t => [t.created_at?.toString().slice(0, 19), t.user_name, t.product_name, t.company, t.quantity, t.tx_type === 'return' ? 'İade' : 'Çıkış', t.notes || ''].map(e).join(','))].join('\n'));
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+// ── START ─────────────────────────────────────────────────────────────────
 async function start() {
   await init();
   const uc = await query('SELECT COUNT(*) as c FROM users');
   if (parseInt(uc.rows[0].c) === 0) {
-    await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4)', ['admin', bcrypt.hashSync('admin123',10), 'admin', 'Yönetici']);
+    await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4)', ['admin', bcrypt.hashSync('admin123', 10), 'admin', 'Yönetici']);
     await Promise.all([
       query("INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES('Ürün Adı','text',1,0)"),
       query("INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES('Stok Kodu','text',2,0)"),
@@ -436,7 +480,7 @@ async function start() {
       query("INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES('Birim','text',4,0)"),
       query("INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES('Tedarikçi','text',5,0)"),
     ]);
-    console.log('✓ Varsayılan veriler oluşturuldu — admin / admin123');
+    console.log('✓ Varsayılan veriler — admin / admin123');
   }
   app.listen(PORT, '0.0.0.0', () => console.log(`🏭 Stok Takip → http://localhost:${PORT}`));
 }
