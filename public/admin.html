@@ -2,26 +2,42 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Yönetici Paneli — Stok Takip</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Yönetici — Stok Takip</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+.kanban { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1rem; align-items:start; }
+.kanban-col { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.kanban-col-header { padding:.75rem 1rem; font-family:var(--mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+.kanban-col-body { padding:.75rem; display:flex; flex-direction:column; gap:.5rem; min-height:80px; }
+.task-card { background:var(--surface2); border:1px solid var(--border2); border-radius:8px; padding:.75rem; cursor:pointer; transition:border-color .15s; }
+.task-card:hover { border-color:var(--accent); }
+.task-card .tc-title { font-weight:700; font-size:.85rem; margin-bottom:.35rem; }
+.task-card .tc-meta { font-family:var(--mono); font-size:.65rem; color:var(--text2); display:flex; gap:.5rem; flex-wrap:wrap; }
+.task-card .tc-badges { display:flex; gap:.3rem; flex-wrap:wrap; margin-top:.4rem; }
+.priority-urgent { border-left:3px solid var(--danger); }
+.priority-high { border-left:3px solid var(--warning); }
+.priority-normal { border-left:3px solid var(--border2); }
+.priority-low { border-left:3px solid var(--muted); }
+.perf-bar { height:6px; background:var(--border2); border-radius:3px; overflow:hidden; margin-top:.3rem; }
+.perf-bar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width .5s; }
+.gold-card { background:linear-gradient(135deg,var(--surface) 0%,#1a1508 100%); border:1px solid #3a2d0a; border-radius:12px; padding:1rem 1.25rem; }
+.gold-price { font-size:1.8rem; font-weight:800; color:var(--accent); letter-spacing:-.04em; }
+.live-dot { width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+</style>
 </head>
 <body>
-
 <div class="mobile-bar">
   <div class="brand"><div class="icon">🏭</div><span>Stok Takip</span></div>
   <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="icon">🏭</div>
-    <div><div class="title">Stok Takip</div><div class="subtitle">Yönetici</div></div>
-  </div>
+  <div class="sidebar-brand"><div class="icon">🏭</div><div><div class="title">Stok Takip</div><div class="subtitle">Yönetici</div></div></div>
   <div class="sidebar-nav">
     <div class="nav-section-label">Genel</div>
     <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
@@ -29,18 +45,18 @@
     <div class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span>Ürünler</div>
     <div class="nav-item" onclick="showPage('columns')"><span class="nav-icon">⚙️</span>Sütun Yönetimi</div>
     <div class="nav-section-label">Tanımlar</div>
-    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Yönetimi</div>
     <div class="nav-item" onclick="showPage('firms')"><span class="nav-icon">🏢</span>Firma Yönetimi</div>
+    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Yönetimi</div>
+    <div class="nav-section-label">İş Takibi</div>
+    <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
+    <div class="nav-item" onclick="showPage('performance')"><span class="nav-icon">🏆</span>Performans</div>
     <div class="nav-section-label">İşlemler</div>
-    <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📋</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.65rem;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
     <div class="nav-section-label">Sistem</div>
     <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
   </div>
   <div class="sidebar-footer">
-    <div class="user-chip">
-      <div class="avatar" id="avatarInit">A</div>
-      <div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div>
-    </div>
+    <div class="user-chip"><div class="avatar" id="avatarInit">A</div><div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div></div>
     <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
   </div>
 </nav>
@@ -49,36 +65,46 @@
   <div class="topbar">
     <h2 id="pageTitle">Gösterge Paneli</h2>
     <div style="display:flex;align-items:center;gap:.75rem">
-      <span id="liveIndicator" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">● bağlanıyor</span>
+      <span id="liveIndicator" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);display:flex;align-items:center;gap:.4rem"><span class="live-dot"></span>canlı</span>
       <span class="meta" id="pageTime"></span>
     </div>
   </div>
   <div class="content">
 
-    <!-- Dashboard -->
+    <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" id="dashGrid">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem" id="dashGrid">
         <div class="card">
-          <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-            <span style="font-weight:700;font-size:.88rem">Son İşlemler</span>
-            <span id="newTxBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:2px 8px;font-size:.7rem;cursor:pointer" onclick="loadTransactions();renderTransactions();hideNewTxBadge()">Yeni!</span>
+          <div style="padding:.85rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-weight:700;font-size:.88rem">🔴 Canlı İş Durumu</span>
+            <span id="newTxBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:2px 8px;font-size:.7rem;cursor:pointer" onclick="showPage('transactions')">Yeni işlem!</span>
           </div>
+          <div id="liveJobBoard" style="padding:.85rem;display:flex;flex-direction:column;gap:.4rem"></div>
+        </div>
+        <div class="gold-card">
+          <div style="font-family:var(--mono);font-size:.65rem;color:#8a6d1a;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">💰 Gram Altın (TRY)</div>
+          <div class="gold-price" id="goldPrice">—</div>
+          <div style="font-family:var(--mono);font-size:.65rem;color:#8a6d1a;margin-top:.3rem" id="goldUpdated"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:.75rem;border-color:#3a2d0a;color:#8a6d1a" onclick="loadGold()">↺ Güncelle</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="card">
+          <div style="padding:.85rem 1.1rem;border-bottom:1px solid var(--border)"><span style="font-weight:700;font-size:.88rem">Son İşlemler</span></div>
           <div class="table-wrap"><table id="dashTxTable"><thead><tr><th>Zaman</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Adet</th></tr></thead><tbody></tbody></table></div>
         </div>
         <div class="card">
-          <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border)"><span style="font-weight:700;font-size:.88rem">Düşük Stok</span></div>
-          <div id="lowStockList" style="padding:1rem"></div>
+          <div style="padding:.85rem 1.1rem;border-bottom:1px solid var(--border)"><span style="font-weight:700;font-size:.88rem">⚠️ Düşük Stok</span></div>
+          <div id="lowStockList" style="padding:.85rem"></div>
         </div>
       </div>
     </div>
 
-    <!-- Products -->
+    <!-- PRODUCTS -->
     <div class="page" id="page-products">
       <div class="toolbar">
-        <div class="toolbar-left">
-          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()">
-        </div>
+        <div class="toolbar-left"><input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()"></div>
         <button class="btn btn-primary" onclick="addProductRow()">+ Yeni Ürün</button>
         <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadProducts();renderProducts()">↺</button>
@@ -86,43 +112,56 @@
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
     </div>
 
-    <!-- Columns -->
+    <!-- COLUMNS -->
     <div class="page" id="page-columns">
       <div class="toolbar"><button class="btn btn-primary" onclick="openColumnModal()">+ Yeni Sütun</button></div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
     </div>
 
-    <!-- Machines -->
+    <!-- FIRMS -->
+    <div class="page" id="page-firms">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openFirmModal()">+ Yeni Firma</button></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinçler</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- MACHINES -->
     <div class="page" id="page-machines">
-      <div class="toolbar"><button class="btn btn-primary" onclick="openMachineModal()">+ Yeni Vinç</button><select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select></div>
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openMachineModal()">+ Yeni Vinç</button>
+        <select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select>
+      </div>
       <div id="machineList" style="display:grid;gap:.85rem"></div>
     </div>
 
-    <!-- Firms -->
-    <div class="page" id="page-firms">
-      <div class="toolbar"><button class="btn btn-primary" onclick="openFirmModal()">+ Yeni Firma</button></div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
+    <!-- TASKS (İŞ PANOSU) -->
+    <div class="page" id="page-tasks">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openTaskModal()">+ Yeni İş</button>
+        <select id="taskFirmFilter" style="max-width:160px" onchange="renderTasks()"><option value="">Tüm Firmalar</option></select>
+        <select id="taskUserFilter" style="max-width:160px" onchange="renderTasks()"><option value="">Tüm Personel</option></select>
+        <button class="btn btn-ghost" onclick="loadTasks();renderTasks()">↺</button>
+      </div>
+      <div class="kanban" id="taskKanban"></div>
     </div>
 
-    <!-- Transactions -->
+    <!-- PERFORMANCE -->
+    <div class="page" id="page-performance">
+      <div class="toolbar"><button class="btn btn-ghost" onclick="loadPerformance()">↺ Yenile</button></div>
+      <div id="perfContent"></div>
+    </div>
+
+    <!-- TRANSACTIONS -->
     <div class="page" id="page-transactions">
       <div class="toolbar">
-        <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:240px" oninput="filterTx()">
-        <select id="txTypeFilter" style="max-width:130px" onchange="filterTx()">
-          <option value="">Tüm türler</option>
-          <option value="out">Çıkış</option>
-          <option value="return">İade</option>
-        </select>
+        <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
+        <select id="txTypeFilter" style="max-width:120px" onchange="filterTx()"><option value="">Tüm türler</option><option value="out">Çıkış</option><option value="return">İade</option></select>
         <button class="btn btn-ghost" onclick="window.location='/api/export/transactions'">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadTransactions();renderTransactions()">↺</button>
       </div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead>
-        <tbody id="txTbody"></tbody>
-      </table></div></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
 
-    <!-- Users -->
+    <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar"><button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button></div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
@@ -131,26 +170,35 @@
   </div>
 </div>
 
-<!-- Column Modal -->
+<!-- Modals -->
+<!-- Column -->
 <div class="modal-overlay" id="columnModal">
   <div class="modal"><div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
-  <div class="modal-body">
-    <input type="hidden" id="editColId">
-    <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName" placeholder="Örn: Raf No"></div>
-    <div class="form-group"><label>Veri Tipi</label><select id="colType"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
-    <div class="form-group" id="minStockGroup" style="display:none"><label>Minimum Stok Uyarı Seviyesi</label><input type="number" id="colMinStock" value="5" min="0"></div>
+  <div class="modal-body"><input type="hidden" id="editColId">
+    <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName"></div>
+    <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
+    <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok Uyarı</label><input type="number" id="colMinStock" value="5" min="0"></div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" onclick="saveColumn()">Kaydet</button></div></div>
 </div>
 
-<!-- Machine Modal -->
+<!-- Firm -->
+<div class="modal-overlay" id="firmModal">
+  <div class="modal"><div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
+  <div class="modal-body"><input type="hidden" id="editFirmId">
+    <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div>
+    <div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div></div>
+</div>
+
+<!-- Machine -->
 <div class="modal-overlay" id="machineModal">
   <div class="modal" style="max-width:580px"><div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
-  <div class="modal-body">
-    <input type="hidden" id="editMachineId">
+  <div class="modal-body"><input type="hidden" id="editMachineId">
     <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
-    <div class="form-group"><label>Vinç Adı / Modeli</label><input type="text" id="machineName" placeholder="Örn: Köprülü Vinç 10T"></div>
-    <div class="form-group"><label>Notlar</label><textarea id="machineNotes" placeholder="Opsiyonel..."></textarea></div>
+    <div class="form-group"><label>Vinç Adı / Modeli</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+    <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
     <div class="form-group"><label>Gerekli Ürünler</label>
       <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
       <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
@@ -159,107 +207,134 @@
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" onclick="saveMachine()">Kaydet</button></div></div>
 </div>
 
-<!-- Firm Modal -->
-<div class="modal-overlay" id="firmModal">
-  <div class="modal"><div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
-  <div class="modal-body">
-    <input type="hidden" id="editFirmId">
-    <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName" placeholder="ABC Mühendislik A.Ş."></div>
-    <div class="form-group"><label>Not</label><input type="text" id="firmNotes" placeholder="Opsiyonel"></div>
+<!-- Task -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal" style="max-width:540px"><div class="modal-header"><h3 id="taskModalTitle">Yeni İş</h3><button class="modal-close" onclick="closeModal('taskModal')">×</button></div>
+  <div class="modal-body"><input type="hidden" id="editTaskId">
+    <div class="form-group"><label>İş Başlığı</label><input type="text" id="taskTitle" placeholder="Örn: Panel montajı"></div>
+    <div class="form-group"><label>İş Türü</label>
+      <input type="text" id="taskType" list="taskTypeList" placeholder="Pano, Kedi Tesisat, Montaj...">
+      <datalist id="taskTypeList"><option value="Pano"><option value="Kedi Tesisat"><option value="Montaj"><option value="Bakım"><option value="Tamir"><option value="Test"></datalist>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="form-group"><label>Firma</label><select id="taskFirm" onchange="filterTaskMachines()"><option value="">— Firma —</option></select></div>
+      <div class="form-group"><label>Vinç</label><select id="taskMachine"><option value="">— Vinç —</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="form-group"><label>Öncelik</label><select id="taskPriority"><option value="low">Düşük</option><option value="normal" selected>Normal</option><option value="high">Yüksek</option><option value="urgent">Acil</option></select></div>
+      <div class="form-group"><label>Son Tarih</label><input type="date" id="taskDueDate"></div>
+    </div>
+    <div class="form-group"><label>Ata (opsiyonel)</label><select id="taskAssignee"><option value="">— Personel Seçin —</option></select></div>
+    <div class="form-group"><label>Notlar</label><textarea id="taskNotes" rows="2"></textarea></div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" onclick="saveTask()">Kaydet</button></div></div>
 </div>
 
-<!-- User Modal -->
+<!-- Task Detail -->
+<div class="modal-overlay" id="taskDetailModal">
+  <div class="modal" style="max-width:560px"><div class="modal-header"><h3 id="taskDetailTitle">İş Detayı</h3><button class="modal-close" onclick="closeModal('taskDetailModal')">×</button></div>
+  <div class="modal-body" id="taskDetailBody"></div>
+  <div class="modal-footer" id="taskDetailFooter"></div></div>
+</div>
+
+<!-- Transfer -->
+<div class="modal-overlay" id="transferModal">
+  <div class="modal"><div class="modal-header"><h3>Görevi Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
+  <div class="modal-body"><input type="hidden" id="transferTaskId">
+    <div class="form-group"><label>Devredilecek Personel</label><select id="transferTo"><option value="">— Personel Seçin —</option></select></div>
+    <div class="form-group"><label>Mesaj</label><input type="text" id="transferMsg" placeholder="Opsiyonel açıklama..."></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
+</div>
+
+<!-- Product History -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:600px"><div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
+  <div class="modal-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div></div>
+</div>
+
+<!-- User -->
 <div class="modal-overlay" id="userModal">
   <div class="modal"><div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
-  <div class="modal-body">
-    <input type="hidden" id="editUserId">
+  <div class="modal-body"><input type="hidden" id="editUserId">
     <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
     <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
-    <div class="form-group"><label>Şifre <span id="passOptional" style="color:var(--muted);font-size:.7em">(değiştirmek için doldurun)</span></label><input type="password" id="userPassword"></div>
+    <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
     <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div></div>
 </div>
 
-<!-- Product History Modal -->
-<div class="modal-overlay" id="historyModal">
-  <div class="modal" style="max-width:620px"><div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
-  <div class="modal-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div>
-  </div></div>
-</div>
-
 <div id="toast"></div>
 
 <script>
-let columns=[],products=[],transactions=[],users=[],machines=[],firms=[];
-let editingCell=null;
-let newTxCount=0;
-let eventSource=null;
+const _f = window.fetch.bind(window);
+window.fetch = (url, opts={}) => {
+  if (typeof url==='string' && url.startsWith('/api')) {
+    const t=localStorage.getItem('stok_token');
+    if(t) opts.headers={...(opts.headers||{}),'Authorization':'Bearer '+t};
+  }
+  return _f(url,opts);
+};
+
+let columns=[],products=[],transactions=[],users=[],machines=[],firms=[],tasks=[],perf=[];
+let editingCell=null, currentPage='dashboard', newTxCount=0;
 
 async function init(){
   const me=await api('/api/me');
-  if (!me) return window.location.href='/';
+  if(!me) return window.location.href='/';
   document.getElementById('userName').textContent=me.display_name||me.username;
   document.getElementById('avatarInit').textContent=(me.display_name||me.username)[0].toUpperCase();
   updateTime(); setInterval(updateTime,30000);
   await loadAll();
   showPage('dashboard');
   connectSSE();
+  loadGold();
+  setInterval(loadGold, 5*60*1000);
 }
 
 function connectSSE(){
-  eventSource=new EventSource('/api/events');
-  eventSource.addEventListener('connected',()=>{
-    document.getElementById('liveIndicator').textContent='● canlı';
-    document.getElementById('liveIndicator').style.color='var(--success)';
-  });
-  eventSource.addEventListener('tx_new',async e=>{
-    const d=JSON.parse(e.data);
-    await loadTransactions();
-    if (currentPage==='transactions') renderTransactions();
-    if (currentPage==='dashboard') renderDashboard();
-    else { newTxCount++; showNewTxBadge(); }
-    document.getElementById('txBadge').textContent=newTxCount;
-    document.getElementById('txBadge').style.display='inline';
-  });
-  eventSource.addEventListener('stock_update',async ()=>{
-    await loadProducts();
-    if (currentPage==='products') renderProducts();
-    if (currentPage==='dashboard') renderDashboard();
-  });
-  eventSource.onerror=()=>{
-    document.getElementById('liveIndicator').textContent='● bağlantı kesildi';
-    document.getElementById('liveIndicator').style.color='var(--danger)';
-    setTimeout(connectSSE,5000);
-  };
+  const es=new EventSource('/api/events');
+  es.addEventListener('connected',()=>{ document.getElementById('liveIndicator').innerHTML='<span class="live-dot"></span>canlı'; });
+  es.addEventListener('tx_new',async()=>{ await loadTransactions(); if(currentPage==='transactions') renderTransactions(); if(currentPage==='dashboard') renderDashboard(); else { newTxCount++; document.getElementById('txBadge').textContent=newTxCount; document.getElementById('txBadge').style.display='inline'; document.getElementById('newTxBadge').style.display='inline'; } });
+  es.addEventListener('stock_update',async()=>{ await loadProducts(); if(currentPage==='products') renderProducts(); if(currentPage==='dashboard') renderDashboard(); });
+  es.addEventListener('task_update',async()=>{ await loadTasks(); if(currentPage==='tasks') renderTasks(); if(currentPage==='dashboard') renderLiveJobBoard(); document.getElementById('taskBadge').style.display='inline'; });
+  es.addEventListener('gold_update', e=>{ const g=JSON.parse(e.data); updateGoldDisplay(g); });
+  es.onerror=()=>{ document.getElementById('liveIndicator').innerHTML='<span style="color:var(--danger)">● bağlantı kesildi</span>'; setTimeout(connectSSE,5000); };
 }
-function showNewTxBadge(){ document.getElementById('newTxBadge').style.display='inline'; }
-function hideNewTxBadge(){ document.getElementById('newTxBadge').style.display='none'; newTxCount=0; document.getElementById('txBadge').style.display='none'; }
 
-async function loadAll(){ await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms()]); }
+async function loadAll(){ await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]); }
 async function loadColumns(){ columns=await api('/api/columns')||[]; }
 async function loadProducts(){ products=await api('/api/products')||[]; }
 async function loadTransactions(){ transactions=await api('/api/transactions?limit=300')||[]; }
 async function loadUsers(){ users=await api('/api/users')||[]; }
 async function loadMachines(){ machines=await api('/api/machines')||[]; }
 async function loadFirms(){ firms=await api('/api/firms')||[]; }
+async function loadTasks(){ tasks=await api('/api/tasks')||[]; }
+async function loadPerformance(){ perf=await api('/api/performance')||[]; renderPerformance(); }
 
-async function api(url,method='GET',body=null){
-  try {
-    const opts={method,headers:{'Content-Type':'application/json'}};
-    if (body) opts.body=JSON.stringify(body);
-    const res=await fetch(url,opts);
-    const data=await res.json();
-    if (!res.ok){ toast(data.error||'Hata','error'); return null; }
-    return data;
-  } catch(e){ toast('Bağlantı hatası','error'); return null; }
+async function loadGold(){
+  const g=await api('/api/gold');
+  if(g) updateGoldDisplay(g);
+}
+function updateGoldDisplay(g){
+  if(g.error){ document.getElementById('goldPrice').textContent='—'; document.getElementById('goldUpdated').textContent=g.error; return; }
+  document.getElementById('goldPrice').textContent=parseFloat(g.price).toLocaleString('tr-TR',{minimumFractionDigits:2})+'₺';
+  document.getElementById('goldUpdated').textContent='1 USD = '+parseFloat(g.usdtry).toLocaleString('tr-TR',{minimumFractionDigits:2})+'₺ · '+new Date(g.updated).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
 }
 
-let currentPage='dashboard';
-const pageTitles={dashboard:'Gösterge Paneli',products:'Ürün Yönetimi',columns:'Sütun Yönetimi',machines:'Vinç Yönetimi',firms:'Firma Yönetimi',transactions:'İşlem Geçmişi',users:'Kullanıcı Yönetimi'};
+async function api(url,method='GET',body=null){
+  try{
+    const opts={method,headers:{'Content-Type':'application/json'}};
+    if(body) opts.body=JSON.stringify(body);
+    const res=await fetch(url,opts);
+    const data=await res.json();
+    if(!res.ok){toast(data.error||'Hata','error');return null;}
+    return data;
+  }catch(e){toast('Bağlantı hatası','error');return null;}
+}
+
+const pageTitles={dashboard:'Gösterge Paneli',products:'Ürün Yönetimi',columns:'Sütun Yönetimi',firms:'Firma Yönetimi',machines:'Vinç Yönetimi',tasks:'İş Panosu',performance:'Performans',transactions:'İşlem Geçmişi',users:'Kullanıcı Yönetimi'};
 
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -268,283 +343,350 @@ function showPage(name){
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active'); });
   document.getElementById('pageTitle').textContent=pageTitles[name]||name;
   currentPage=name;
-  if(name==='transactions'){ hideNewTxBadge(); }
-  const renders={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,machines:renderMachines,firms:renderFirms,transactions:renderTransactions,users:renderUsers};
+  if(name==='transactions'){newTxCount=0;document.getElementById('txBadge').style.display='none';document.getElementById('newTxBadge').style.display='none';}
+  if(name==='tasks') document.getElementById('taskBadge').style.display='none';
+  const renders={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,firms:renderFirms,machines:renderMachines,tasks:renderTasks,performance:loadPerformance,transactions:renderTransactions,users:renderUsers};
   renders[name]?.();
 }
-
-function updateTime(){ document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR'); }
+function updateTime(){document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR');}
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────
 function renderDashboard(){
   const numCol=columns.find(c=>c.data_type==='number');
-  const minStock=numCol?.min_stock||5;
-  const lowProducts=numCol?products.filter(p=>parseFloat(p.values?.[numCol.id]||0)<minStock):[];
+  const minS=numCol?.min_stock||5;
+  const lowProducts=numCol?products.filter(p=>parseFloat(p.values?.[numCol.id]||0)<minS):[];
+  const openTasks=tasks.filter(t=>t.status==='open').length;
+  const inProgress=tasks.filter(t=>t.status==='in_progress'||t.status==='pending_transfer').length;
   document.getElementById('statsRow').innerHTML=`
     <div class="stat-card"><div class="label">Toplam Ürün</div><div class="value">${products.length}</div><div class="sub">stok kalemi</div></div>
-    <div class="stat-card"><div class="label">Düşük Stok</div><div class="value" style="color:var(--danger)">${lowProducts.length}</div><div class="sub">kritik seviye</div></div>
-    <div class="stat-card"><div class="label">İşlem</div><div class="value">${transactions.length}</div><div class="sub">toplam kayıt</div></div>
-    <div class="stat-card"><div class="label">Firmalar</div><div class="value">${firms.length}</div><div class="sub">kayıtlı firma</div></div>`;
+    <div class="stat-card"><div class="label">Düşük Stok</div><div class="value" style="color:var(--danger)">${lowProducts.length}</div><div class="sub">kritik</div></div>
+    <div class="stat-card"><div class="label">Açık İşler</div><div class="value" style="color:var(--warning)">${openTasks}</div><div class="sub">atanmayı bekliyor</div></div>
+    <div class="stat-card"><div class="label">Devam Eden</div><div class="value" style="color:var(--success)">${inProgress}</div><div class="sub">aktif iş</div></div>`;
+  renderLiveJobBoard();
   const tbody=document.querySelector('#dashTxTable tbody');
-  const recent=transactions.slice(0,8);
-  tbody.innerHTML=recent.length?recent.map(t=>`<tr>
-    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(t.created_at)}</td>
-    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
-    <td><span style="font-family:var(--mono)">${t.quantity}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
-  const ll=document.getElementById('lowStockList');
+  tbody.innerHTML=transactions.slice(0,8).map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(t.created_at)}</td><td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.quantity}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
   const firstCol=columns[0];
+  const ll=document.getElementById('lowStockList');
   ll.innerHTML=lowProducts.length?lowProducts.map(p=>{
     const name=firstCol?(p.values?.[firstCol.id]||'—'):`#${p.id}`;
     const qty=numCol?(p.values?.[numCol.id]||0):'?';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border)"><span style="font-size:.83rem">${esc(name)}</span><span class="badge badge-low">${qty}</span></div>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)"><span style="font-size:.83rem">${esc(name)}</span><span class="badge badge-low">${qty}</span></div>`;
   }).join(''):'<div class="empty"><div class="icon">✅</div>Stok normal</div>';
+}
+
+function renderLiveJobBoard(){
+  const el=document.getElementById('liveJobBoard');
+  const active=tasks.filter(t=>t.status==='in_progress'||t.status==='pending_transfer');
+  if(!active.length){el.innerHTML='<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1rem">Aktif iş yok</div>';return;}
+  el.innerHTML=active.map(t=>`
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border2)">
+      <span style="font-size:.85rem;flex:1;font-weight:600">${esc(t.title)}</span>
+      <span class="badge" style="background:var(--success-dim);color:var(--success);font-size:.6rem">${esc(t.assignee_name||'Atanmamış')}</span>
+      ${t.firm_name?`<span class="badge badge-admin" style="font-size:.6rem">${esc(t.firm_name)}</span>`:''}
+      ${t.status==='pending_transfer'?'<span class="badge badge-low" style="font-size:.6rem">Devir Bekliyor</span>':''}
+    </div>`).join('');
 }
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
 function renderProducts(){
-  const thead=document.getElementById('productThead').querySelector('tr');
-  thead.innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Geçmiş</th><th>İşlem</th>';
+  document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Geçmiş</th><th>İşlem</th>';
   renderProductRows(products);
 }
 function renderProductRows(prods){
   const numCol=columns.find(c=>c.data_type==='number');
   const tbody=document.getElementById('productTbody');
-  if (!prods.length){ tbody.innerHTML=`<tr><td colspan="${columns.length+2}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`; return; }
+  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+2}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
   tbody.innerHTML=prods.map(p=>{
     const cells=columns.map(c=>{
       const val=p.values?.[c.id]||'';
-      const isNum=c.data_type==='number';
-      const minS=c.min_stock||5;
-      const isLow=isNum&&parseFloat(val)<minS;
-      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')" title="Çift tıkla düzenle">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
+      const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);
+      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
     }).join('');
-    return `<tr data-pid="${p.id}">${cells}
-      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;
+    return `<tr>${cells}<td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td><td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;
   }).join('');
 }
 function filterProducts(){
   const q=document.getElementById('productSearch').value.toLowerCase();
   renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);
 }
-async function addProductRow(){
-  const r=await api('/api/products','POST',{values:{}});
-  if (!r) return;
-  await loadProducts(); renderProducts(); toast('Yeni ürün eklendi','success');
+async function addProductRow(){const r=await api('/api/products','POST',{values:{}});if(!r)return;await loadProducts();renderProducts();toast('Yeni ürün eklendi','success');}
+async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
+function startEdit(td,pid,cid,dtype){
+  if(editingCell) cancelEdit();
+  const oldVal=td.querySelector('.badge')?td.querySelector('.badge').textContent.trim():td.textContent.trim();
+  editingCell={td,pid,cid,oldVal};
+  td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;
+  td.querySelector('input').focus();td.querySelector('input').select();
 }
-async function deleteProduct(id){
-  if (!confirm('Bu ürünü silmek istediğinizden emin misiniz?')) return;
-  await api('/api/products/'+id,'DELETE');
-  await loadProducts(); renderProducts(); toast('Ürün silindi','success');
-}
-function startEdit(td,productId,columnId,dtype){
-  if (editingCell) cancelEdit();
-  const oldVal=td.textContent.trim().replace(/^\s*\d*\s*/,'');
-  editingCell={td,productId,columnId,oldVal};
-  td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="handleEditKey(event)">`;
-  td.querySelector('input').focus(); td.querySelector('input').select();
-}
-function handleEditKey(e){ if(e.key==='Enter') commitEdit(); if(e.key==='Escape') cancelEdit(); }
 async function commitEdit(){
-  if (!editingCell) return;
-  const {td,productId,columnId,oldVal}=editingCell;
+  if(!editingCell)return;
+  const{td,pid,cid,oldVal}=editingCell;
   const input=td.querySelector('input');
   const newVal=input?input.value:oldVal;
-  editingCell=null;
-  td.textContent=newVal;
-  if (newVal!==oldVal){ await api('/api/products/'+productId,'PUT',{values:{[columnId]:newVal}}); await loadProducts(); renderProducts(); }
+  editingCell=null;td.textContent=newVal;
+  if(newVal!==oldVal){await api('/api/products/'+pid,'PUT',{values:{[cid]:newVal}});await loadProducts();renderProducts();}
 }
-function cancelEdit(){ if(!editingCell)return; editingCell.td.textContent=editingCell.oldVal; editingCell=null; }
-
+function cancelEdit(){if(!editingCell)return;editingCell.td.textContent=editingCell.oldVal;editingCell=null;}
 async function showHistory(pid){
   const txs=await api('/api/transactions?product_id='+pid+'&limit=100');
   const prod=products.find(p=>p.id===pid);
   const firstCol=columns[0];
   const name=prod&&firstCol?(prod.values?.[firstCol.id]||`#${pid}`):`#${pid}`;
-  document.getElementById('historyModalTitle').textContent=`Stok Hareketi — ${name}`;
-  const tbody=document.getElementById('historyTbody');
-  tbody.innerHTML=(txs||[]).length?(txs||[]).map(t=>`<tr>
-    <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(t.created_at)}</td>
-    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.company)}</td>
-    <td><span style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</span></td>
-    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
-  </tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
+  document.getElementById('historyModalTitle').textContent='Stok Hareketi — '+name;
+  document.getElementById('historyTbody').innerHTML=(txs||[]).length?(txs||[]).map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
   openModal('historyModal');
 }
 
 // ── COLUMNS ────────────────────────────────────────────────────────────────
 function renderColumns(){
-  document.getElementById('columnsTbody').innerHTML=columns.map(c=>`<tr>
-    <td><span style="font-family:var(--mono);color:var(--muted)">${c.display_order}</span></td>
-    <td><strong>${esc(c.name)}</strong></td>
-    <td><span class="badge" style="background:var(--accent-dim);color:var(--accent)">${c.data_type==='number'?'Sayı':'Metin'}</span></td>
-    <td><span style="font-family:var(--mono)">${c.data_type==='number'?(c.min_stock||5):'—'}</span></td>
-    <td style="display:flex;gap:.4rem">
-      <button class="btn btn-ghost btn-sm" onclick="editColumn(${c.id})">Düzenle</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteColumn(${c.id})">Sil</button>
-    </td></tr>`).join('');
+  document.getElementById('columnsTbody').innerHTML=columns.map(c=>`<tr><td style="font-family:var(--mono);color:var(--muted)">${c.display_order}</td><td><strong>${esc(c.name)}</strong></td><td><span class="badge" style="background:var(--accent-dim);color:var(--accent)">${c.data_type==='number'?'Sayı':'Metin'}</span></td><td style="font-family:var(--mono)">${c.data_type==='number'?(c.min_stock||5):'—'}</td><td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editColumn(${c.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteColumn(${c.id})">Sil</button></td></tr>`).join('');
 }
-function openColumnModal(){ document.getElementById('editColId').value=''; document.getElementById('colName').value=''; document.getElementById('colType').value='text'; document.getElementById('colMinStock').value=5; document.getElementById('minStockGroup').style.display='none'; document.getElementById('columnModalTitle').textContent='Yeni Sütun'; openModal('columnModal'); }
-function editColumn(id){ const col=columns.find(c=>c.id===id); if(!col)return; document.getElementById('editColId').value=id; document.getElementById('colName').value=col.name; document.getElementById('colType').value=col.data_type; document.getElementById('colMinStock').value=col.min_stock||5; document.getElementById('minStockGroup').style.display=col.data_type==='number'?'block':'none'; document.getElementById('columnModalTitle').textContent='Sütun Düzenle'; openModal('columnModal'); }
-document.getElementById('colType').addEventListener('change',e=>{ document.getElementById('minStockGroup').style.display=e.target.value==='number'?'block':'none'; });
-async function saveColumn(){ const id=document.getElementById('editColId').value; const name=document.getElementById('colName').value.trim(); const data_type=document.getElementById('colType').value; const min_stock=parseInt(document.getElementById('colMinStock').value)||0; if(!name){toast('Sütun adı gerekli','error');return;} if(id) await api('/api/columns/'+id,'PUT',{name,data_type,display_order:columns.find(c=>c.id==id)?.display_order||0,min_stock}); else await api('/api/columns','POST',{name,data_type,min_stock}); closeModal('columnModal'); await loadColumns(); await loadProducts(); renderColumns(); toast('Kaydedildi','success'); }
-async function deleteColumn(id){ if(!confirm('Bu sütunu silmek istediğinizden emin misiniz?'))return; await api('/api/columns/'+id,'DELETE'); await loadColumns(); await loadProducts(); renderColumns(); toast('Sütun silindi','success'); }
-
-// ── MACHINES ──────────────────────────────────────────────────────────────
-function renderMachines(){
-  const list=document.getElementById('machineList');
-  if (!machines.length){ list.innerHTML='<div class="card empty"><div class="icon">🏗️</div>Vinç kaydı yok</div>'; return; }
-
-  // Firma filtresi
-  const filterVal = document.getElementById('machineFilter')?.value || '';
-  const filtered = filterVal ? machines.filter(m=>String(m.firm_id)===filterVal) : machines;
-  // Firma dropdown güncelle
-  const sel = document.getElementById('machineFilter');
-  if(sel){ const cur=sel.value; sel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===cur?'selected':''}>${esc(f.name)}</option>`).join(''); sel.value=cur; }
-  // Firma bazlı grupla
-  const grouped={};
-  filtered.forEach(m=>{
-    const key=m.firm_name||'__no_firm__';
-    if(!grouped[key]) grouped[key]=[];
-    grouped[key].push(m);
-  });
-
-  let html='';
-  Object.entries(grouped).forEach(([firmName,grpList])=>{
-    if(firmName!=='__no_firm__'){
-      html+=`<div style="display:flex;align-items:center;gap:.75rem;margin:1rem 0 .5rem"><div style="height:1px;flex:0 0 16px;background:var(--border)"></div><span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;white-space:nowrap">🏢 ${esc(firmName)}</span><div style="height:1px;flex:1;background:var(--border)"></div></div>`;
-    }
-    html+=grpList.map(m=>`<div class="card" style="margin-bottom:.75rem">
-      <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem">
-        <div>
-          <div style="display:flex;align-items:center;gap:.5rem">
-            <span style="font-weight:800;font-size:.92rem">🏗️ ${esc(m.machine_name)}</span>
-            ${m.firm_name?`<span class="badge badge-admin">${esc(m.firm_name)}</span>`:''}
-          </div>
-          ${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">${esc(m.notes)}</div>`:''}
-        </div>
-        <div style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button></div>
-      </div>
-      <div style="padding:.9rem 1.1rem">${m.items.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gerekli Miktar</th></tr></thead><tbody>${m.items.map(it=>`<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td></tr>`).join('')}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün eklenmemiş</span>'}</div>
-    </div>`).join('');
-  });
-  list.innerHTML=html;
-}
-function openMachineModal(){
-  document.getElementById('editMachineId').value='';
-  document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-  document.getElementById('machineName').value='';
-  document.getElementById('machineNotes').value='';
-  document.getElementById('machineItems').innerHTML='';
-  document.getElementById('machineModalTitle').textContent='Yeni Vinç';
-  openModal('machineModal');
-}
-function editMachine(id){
-  const m=machines.find(x=>x.id===id); if(!m)return;
-  document.getElementById('editMachineId').value=id;
-  document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');
-  document.getElementById('machineName').value=m.machine_name;
-  document.getElementById('machineNotes').value=m.notes||'';
-  document.getElementById('machineItems').innerHTML='';
-  m.items.forEach(it=>addMachineItem(it.product_id,it.quantity));
-  document.getElementById('machineModalTitle').textContent='Vinç Düzenle';
-  openModal('machineModal');
-}
-function addMachineItem(pid='',qty=1){
-  const firstCol=columns[0];
-  const opts=products.map(p=>{ const n=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`; return `<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(n)}</option>`; }).join('');
-  const div=document.createElement('div'); div.style.cssText='display:flex;gap:.4rem;align-items:center';
-  div.innerHTML=`<select style="flex:1">${opts}</select><input type="number" value="${qty}" min="0" step="any" style="width:90px" placeholder="Miktar"><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;
-  document.getElementById('machineItems').appendChild(div);
-}
-async function saveMachine(){
-  const id=document.getElementById('editMachineId').value;
-  const machine_name=document.getElementById('machineName').value.trim();
-  const notes=document.getElementById('machineNotes').value.trim();
-  const firm_id=document.getElementById('machineFirm').value||null;
-  if(!machine_name){toast('Vinç adı gerekli','error');return;}
-  const rows=document.getElementById('machineItems').children;
-  const items=Array.from(rows).map(r=>({product_id:r.querySelector('select').value,quantity:parseFloat(r.querySelector('input').value)||1})).filter(i=>i.product_id);
-  if(id) await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});
-  else await api('/api/machines','POST',{machine_name,firm_id,notes,items});
-  closeModal('machineModal'); await loadMachines(); renderMachines(); toast('Kaydedildi','success');
-}
-async function deleteMachine(id){ if(!confirm('Silmek istediğinizden emin misiniz?'))return; await api('/api/machines/'+id,'DELETE'); await loadMachines(); renderMachines(); toast('Silindi','success'); }
+function openColumnModal(){document.getElementById('editColId').value='';document.getElementById('colName').value='';document.getElementById('colType').value='text';document.getElementById('colMinStock').value=5;document.getElementById('minStockGroup').style.display='none';document.getElementById('columnModalTitle').textContent='Yeni Sütun';openModal('columnModal');}
+function editColumn(id){const c=columns.find(x=>x.id===id);if(!c)return;document.getElementById('editColId').value=id;document.getElementById('colName').value=c.name;document.getElementById('colType').value=c.data_type;document.getElementById('colMinStock').value=c.min_stock||5;document.getElementById('minStockGroup').style.display=c.data_type==='number'?'block':'none';document.getElementById('columnModalTitle').textContent='Sütun Düzenle';openModal('columnModal');}
+async function saveColumn(){const id=document.getElementById('editColId').value;const name=document.getElementById('colName').value.trim();const data_type=document.getElementById('colType').value;const min_stock=parseInt(document.getElementById('colMinStock').value)||0;if(!name){toast('Ad gerekli','error');return;}if(id)await api('/api/columns/'+id,'PUT',{name,data_type,display_order:columns.find(c=>c.id==id)?.display_order||0,min_stock});else await api('/api/columns','POST',{name,data_type,min_stock});closeModal('columnModal');await loadColumns();await loadProducts();renderColumns();toast('Kaydedildi','success');}
+async function deleteColumn(id){if(!confirm('Sütunu silmek istediğinizden emin misiniz?'))return;await api('/api/columns/'+id,'DELETE');await loadColumns();await loadProducts();renderColumns();toast('Silindi','success');}
 
 // ── FIRMS ─────────────────────────────────────────────────────────────────
 function renderFirms(){
-  document.getElementById('firmsTbody').innerHTML=firms.length?firms.map(f=>`<tr>
-    <td><strong>${esc(f.name)}</strong></td>
-    <td style="color:var(--text2);font-size:.82rem">${esc(f.notes||'')}</td>
-    <td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editFirm(${f.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteFirm(${f.id})">Sil</button></td>
-  </tr>`).join(''):'<tr><td colspan="3" class="empty">Firma yok</td></tr>';
+  document.getElementById('firmsTbody').innerHTML=firms.length?firms.map(f=>{
+    const vinçCount=machines.filter(m=>m.firm_id===f.id).length;
+    return `<tr><td><strong>${esc(f.name)}</strong></td><td style="color:var(--text2);font-size:.82rem">${esc(f.notes||'')}</td><td><span class="badge badge-admin">${vinçCount} vinç</span></td><td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editFirm(${f.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteFirm(${f.id})">Sil</button></td></tr>`;
+  }).join(''):'<tr><td colspan="4" class="empty">Firma yok</td></tr>';
 }
-function openFirmModal(){ document.getElementById('editFirmId').value=''; document.getElementById('firmName').value=''; document.getElementById('firmNotes').value=''; document.getElementById('firmModalTitle').textContent='Yeni Firma'; openModal('firmModal'); }
-function editFirm(id){ const f=firms.find(x=>x.id===id); if(!f)return; document.getElementById('editFirmId').value=id; document.getElementById('firmName').value=f.name; document.getElementById('firmNotes').value=f.notes||''; document.getElementById('firmModalTitle').textContent='Firma Düzenle'; openModal('firmModal'); }
-async function saveFirm(){ const id=document.getElementById('editFirmId').value; const name=document.getElementById('firmName').value.trim(); const notes=document.getElementById('firmNotes').value.trim(); if(!name){toast('Firma adı gerekli','error');return;} if(id) await api('/api/firms/'+id,'PUT',{name,notes}); else await api('/api/firms','POST',{name,notes}); closeModal('firmModal'); await loadFirms(); renderFirms(); toast('Kaydedildi','success'); }
-async function deleteFirm(id){ if(!confirm('Bu firmayı silmek istediğinizden emin misiniz?'))return; await api('/api/firms/'+id,'DELETE'); await loadFirms(); renderFirms(); toast('Silindi','success'); }
+function openFirmModal(){document.getElementById('editFirmId').value='';document.getElementById('firmName').value='';document.getElementById('firmNotes').value='';document.getElementById('firmModalTitle').textContent='Yeni Firma';openModal('firmModal');}
+function editFirm(id){const f=firms.find(x=>x.id===id);if(!f)return;document.getElementById('editFirmId').value=id;document.getElementById('firmName').value=f.name;document.getElementById('firmNotes').value=f.notes||'';document.getElementById('firmModalTitle').textContent='Firma Düzenle';openModal('firmModal');}
+async function saveFirm(){const id=document.getElementById('editFirmId').value;const name=document.getElementById('firmName').value.trim();const notes=document.getElementById('firmNotes').value.trim();if(!name){toast('Ad gerekli','error');return;}if(id)await api('/api/firms/'+id,'PUT',{name,notes});else await api('/api/firms','POST',{name,notes});closeModal('firmModal');await loadFirms();await loadMachines();renderFirms();toast('Kaydedildi','success');}
+async function deleteFirm(id){if(!confirm('Bu firmayı silmek istediğinizden emin misiniz?'))return;await api('/api/firms/'+id,'DELETE');await loadFirms();await loadMachines();renderFirms();toast('Silindi','success');}
+
+// ── MACHINES ─────────────────────────────────────────────────────────────
+function renderMachines(){
+  const sel=document.getElementById('machineFilter');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===cur?'selected':''}>${esc(f.name)}</option>`).join('');
+  sel.value=cur;
+  const list=document.getElementById('machineList');
+  const filtered=cur?machines.filter(m=>String(m.firm_id)===cur):machines;
+  if(!filtered.length){list.innerHTML='<div class="card empty"><div class="icon">🏗️</div>Vinç yok</div>';return;}
+  const grouped={};
+  filtered.forEach(m=>{const k=m.firm_name||'__';if(!grouped[k])grouped[k]=[];grouped[k].push(m);});
+  let html='';
+  Object.entries(grouped).forEach(([fn,list2])=>{
+    if(fn!=='__') html+=`<div style="display:flex;align-items:center;gap:.75rem;margin:.5rem 0"><div style="height:1px;flex:0 0 12px;background:var(--border)"></div><span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap">🏢 ${esc(fn)}</span><div style="height:1px;flex:1;background:var(--border)"></div></div>`;
+    html+=list2.map(m=>`<div class="card" style="margin-bottom:.75rem"><div style="padding:.85rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem"><div><div style="display:flex;align-items:center;gap:.5rem"><span style="font-weight:800;font-size:.9rem">🏗️ ${esc(m.machine_name)}</span>${m.firm_name?`<span class="badge badge-admin">${esc(m.firm_name)}</span>`:''}</div>${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>`:''}</div><div style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button></div></div><div style="padding:.85rem 1.1rem">${m.items.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gerekli</th></tr></thead><tbody>${m.items.map(it=>`<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td></tr>`).join('')}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün eklenmemiş</span>'}</div></div>`).join('');
+  });
+  list.innerHTML=html;
+}
+function openMachineModal(){document.getElementById('editMachineId').value='';document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');document.getElementById('machineName').value='';document.getElementById('machineNotes').value='';document.getElementById('machineItems').innerHTML='';document.getElementById('machineModalTitle').textContent='Yeni Vinç';openModal('machineModal');}
+function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
+function addMachineItem(pid='',qty=1){const firstCol=columns[0];const opts=products.map(p=>{const n=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`;return `<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(n)}</option>`;}).join('');const div=document.createElement('div');div.style.cssText='display:flex;gap:.4rem;align-items:center';div.innerHTML=`<select style="flex:1">${opts}</select><input type="number" value="${qty}" min="0" step="any" style="width:90px"><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;document.getElementById('machineItems').appendChild(div);}
+async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}const rows=document.getElementById('machineItems').children;const items=Array.from(rows).map(r=>({product_id:r.querySelector('select').value,quantity:parseFloat(r.querySelector('input').value)||1})).filter(i=>i.product_id);if(id)await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});else await api('/api/machines','POST',{machine_name,firm_id,notes,items});closeModal('machineModal');await loadMachines();renderMachines();toast('Kaydedildi','success');}
+async function deleteMachine(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/machines/'+id,'DELETE');await loadMachines();renderMachines();toast('Silindi','success');}
+
+// ── TASKS ─────────────────────────────────────────────────────────────────
+const taskStatusLabels={open:'Açık',in_progress:'Devam Ediyor',pending_transfer:'Devir Bekliyor',completed:'Tamamlandı',cancelled:'İptal'};
+const taskStatusColors={open:'var(--text2)',in_progress:'var(--success)',pending_transfer:'var(--warning)',completed:'var(--accent)',cancelled:'var(--muted)'};
+const priorityLabels={low:'Düşük',normal:'Normal',high:'Yüksek',urgent:'Acil'};
+const priorityColors={low:'var(--muted)',normal:'var(--text2)',high:'var(--warning)',urgent:'var(--danger)'};
+
+function renderTasks(){
+  const firmF=document.getElementById('taskFirmFilter').value;
+  const userF=document.getElementById('taskUserFilter').value;
+  // Populate filters
+  const fsel=document.getElementById('taskFirmFilter');const curF=fsel.value;
+  fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===curF?'selected':''}>${esc(f.name)}</option>`).join('');fsel.value=curF;
+  const usel=document.getElementById('taskUserFilter');const curU=usel.value;
+  const personnel=users.filter(u=>u.role==='personnel');
+  usel.innerHTML='<option value="">Tüm Personel</option>'+personnel.map(u=>`<option value="${u.id}" ${String(u.id)===curU?'selected':''}>${esc(u.display_name||u.username)}</option>`).join('');usel.value=curU;
+
+  let filtered=tasks;
+  if(firmF) filtered=filtered.filter(t=>String(t.firm_id)===firmF);
+  if(userF) filtered=filtered.filter(t=>String(t.assigned_to)===userF);
+
+  const cols=[
+    {key:'open',label:'Açık',icon:'📭',color:'var(--text2)'},
+    {key:'in_progress',label:'Devam Ediyor',icon:'⚡',color:'var(--success)'},
+    {key:'pending_transfer',label:'Devir Bekliyor',icon:'🔄',color:'var(--warning)'},
+    {key:'completed',label:'Tamamlandı',icon:'✅',color:'var(--accent)'},
+  ];
+  document.getElementById('taskKanban').innerHTML=cols.map(col=>{
+    const colTasks=filtered.filter(t=>t.status===col.key);
+    return `<div class="kanban-col">
+      <div class="kanban-col-header" style="color:${col.color}">${col.icon} ${col.label} <span style="background:var(--surface2);padding:1px 7px;border-radius:10px">${colTasks.length}</span></div>
+      <div class="kanban-col-body">${colTasks.map(t=>taskCard(t)).join('')}</div>
+      ${col.key==='open'?`<div style="padding:.75rem;border-top:1px solid var(--border)"><button class="btn btn-ghost btn-sm" style="width:100%" onclick="openTaskModal()">+ Yeni İş</button></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function taskCard(t){
+  const overdue=t.due_date&&new Date(t.due_date)<new Date()&&t.status!=='completed';
+  return `<div class="task-card priority-${t.priority}" onclick="showTaskDetail(${t.id})">
+    <div class="tc-title">${esc(t.title)}</div>
+    <div class="tc-meta">
+      ${t.assignee_name?`<span>👤 ${esc(t.assignee_name)}</span>`:'<span style="color:var(--muted)">Atanmamış</span>'}
+      ${t.firm_name?`<span>🏢 ${esc(t.firm_name)}</span>`:''}
+      ${t.machine_name?`<span>🏗️ ${esc(t.machine_name)}</span>`:''}
+    </div>
+    <div class="tc-badges">
+      <span class="badge" style="background:var(--surface);color:${priorityColors[t.priority]}">${priorityLabels[t.priority]||t.priority}</span>
+      ${t.task_type?`<span class="badge" style="background:var(--surface);color:var(--text2)">${esc(t.task_type)}</span>`:''}
+      ${overdue?`<span class="badge badge-low">Gecikmiş</span>`:''}
+      ${t.due_date&&!overdue?`<span class="badge" style="background:var(--surface);color:var(--text2)">${new Date(t.due_date).toLocaleDateString('tr-TR')}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function showTaskDetail(id){
+  const t=tasks.find(x=>x.id===id); if(!t)return;
+  document.getElementById('taskDetailTitle').textContent=t.title;
+  const overdue=t.due_date&&new Date(t.due_date)<new Date()&&t.status!=='completed';
+  document.getElementById('taskDetailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;font-family:var(--mono);font-size:.78rem">
+      <div><div style="color:var(--muted);margin-bottom:.2rem">Durum</div><span style="color:${taskStatusColors[t.status]||'var(--text)'}">${taskStatusLabels[t.status]||t.status}</span></div>
+      <div><div style="color:var(--muted);margin-bottom:.2rem">Öncelik</div><span style="color:${priorityColors[t.priority]}">${priorityLabels[t.priority]}</span></div>
+      <div><div style="color:var(--muted);margin-bottom:.2rem">Tür</div>${esc(t.task_type||'—')}</div>
+      <div><div style="color:var(--muted);margin-bottom:.2rem">Oluşturan</div>${esc(t.creator_name||'—')}</div>
+      ${t.firm_name?`<div><div style="color:var(--muted);margin-bottom:.2rem">Firma</div>${esc(t.firm_name)}</div>`:''}
+      ${t.machine_name?`<div><div style="color:var(--muted);margin-bottom:.2rem">Vinç</div>${esc(t.machine_name)}</div>`:''}
+      <div><div style="color:var(--muted);margin-bottom:.2rem">Atanan</div>${esc(t.assignee_name||'—')}</div>
+      ${t.due_date?`<div><div style="color:var(--muted);margin-bottom:.2rem">Son Tarih</div><span ${overdue?'style="color:var(--danger)"':''}>${new Date(t.due_date).toLocaleDateString('tr-TR')}${overdue?' ⚠️':''}</span></div>`:''}
+      ${t.started_at?`<div><div style="color:var(--muted);margin-bottom:.2rem">Başlangıç</div>${fmtDate(t.started_at)}</div>`:''}
+      ${t.completed_at?`<div><div style="color:var(--muted);margin-bottom:.2rem">Tamamlanma</div>${fmtDate(t.completed_at)}</div>`:''}
+    </div>
+    ${t.notes?`<div style="background:var(--surface2);border-radius:8px;padding:.75rem;font-size:.83rem;margin-bottom:1rem">${esc(t.notes)}</div>`:''}
+    ${t.transfers?.length?`<div style="margin-top:.75rem"><div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:.5rem">Devir Geçmişi</div>${t.transfers.map(tr=>`<div style="font-family:var(--mono);font-size:.72rem;padding:.35rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>${esc(tr.from_name)} → ${esc(tr.to_name)}</span><span class="badge ${tr.status==='accepted'?'badge-ok':tr.status==='rejected'?'badge-low':'badge-admin'}">${tr.status==='accepted'?'Kabul':'Bekliyor'}</span></div>`).join('')}</div>`:''}
+  `;
+  const footer=document.getElementById('taskDetailFooter');
+  footer.innerHTML='';
+  if(t.status!=='completed'&&t.status!=='cancelled'){
+    footer.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">Sil</button>`;
+    footer.innerHTML+=`<button class="btn btn-ghost" onclick="openTransferModal(${t.id})">🔄 Devret</button>`;
+    if(t.status==='open') footer.innerHTML+=`<button class="btn btn-success" onclick="completeTask(${t.id})">✅ Tamamla</button>`;
+    if(t.status==='in_progress') footer.innerHTML+=`<button class="btn btn-success" onclick="completeTask(${t.id})">✅ Tamamla</button>`;
+  }
+  footer.innerHTML+=`<button class="btn btn-ghost" onclick="closeModal('taskDetailModal')">Kapat</button>`;
+  openModal('taskDetailModal');
+}
+
+function openTaskModal(){
+  document.getElementById('editTaskId').value='';
+  document.getElementById('taskTitle').value='';
+  document.getElementById('taskType').value='';
+  document.getElementById('taskFirm').innerHTML='<option value="">— Firma —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  document.getElementById('taskMachine').innerHTML='<option value="">— Vinç —</option>';
+  document.getElementById('taskPriority').value='normal';
+  document.getElementById('taskDueDate').value='';
+  document.getElementById('taskAssignee').innerHTML='<option value="">— Personel Seçin —</option>'+users.filter(u=>u.role==='personnel').map(u=>`<option value="${u.id}">${esc(u.display_name||u.username)}</option>`).join('');
+  document.getElementById('taskNotes').value='';
+  document.getElementById('taskModalTitle').textContent='Yeni İş';
+  openModal('taskModal');
+}
+function filterTaskMachines(){
+  const fid=document.getElementById('taskFirm').value;
+  const sel=document.getElementById('taskMachine');
+  const filtered=fid?machines.filter(m=>String(m.firm_id)===fid):machines;
+  sel.innerHTML='<option value="">— Vinç —</option>'+filtered.map(m=>`<option value="${m.id}">🏗️ ${esc(m.machine_name)}</option>`).join('');
+}
+async function saveTask(){
+  const id=document.getElementById('editTaskId').value;
+  const title=document.getElementById('taskTitle').value.trim();
+  const task_type=document.getElementById('taskType').value.trim();
+  const firm_id=document.getElementById('taskFirm').value||null;
+  const machine_id=document.getElementById('taskMachine').value||null;
+  const priority=document.getElementById('taskPriority').value;
+  const due_date=document.getElementById('taskDueDate').value||null;
+  const assigned_to=document.getElementById('taskAssignee').value||null;
+  const notes=document.getElementById('taskNotes').value.trim();
+  if(!title){toast('Başlık gerekli','error');return;}
+  if(id) await api('/api/tasks/'+id,'PUT',{title,task_type,firm_id,machine_id,priority,notes,due_date});
+  else await api('/api/tasks','POST',{title,task_type,firm_id,machine_id,priority,notes,due_date,assigned_to});
+  closeModal('taskModal');await loadTasks();renderTasks();toast('İş kaydedildi','success');
+}
+async function completeTask(id){
+  if(!confirm('Bu işi tamamlandı olarak işaretlemek istiyor musunuz?'))return;
+  await api('/api/tasks/'+id+'/complete','POST');closeModal('taskDetailModal');await loadTasks();renderTasks();renderLiveJobBoard();toast('İş tamamlandı ✓','success');
+}
+async function deleteTask(id){
+  if(!confirm('Bu işi silmek istediğinizden emin misiniz?'))return;
+  await api('/api/tasks/'+id,'DELETE');closeModal('taskDetailModal');await loadTasks();renderTasks();toast('Silindi','success');
+}
+function openTransferModal(id){
+  document.getElementById('transferTaskId').value=id;
+  document.getElementById('transferTo').innerHTML='<option value="">— Personel Seçin —</option>'+users.filter(u=>u.role==='personnel').map(u=>`<option value="${u.id}">${esc(u.display_name||u.username)}</option>`).join('');
+  document.getElementById('transferMsg').value='';
+  closeModal('taskDetailModal');openModal('transferModal');
+}
+async function doTransfer(){
+  const task_id=document.getElementById('transferTaskId').value;
+  const to_user_id=document.getElementById('transferTo').value;
+  const message=document.getElementById('transferMsg').value.trim();
+  if(!to_user_id){toast('Personel seçin','error');return;}
+  await api('/api/tasks/'+task_id+'/transfer','POST',{to_user_id,message});
+  closeModal('transferModal');await loadTasks();renderTasks();toast('Devir yapıldı','success');
+}
+
+// ── PERFORMANCE ───────────────────────────────────────────────────────────
+function renderPerformance(){
+  if(!perf.length){document.getElementById('perfContent').innerHTML='<div class="card empty"><div class="icon">🏆</div>Performans verisi yok</div>';return;}
+  const maxScore=Math.max(...perf.map(p=>p.score),1);
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('perfContent').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
+      ${perf.map((p,i)=>`
+        <div class="card" style="padding:1.1rem 1.25rem;${i===0?'border-color:var(--accent)':''}">
+          <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+            <div style="font-size:1.5rem">${medals[i]||'👤'}</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.95rem">${esc(p.display_name||p.username)}</div>
+              <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${p.score} puan</div>
+            </div>
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent)">${p.score}</div>
+          </div>
+          <div class="perf-bar"><div class="perf-bar-fill" style="width:${Math.round(p.score/maxScore*100)}%"></div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:.85rem;font-family:var(--mono);font-size:.7rem;text-align:center">
+            <div><div style="color:var(--muted)">Tamamlanan</div><div style="font-weight:700;color:var(--success)">${p.completed_tasks}</div></div>
+            <div><div style="color:var(--muted)">Devam Eden</div><div style="font-weight:700;color:var(--warning)">${p.in_progress}</div></div>
+            <div><div style="color:var(--muted)">Stok İşlemi</div><div style="font-weight:700">${p.tx_count}</div></div>
+          </div>
+          ${p.avg_hours?`<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);text-align:center;margin-top:.5rem">Ort. tamamlama: ${p.avg_hours} saat</div>`:''}
+        </div>`).join('')}
+    </div>
+    <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:1rem">Puan: Tamamlanan iş ×10 + Stok işlemi ×2 + Hız bonusu (4 saat altı: +5)</div>`;
+}
 
 // ── TRANSACTIONS ──────────────────────────────────────────────────────────
 function renderTransactions(){
   const q=document.getElementById('txSearch').value.toLowerCase();
   const typ=document.getElementById('txTypeFilter').value;
   let txs=transactions;
-  if (q) txs=txs.filter(t=>(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q)||(t.user_name||'').toLowerCase().includes(q));
-  if (typ) txs=txs.filter(t=>(t.tx_type||'out')===typ);
-  document.getElementById('txTbody').innerHTML=txs.length?txs.map(t=>`<tr>
-    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
-    <td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
-    <td style="font-family:var(--mono)">${t.quantity}</td>
-    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
-    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})" title="İptal et">↩</button></td>
-  </tr>`).join(''):'<tr><td colspan="8" class="empty">İşlem yok</td></tr>';
+  if(q) txs=txs.filter(t=>(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q)||(t.user_name||'').toLowerCase().includes(q));
+  if(typ) txs=txs.filter(t=>(t.tx_type||'out')===typ);
+  document.getElementById('txTbody').innerHTML=txs.length?txs.map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td><td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td><td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td><td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})" title="İptal">↩</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty">İşlem yok</td></tr>';
 }
-function filterTx(){ renderTransactions(); }
-async function deleteTx(id){ if(!confirm('Bu işlemi iptal edip stoku geri yüklemek istiyor musunuz?'))return; await api('/api/transactions/'+id,'DELETE'); await Promise.all([loadTransactions(),loadProducts()]); renderTransactions(); toast('İşlem iptal edildi, stok güncellendi','success'); }
+function filterTx(){renderTransactions();}
+async function deleteTx(id){if(!confirm('Bu işlemi iptal edip stoku geri yüklemek istiyor musunuz?'))return;await api('/api/transactions/'+id,'DELETE');await Promise.all([loadTransactions(),loadProducts()]);renderTransactions();toast('İptal edildi, stok güncellendi','success');}
 
 // ── USERS ─────────────────────────────────────────────────────────────────
 function renderUsers(){
-  document.getElementById('usersTbody').innerHTML=users.map(u=>`<tr>
-    <td><strong>${esc(u.display_name||u.username)}</strong></td>
-    <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
-    <td><span class="badge badge-${u.role}">${u.role==='admin'?'Yönetici':'Personel'}</span></td>
-    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
-    <td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button></td>
-  </tr>`).join('');
+  document.getElementById('usersTbody').innerHTML=users.map(u=>`<tr><td><strong>${esc(u.display_name||u.username)}</strong></td><td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td><td><span class="badge badge-${u.role}">${u.role==='admin'?'Yönetici':'Personel'}</span></td><td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td><td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button></td></tr>`).join('');
 }
-function openUserModal(){ document.getElementById('editUserId').value=''; document.getElementById('userDisplayName').value=''; document.getElementById('userUsername').value=''; document.getElementById('userPassword').value=''; document.getElementById('userRole').value='personnel'; document.getElementById('userUsername').disabled=false; document.getElementById('passOptional').style.display='none'; document.getElementById('userModalTitle').textContent='Yeni Kullanıcı'; openModal('userModal'); }
-function editUser(id){ const u=users.find(x=>x.id===id); if(!u)return; document.getElementById('editUserId').value=id; document.getElementById('userDisplayName').value=u.display_name||''; document.getElementById('userUsername').value=u.username; document.getElementById('userPassword').value=''; document.getElementById('userRole').value=u.role; document.getElementById('userUsername').disabled=true; document.getElementById('passOptional').style.display='inline'; document.getElementById('userModalTitle').textContent='Kullanıcı Düzenle'; openModal('userModal'); }
-async function saveUser(){ const id=document.getElementById('editUserId').value; const display_name=document.getElementById('userDisplayName').value.trim(); const username=document.getElementById('userUsername').value.trim(); const password=document.getElementById('userPassword').value; const role=document.getElementById('userRole').value; if(!display_name||(!id&&!username)||(!id&&!password)){toast('Lütfen tüm alanları doldurun','error');return;} if(id) await api('/api/users/'+id,'PUT',{display_name,role,password:password||undefined}); else await api('/api/users','POST',{username,password,role,display_name}); closeModal('userModal'); await loadUsers(); renderUsers(); toast('Kaydedildi','success'); }
-async function deleteUser(id){ if(!confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?'))return; await api('/api/users/'+id,'DELETE'); await loadUsers(); renderUsers(); toast('Kullanıcı silindi','success'); }
+function openUserModal(){document.getElementById('editUserId').value='';document.getElementById('userDisplayName').value='';document.getElementById('userUsername').value='';document.getElementById('userPassword').value='';document.getElementById('userRole').value='personnel';document.getElementById('userUsername').disabled=false;document.getElementById('passOptional').style.display='none';document.getElementById('userModalTitle').textContent='Yeni Kullanıcı';openModal('userModal');}
+function editUser(id){const u=users.find(x=>x.id===id);if(!u)return;document.getElementById('editUserId').value=id;document.getElementById('userDisplayName').value=u.display_name||'';document.getElementById('userUsername').value=u.username;document.getElementById('userPassword').value='';document.getElementById('userRole').value=u.role;document.getElementById('userUsername').disabled=true;document.getElementById('passOptional').style.display='inline';document.getElementById('userModalTitle').textContent='Kullanıcı Düzenle';openModal('userModal');}
+async function saveUser(){const id=document.getElementById('editUserId').value;const display_name=document.getElementById('userDisplayName').value.trim();const username=document.getElementById('userUsername').value.trim();const password=document.getElementById('userPassword').value;const role=document.getElementById('userRole').value;if(!display_name||(!id&&!username)||(!id&&!password)){toast('Lütfen tüm alanları doldurun','error');return;}if(id)await api('/api/users/'+id,'PUT',{display_name,role,password:password||undefined});else await api('/api/users','POST',{username,password,role,display_name});closeModal('userModal');await loadUsers();renderUsers();toast('Kaydedildi','success');}
+async function deleteUser(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/users/'+id,'DELETE');await loadUsers();renderUsers();toast('Kullanıcı silindi','success');}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-function esc(s){ if(s==null)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function fmtDate(s){ return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 let toastTimer;
-function toast(msg,type='success'){ const el=document.getElementById('toast'); el.textContent=(type==='success'?'✓ ':'✗ ')+msg; el.className='show '+type; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',3000); }
-async function logout(){ localStorage.removeItem('stok_token');
-  await fetch('/api/logout',{method:'POST'}); window.location.href='/'; }
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
-
-function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
-function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
-document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{ if(window.innerWidth<=768) closeSidebar(); }));
-
-
-// ── JWT: tüm API isteklerine token ekle ──────────────────────────────────
-const _origFetch = window.fetch.bind(window);
-window.fetch = function(url, opts = {}) {
-  if (typeof url === 'string' && url.startsWith('/api')) {
-    const token = localStorage.getItem('stok_token');
-    if (token) {
-      opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + token };
-    }
-  }
-  return _origFetch(url, opts);
-};
+function toast(msg,type='success'){const el=document.getElementById('toast');el.textContent=(type==='success'?'✓ ':'✗ ')+msg;el.className='show '+type;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',3000);}
+async function logout(){localStorage.removeItem('stok_token');await fetch('/api/logout',{method:'POST'});window.location.href='/';}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
+document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
 
 init();
 </script>
