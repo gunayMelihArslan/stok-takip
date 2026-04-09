@@ -53,7 +53,7 @@
     <!-- MY TASKS -->
     <div class="page active" id="page-mytasks">
       <div id="transferAlerts"></div>
-      <div class="toolbar"><button class="btn btn-ghost" onclick="loadAll()">↺ Yenile</button></div>
+      <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button></div>
       <div id="myTaskList"></div>
     </div>
 
@@ -61,14 +61,14 @@
     <div class="page" id="page-opentasks">
       <div class="toolbar">
         <select id="openFirmFilter" style="max-width:180px" onchange="renderOpenTasks()"><option value="">Tüm Firmalar</option></select>
-        <button class="btn btn-ghost" onclick="loadAll()">↺</button>
+        <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div id="openTaskList"></div>
     </div>
 
     <!-- STOCK -->
     <div class="page" id="page-stock">
-      <div class="toolbar"><input type="text" id="stockSearch" placeholder="🔍 Ürün ara..." style="max-width:280px" oninput="filterStock()"><button class="btn btn-ghost" onclick="loadAll()">↺</button></div>
+      <div class="toolbar"><input type="text" id="stockSearch" placeholder="🔍 Ürün ara..." style="max-width:280px" oninput="filterStock()"><button class="btn btn-ghost" onclick="refresh()">↺</button></div>
       <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
     </div>
 
@@ -129,7 +129,7 @@
 
     <!-- HISTORY -->
     <div class="page" id="page-history">
-      <div class="toolbar"><button class="btn btn-ghost" onclick="loadMyHistory()">↺</button></div>
+      <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺</button></div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div>
     </div>
 
@@ -169,9 +169,23 @@ async function api(url,method='GET',body=null){
   catch{toast('Bağlantı hatası','error');return null;}
 }
 function connectSSE(){
-  const es=new EventSource('/api/events');
-  es.addEventListener('task_update',async()=>{await loadTasks();if(currentPage==='mytasks')renderMyTasks();if(currentPage==='opentasks')renderOpenTasks();});
-  es.addEventListener('stock_update',async()=>{await loadProducts();if(currentPage==='stock')renderStock();});
+  const _sseToken=localStorage.getItem('stok_token')||'';
+  const es=new EventSource('/api/events?token='+encodeURIComponent(_sseToken));
+  es.onerror=()=>{es.close();setTimeout(connectSSE,3000);};
+  es.addEventListener('task_update',async()=>{
+    await loadTasks();
+    if(currentPage==='mytasks'){renderMyTasks();}
+    if(currentPage==='opentasks'){renderOpenTasks();}
+    // Always check for pending transfers and show badge
+    const cnt=pendingTransfers.length;
+    const ab=document.getElementById('alertBadge');
+    if(cnt){ab.textContent=cnt;ab.style.display='inline';}else ab.style.display='none';
+  });
+  es.addEventListener('stock_update',async()=>{
+    await loadProducts();
+    if(currentPage==='stock'){renderStock();}
+    if(currentPage==='take'||currentPage==='bulktake'||currentPage==='return'){await loadAll();}
+  });
 }
 async function loadAll(){
   [columns,products,machines,firms,allUsers]=await Promise.all([api('/api/columns'),api('/api/products'),api('/api/machines'),api('/api/firms'),api('/api/users')]);
@@ -387,6 +401,19 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
 document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+async function refresh(){
+  const fns={
+    mytasks:   async()=>{await loadTasks();renderMyTasks();},
+    opentasks: async()=>{await loadTasks();renderOpenTasks();},
+    stock:     async()=>{await loadProducts();renderStock();},
+    take:      loadAll,
+    bulktake:  loadAll,
+    return:    loadAll,
+    history:   loadMyHistory,
+  };
+  const fn=fns[currentPage];
+  if(fn){await fn();toast('Güncellendi ✓','success');}
+}
 init();
 </script>
 </body>
