@@ -91,5 +91,22 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
+
+  // ── Yoklama tablosu (eklemeli) ────────────────────────────────────────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS attendance (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'normal',
+      extra_hours NUMERIC,
+      note_time TEXT,
+      notes TEXT DEFAULT '',
+      created_by INT REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, date)
+    );
+  `);
 }
 module.exports = { query, init, pool };
