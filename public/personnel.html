@@ -140,7 +140,7 @@
         </select>
         <button class="btn btn-ghost" onclick="loadAndRenderMyAttendance()">↺</button>
       </div>
-      <div id="myAttSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:1rem"></div>
+      <div id="myAttSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:1rem"></div>
       <div id="myAttGrid"></div>
     </div>
 
@@ -198,9 +198,7 @@ function connectSSE(){
     const ab=document.getElementById('alertBadge');
     if(cnt){ab.textContent=cnt;ab.style.display='inline';}else ab.style.display='none';
   });
-  es.addEventListener('attendance_update',async()=>{
-    if(currentPage==='myattendance') await loadAndRenderMyAttendance();
-  });
+  es.addEventListener('attendance_update',async()=>{if(currentPage==='myattendance')await loadAndRenderMyAttendance();});
   es.addEventListener('stock_update',async()=>{
     await loadProducts();
     if(currentPage==='stock'){renderStock();}
@@ -421,99 +419,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
 document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
-// ── DEVAMSIZLıK ──────────────────────────────────────────────────────────
-
-const MY_ATT_STATUS = {
-  normal:      {label:'Normal',       icon:'✅', color:'var(--success)'},
-  overtime:    {label:'Ek Mesai',     icon:'⏰', color:'var(--accent)'},
-  annual:      {label:'Senelik İzin', icon:'🌴', color:'#64b5f6'},
-  early_exit:  {label:'Erken Çıktı',  icon:'🚪', color:'var(--warning)'},
-  on_road:     {label:'Yolda',        icon:'🚗', color:'#ce93d8'},
-  absent:      {label:'Gelmedi',      icon:'❌', color:'var(--danger)'},
-  sick:        {label:'Raporlu',      icon:'🏥', color:'#ef9a9a'},
-  holiday_cel: {label:'Bayram',       icon:'🎉', color:'#80cbc4'},
-  late:        {label:'Geç Geldi',    icon:'⏱️', color:'var(--warning)'},
-  official_hol:{label:'Resmi Tatil',  icon:'🏛️', color:'#b0bec5'},
-  road_permit: {label:'Yol İzni',     icon:'📋', color:'#a5d6a7'},
-};
-
-let myAttendanceData = [];
-
-function initMyAttDatePicker(){
-  const now=new Date();
-  const yearSel=document.getElementById('myAttYear');
-  const monthSel=document.getElementById('myAttMonth');
-  if(!yearSel.options.length){
-    for(let y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
-      yearSel.add(new Option(y,y,y===now.getFullYear(),y===now.getFullYear()));
-    }
-  }
-  monthSel.value=now.getMonth()+1;
-}
-
-async function loadAndRenderMyAttendance(){
-  initMyAttDatePicker();
-  const year=document.getElementById('myAttYear')?.value;
-  const month=document.getElementById('myAttMonth')?.value;
-  if(!year||!month)return;
-  myAttendanceData=await api(`/api/attendance?year=${year}&month=${month}`)||[];
-  renderMyAttGrid(year,month);
-}
-
-function renderMyAttGrid(year,month){
-  const grid=document.getElementById('myAttGrid');
-  const summaryDiv=document.getElementById('myAttSummary');
-  if(!grid)return;
-  const daysInMonth=new Date(year,month,0).getDate();
-  const months=['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
-
-  // Summary counts
-  const counts={};let overtimeTotal=0;
-  myAttendanceData.forEach(r=>{
-    counts[r.status]=(counts[r.status]||0)+1;
-    if(r.status==='overtime') overtimeTotal+=parseFloat(r.extra_hours||0);
-  });
-  const present=myAttendanceData.filter(r=>['normal','overtime','late','early_exit','on_road'].includes(r.status)).length;
-
-  summaryDiv.innerHTML=`
-    <div class="stat-card"><div class="label">Devam</div><div class="value" style="color:var(--success)">${present}</div><div class="sub">gün</div></div>
-    <div class="stat-card"><div class="label">Ek Mesai</div><div class="value" style="color:var(--accent)">${overtimeTotal>0?overtimeTotal+'h':'—'}</div><div class="sub">toplam saat</div></div>
-    <div class="stat-card"><div class="label">Gelmedi</div><div class="value" style="color:var(--danger)">${counts.absent||0}</div><div class="sub">gün</div></div>
-    <div class="stat-card"><div class="label">İzin</div><div class="value" style="color:#64b5f6">${counts.annual||0}</div><div class="sub">gün</div></div>
-    <div class="stat-card"><div class="label">Raporlu</div><div class="value" style="color:#ef9a9a">${counts.sick||0}</div><div class="sub">gün</div></div>
-  `;
-
-  // Build day lookup
-  const lookup={};
-  myAttendanceData.forEach(r=>{lookup[new Date(r.date).getUTCDate()]=r;});
-
-  const cells=Array.from({length:daysInMonth},(_,i)=>{
-    const day=i+1;
-    const d=new Date(year,month-1,day);
-    const dow=d.getDay();
-    const isWeekend=dow===0||dow===6;
-    const dowLabel=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][dow];
-    const rec=lookup[day];
-    const s=rec?MY_ATT_STATUS[rec.status]:null;
-    const isToday=new Date().toDateString()===d.toDateString();
-    let extra='';
-    if(rec?.status==='overtime'&&rec.extra_hours) extra=`<div style="font-family:var(--mono);font-size:.62rem;color:var(--accent)">${rec.extra_hours}h mesai</div>`;
-    if((rec?.status==='late'||rec?.status==='early_exit')&&rec.note_time) extra=`<div style="font-family:var(--mono);font-size:.62rem;color:var(--warning)">${rec.note_time}</div>`;
-    if(rec?.notes) extra+=`<div style="font-size:.62rem;color:var(--text2);font-style:italic">${esc(rec.notes)}</div>`;
-    return `<div style="background:${isWeekend?'rgba(232,75,75,.04)':'var(--surface2)'};border:1px solid ${isToday?'var(--accent)':isWeekend?'rgba(232,75,75,.15)':'var(--border2)'};border-radius:8px;padding:.5rem .6rem;${isToday?'box-shadow:0 0 0 1px var(--accent);':''}">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
-        <span style="font-family:var(--mono);font-size:.72rem;font-weight:700;${isWeekend?'color:var(--danger)':''}">${day}</span>
-        <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">${dowLabel}</span>
-      </div>
-      ${s?`<div style="display:flex;align-items:center;gap:.25rem;margin-bottom:.15rem"><span>${s.icon}</span><span style="font-size:.72rem;font-weight:700;color:${s.color}">${s.label}</span></div>${extra}`:`<div style="font-size:.68rem;color:var(--muted)">—</div>`}
-    </div>`;
-  }).join('');
-
-  grid.innerHTML=`
-    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.6rem">${months[month]} ${year} — ${daysInMonth} gün</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:.5rem">${cells}</div>`;
-}
-
 async function refresh(){
   const fns={
     mytasks:   async()=>{await loadTasks();renderMyTasks();},
@@ -532,3 +437,30 @@ init();
 </script>
 </body>
 </html>
+<script>
+/* ── DEVAMSIZLIK EKLENTİSİ ────────────────────────────────────────────── */
+const MY_ATT={normal:{label:'Normal',icon:'✅',color:'var(--success)'},overtime:{label:'Ek Mesai',icon:'⏰',color:'var(--accent)'},annual:{label:'Senelik İzin',icon:'🌴',color:'#64b5f6'},early_exit:{label:'Erken Çıktı',icon:'🚪',color:'var(--warning)'},on_road:{label:'Yolda',icon:'🚗',color:'#ce93d8'},absent:{label:'Gelmedi',icon:'❌',color:'var(--danger)'},sick:{label:'Raporlu',icon:'🏥',color:'#ef9a9a'},holiday_cel:{label:'Bayram',icon:'🎉',color:'#80cbc4'},late:{label:'Geç Geldi',icon:'⏱️',color:'var(--warning)'},official_hol:{label:'Resmi Tatil',icon:'🏛️',color:'#b0bec5'},road_permit:{label:'Yol İzni',icon:'📋',color:'#a5d6a7'}};
+let myAttData=[];
+function initMyAttPicker(){const now=new Date();const y=document.getElementById('myAttYear');const m=document.getElementById('myAttMonth');if(y&&!y.options.length){for(let yr=now.getFullYear()-1;yr<=now.getFullYear()+1;yr++)y.add(new Option(yr,yr,yr===now.getFullYear(),yr===now.getFullYear()));}if(m)m.value=now.getMonth()+1;}
+async function loadAndRenderMyAttendance(){initMyAttPicker();const year=document.getElementById('myAttYear')?.value;const month=document.getElementById('myAttMonth')?.value;if(!year||!month)return;myAttData=await api('/api/attendance?year='+year+'&month='+month)||[];renderMyAttGrid(year,month);}
+function renderMyAttGrid(year,month){
+  const grid=document.getElementById('myAttGrid');const sumDiv=document.getElementById('myAttSummary');if(!grid)return;
+  const daysInMonth=new Date(year,month,0).getDate();
+  const months=['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const counts={};let overtimeTotal=0;
+  myAttData.forEach(r=>{counts[r.status]=(counts[r.status]||0)+1;if(r.status==='overtime')overtimeTotal+=parseFloat(r.extra_hours||0);});
+  const present=myAttData.filter(r=>['normal','overtime','late','early_exit','on_road'].includes(r.status)).length;
+  sumDiv.innerHTML='<div class="stat-card"><div class="label">Devam</div><div class="value" style="color:var(--success)">'+present+'</div><div class="sub">gün</div></div><div class="stat-card"><div class="label">Ek Mesai</div><div class="value" style="color:var(--accent)">'+(overtimeTotal>0?overtimeTotal+'h':'—')+'</div><div class="sub">toplam</div></div><div class="stat-card"><div class="label">Gelmedi</div><div class="value" style="color:var(--danger)">'+(counts.absent||0)+'</div><div class="sub">gün</div></div><div class="stat-card"><div class="label">İzin</div><div class="value" style="color:#64b5f6">'+(counts.annual||0)+'</div><div class="sub">gün</div></div><div class="stat-card"><div class="label">Raporlu</div><div class="value" style="color:#ef9a9a">'+(counts.sick||0)+'</div><div class="sub">gün</div></div>';
+  const lookup={};myAttData.forEach(r=>{lookup[new Date(r.date).getUTCDate()]=r;});
+  const dayLabels=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+  const cells=Array.from({length:daysInMonth},(_,i)=>{
+    const day=i+1;const d=new Date(year,month-1,day);const dow=d.getDay();const we=dow===0||dow===6;
+    const rec=lookup[day];const s=rec?MY_ATT[rec.status]:null;
+    const isToday=new Date().toDateString()===d.toDateString();
+    let extra='';if(rec?.status==='overtime'&&rec.extra_hours)extra='<div style="font-family:var(--mono);font-size:.62rem;color:var(--accent)">'+rec.extra_hours+'h mesai</div>';if((rec?.status==='late'||rec?.status==='early_exit')&&rec.note_time)extra='<div style="font-family:var(--mono);font-size:.62rem;color:var(--warning)">'+rec.note_time+'</div>';if(rec?.notes)extra+='<div style="font-size:.62rem;color:var(--text2);font-style:italic">'+esc(rec.notes)+'</div>';
+    return '<div style="background:'+(we?'rgba(232,75,75,.04)':'var(--surface2)')+';border:1px solid '+(isToday?'var(--accent)':we?'rgba(232,75,75,.15)':'var(--border2)')+';border-radius:8px;padding:.5rem .6rem;'+(isToday?'box-shadow:0 0 0 1px var(--accent);':'')+'"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem"><span style="font-family:var(--mono);font-size:.72rem;font-weight:700;'+(we?'color:var(--danger)':'')+'">'+ day+'</span><span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+dayLabels[dow]+'</span></div>'+(s?'<div style="display:flex;align-items:center;gap:.25rem;margin-bottom:.15rem"><span>'+s.icon+'</span><span style="font-size:.72rem;font-weight:700;color:'+s.color+'">'+s.label+'</span></div>'+extra:'<div style="font-size:.68rem;color:var(--muted)">—</div>')+'</div>';
+  }).join('');
+  grid.innerHTML='<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.6rem">'+months[month]+' '+year+' — '+daysInMonth+' gün</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:.5rem">'+cells+'</div>';
+}
+/* ── DEVAMSIZLIK EKLENTİSİ SONU ──────────────────────────────────────── */
+</script>
