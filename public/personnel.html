@@ -2,218 +2,200 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Personel Paneli — Stok Takip</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Personel — Stok Takip</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+.task-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;cursor:pointer;transition:border-color .15s;}
+.task-card:hover{border-color:var(--accent);}
+.priority-urgent{border-left:3px solid var(--danger);}
+.priority-high{border-left:3px solid var(--warning);}
+.priority-normal{border-left:3px solid var(--border2);}
+.priority-low{border-left:3px solid var(--muted);}
+.transfer-alert{background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.3);border-radius:10px;padding:.85rem 1rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;}
+</style>
 </head>
 <body>
-
 <div class="mobile-bar">
   <div class="brand"><div class="icon">🏭</div><span>Stok Takip</span></div>
   <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="icon">🏭</div>
-    <div><div class="title">Stok Takip</div><div class="subtitle">Personel</div></div>
-  </div>
+  <div class="sidebar-brand"><div class="icon">🏭</div><div><div class="title">Stok Takip</div><div class="subtitle">Personel</div></div></div>
   <div class="sidebar-nav">
-    <div class="nav-item active" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
+    <div class="nav-item active" onclick="showPage('mytasks')"><span class="nav-icon">📋</span>İşlerim <span id="pendingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
+    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
     <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
     <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
     <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
-    <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📋</span>İşlem Geçmişim</div>
-    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Listesi</div>
+    <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📑</span>İşlem Geçmişim</div>
   </div>
   <div class="sidebar-footer">
-    <div class="user-chip">
-      <div class="avatar" id="avatarInit">P</div>
-      <div class="info"><div class="name" id="userName">Personel</div><div class="role">Personel</div></div>
-    </div>
+    <div class="user-chip"><div class="avatar" id="avatarInit">P</div><div class="info"><div class="name" id="userName">Personel</div><div class="role">Personel</div></div></div>
     <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
   </div>
 </nav>
 
 <div class="main">
-  <div class="topbar">
-    <h2 id="pageTitle">Stok Durumu</h2>
-    <span class="meta" id="pageTime"></span>
-  </div>
+  <div class="topbar"><h2 id="pageTitle">İşlerim</h2><span class="meta" id="pageTime"></span></div>
   <div class="content">
 
-    <!-- Stock -->
-    <div class="page active" id="page-stock">
+    <!-- MY TASKS -->
+    <div class="page active" id="page-mytasks">
+      <div id="transferAlerts"></div>
+      <div class="toolbar"><button class="btn btn-ghost" onclick="loadAll()">↺ Yenile</button></div>
+      <div id="myTaskList" style="display:grid;gap:.6rem"></div>
+    </div>
+
+    <!-- OPEN TASKS -->
+    <div class="page" id="page-opentasks">
       <div class="toolbar">
-        <input type="text" id="stockSearch" placeholder="🔍 Ürün ara..." style="max-width:280px" oninput="filterStock()">
+        <select id="openTaskFirmFilter" style="max-width:180px" onchange="renderOpenTasks()"><option value="">Tüm Firmalar</option></select>
         <button class="btn btn-ghost" onclick="loadAll()">↺ Yenile</button>
       </div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody>
-      </table></div></div>
+      <div id="openTaskList" style="display:grid;gap:.6rem"></div>
     </div>
 
-    <!-- Take (single) -->
+    <!-- STOCK -->
+    <div class="page" id="page-stock">
+      <div class="toolbar"><input type="text" id="stockSearch" placeholder="🔍 Ürün ara..." style="max-width:280px" oninput="filterStock()"><button class="btn btn-ghost" onclick="loadAll()">↺</button></div>
+      <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- TAKE -->
     <div class="page" id="page-take">
-      <div style="max-width:560px">
-        <div class="card">
-          <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.95rem;font-weight:800">Ürün Alma Kaydı</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Stoktan aldığınız ürün bilgilerini girin</p>
+      <div style="max-width:540px"><div class="card">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün Alma Kaydı</h3></div>
+        <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.85rem">
+          <div class="form-group" style="margin:0"><label>Ürün Seçin</label>
+            <input type="text" id="takeProductSearch" placeholder="Ürün adı yazın..." oninput="filterTakeProducts()" autocomplete="off">
+            <div id="takeProductDropdown" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
+            <input type="hidden" id="takeProductId">
           </div>
-          <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.9rem">
-            <div class="form-group" style="margin:0">
-              <label>Ürün Seçin</label>
-              <input type="text" id="takeProductSearch" placeholder="Ürün adı yazın..." oninput="filterTakeProducts()" autocomplete="off">
-              <div id="takeProductDropdown" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
-              <input type="hidden" id="takeProductId">
-            </div>
-            <div id="productInfoBox" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;font-family:var(--mono);font-size:.76rem;"></div>
-            <div class="form-group" style="margin:0">
-              <label>Firma</label>
-              <input type="text" id="takeCompany" list="firmList" placeholder="Firma adı seçin veya yazın...">
-              <datalist id="firmList"></datalist>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>Miktar</label>
-              <input type="number" id="takeQty" min="0.01" step="any" placeholder="0">
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>Not (opsiyonel)</label>
-              <input type="text" id="takeNote" placeholder="Ek açıklama...">
-            </div>
-            <button class="btn btn-primary btn-full" onclick="submitTake()">📤 Alımı Kaydet</button>
-          </div>
+          <div id="productInfoBox" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;font-family:var(--mono);font-size:.76rem;"></div>
+          <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="takeCompany" list="firmList" placeholder="Firma adı..."><datalist id="firmList"></datalist></div>
+          <div class="form-group" style="margin:0"><label>Miktar</label><input type="number" id="takeQty" min="0.01" step="any" placeholder="0"></div>
+          <div class="form-group" style="margin:0"><label>Not (opsiyonel)</label><input type="text" id="takeNote"></div>
+          <button class="btn btn-primary btn-full" onclick="submitTake()">📤 Alımı Kaydet</button>
         </div>
-      </div>
+      </div></div>
     </div>
 
-    <!-- Bulk take (machine) -->
+    <!-- BULK TAKE -->
     <div class="page" id="page-bulktake">
-      <div style="max-width:560px">
-        <div class="card">
-          <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.95rem;font-weight:800">Vinç İçin Toplu Alım</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Firmayı seçin, ardından vinci seçin — gerekli tüm ürünler otomatik düşülür</p>
-          </div>
-          <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.9rem">
-            <div class="form-group" style="margin:0">
-              <label>Firma</label>
-              <select id="bulkFirmFilter" onchange="filterMachinesByFirm()">
-                <option value="">— Önce firma seçin —</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>Vinç Seçin</label>
-              <select id="bulkMachine" onchange="loadMachinePreview()" disabled>
-                <option value="">— Vinç seçin —</option>
-              </select>
-            </div>
-            <div id="machinePreview" style="display:none"></div>
-            <div class="form-group" style="margin:0">
-              <label>Firma</label>
-              <input type="text" id="bulkCompany" list="firmList2" placeholder="Firma adı seçin veya yazın...">
-              <datalist id="firmList2"></datalist>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>Not (opsiyonel)</label>
-              <input type="text" id="bulkNote" placeholder="Ek açıklama...">
-            </div>
-            <button class="btn btn-primary btn-full" id="bulkSubmitBtn" onclick="submitBulkTake()" disabled>🔧 Toplu Alımı Kaydet</button>
-          </div>
+      <div style="max-width:540px"><div class="card">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Vinç İçin Toplu Alım</h3><p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Firmayı seç → Vinci seç → tüm malzeme düşülür</p></div>
+        <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.85rem">
+          <div class="form-group" style="margin:0"><label>Firma</label><select id="bulkFirmFilter" onchange="filterMachinesByFirm()"><option value="">— Firma seçin —</option></select></div>
+          <div class="form-group" style="margin:0"><label>Vinç</label><select id="bulkMachine" disabled onchange="loadMachinePreview()"><option value="">— Vinç seçin —</option></select></div>
+          <div id="machinePreview" style="display:none"></div>
+          <div class="form-group" style="margin:0"><label>Firma (fatura)</label><input type="text" id="bulkCompany" list="firmList2" placeholder="Fatura firması..."><datalist id="firmList2"></datalist></div>
+          <div class="form-group" style="margin:0"><label>Not</label><input type="text" id="bulkNote"></div>
+          <button class="btn btn-primary btn-full" id="bulkSubmitBtn" disabled onclick="submitBulkTake()">🏗️ Toplu Alımı Kaydet</button>
         </div>
-      </div>
+      </div></div>
     </div>
 
-    <!-- Return -->
+    <!-- RETURN -->
     <div class="page" id="page-return">
-      <div style="max-width:560px">
-        <div class="card">
-          <div style="padding:1.1rem 1.25rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.95rem;font-weight:800">Ürün İadesi</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">İade edilen ürün stoka geri eklenir</p>
+      <div style="max-width:540px"><div class="card">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün İadesi</h3></div>
+        <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.85rem">
+          <div class="form-group" style="margin:0"><label>Ürün</label>
+            <input type="text" id="retProductSearch" placeholder="Ürün adı yazın..." oninput="filterRetProducts()" autocomplete="off">
+            <div id="retProductDropdown" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
+            <input type="hidden" id="retProductId">
           </div>
-          <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.9rem">
-            <div class="form-group" style="margin:0">
-              <label>Ürün Seçin</label>
-              <input type="text" id="retProductSearch" placeholder="Ürün adı yazın..." oninput="filterRetProducts()" autocomplete="off">
-              <div id="retProductDropdown" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
-              <input type="hidden" id="retProductId">
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>Firma</label>
-              <input type="text" id="retCompany" list="firmList3" placeholder="Firma adı seçin veya yazın...">
-              <datalist id="firmList3"></datalist>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>İade Miktarı</label>
-              <input type="number" id="retQty" min="0.01" step="any" placeholder="0">
-            </div>
-            <div class="form-group" style="margin:0">
-              <label>İade Nedeni</label>
-              <input type="text" id="retNote" placeholder="Fazla alındı, kullanılmadı vb.">
-            </div>
-            <button class="btn btn-success btn-full" onclick="submitReturn()">↩ İadeyi Kaydet</button>
-          </div>
+          <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="retCompany" list="firmList3" placeholder="Firma..."><datalist id="firmList3"></datalist></div>
+          <div class="form-group" style="margin:0"><label>İade Miktarı</label><input type="number" id="retQty" min="0.01" step="any" placeholder="0"></div>
+          <div class="form-group" style="margin:0"><label>İade Nedeni</label><input type="text" id="retNote" placeholder="Fazla alındı, kullanılmadı..."></div>
+          <button class="btn btn-success btn-full" onclick="submitReturn()">↩ İadeyi Kaydet</button>
         </div>
-      </div>
+      </div></div>
     </div>
 
-    <!-- History -->
+    <!-- HISTORY -->
     <div class="page" id="page-history">
-      <div class="toolbar"><button class="btn btn-ghost" onclick="loadMyHistory()">↺ Yenile</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th></tr></thead>
-        <tbody id="historyTbody"></tbody>
-      </table></div></div>
-    </div>
-
-    <!-- Machines -->
-    <div class="page" id="page-machines">
-      <div id="machineCards" style="display:grid;gap:.85rem"></div>
+      <div class="toolbar"><button class="btn btn-ghost" onclick="loadMyHistory()">↺</button></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div>
     </div>
 
   </div>
 </div>
 
+<!-- Task Detail Modal -->
+<div class="modal-overlay" id="taskDetailModal">
+  <div class="modal" style="max-width:520px"><div class="modal-header"><h3 id="taskDetailTitle">İş Detayı</h3><button class="modal-close" onclick="closeModal('taskDetailModal')">×</button></div>
+  <div class="modal-body" id="taskDetailBody"></div>
+  <div class="modal-footer" id="taskDetailFooter"></div></div>
+</div>
+
+<!-- Transfer Request Modal -->
+<div class="modal-overlay" id="transferModal">
+  <div class="modal"><div class="modal-header"><h3>Görevi Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
+  <div class="modal-body"><input type="hidden" id="transferTaskId">
+    <div class="form-group"><label>Devredilecek Personel</label><select id="transferTo"><option value="">— Personel Seçin —</option></select></div>
+    <div class="form-group"><label>Mesaj</label><input type="text" id="transferMsg" placeholder="Opsiyonel..."></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
+</div>
+
 <div id="toast"></div>
 
 <script>
-let columns=[],products=[],myTransactions=[],machines=[],firms=[];
+const _f=window.fetch.bind(window);
+window.fetch=(url,opts={})=>{
+  if(typeof url==='string'&&url.startsWith('/api')){const t=localStorage.getItem('stok_token');if(t)opts.headers={...(opts.headers||{}),'Authorization':'Bearer '+t};}
+  return _f(url,opts);
+};
+
+let columns=[],products=[],myTransactions=[],machines=[],firms=[],myTasks=[],allTasks=[],pendingTransfers=[],allUsers=[];
 let me=null;
 
 async function init(){
   const u=await api('/api/me');
-  if (!u) return window.location.href='/';
-  if (u.role==='admin') return window.location.href='/admin.html';
+  if(!u) return window.location.href='/';
+  if(u.role==='admin') return window.location.href='/admin.html';
   me=u;
   document.getElementById('userName').textContent=u.display_name||u.username;
   document.getElementById('avatarInit').textContent=(u.display_name||u.username)[0].toUpperCase();
-  updateTime(); setInterval(updateTime,30000);
+  updateTime();setInterval(updateTime,30000);
   await loadAll();
-  showPage('stock');
+  showPage('mytasks');
+  connectSSE();
 }
-function updateTime(){ document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR'); }
+function updateTime(){document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR');}
 
 async function api(url,method='GET',body=null){
-  try {
-    const opts={method,headers:{'Content-Type':'application/json'}};
-    if(body) opts.body=JSON.stringify(body);
-    const res=await fetch(url,opts);
-    const data=await res.json();
-    if(!res.ok){toast(data.error||'Hata','error');return null;}
-    return data;
-  } catch { toast('Bağlantı hatası','error'); return null; }
+  try{const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(url,opts);const data=await res.json();if(!res.ok){toast(data.error||'Hata','error');return null;}return data;}
+  catch{toast('Bağlantı hatası','error');return null;}
+}
+
+function connectSSE(){
+  const es=new EventSource('/api/events');
+  es.addEventListener('task_update',async()=>{ await loadTasks(); if(currentPage==='mytasks') renderMyTasks(); if(currentPage==='opentasks') renderOpenTasks(); });
+  es.addEventListener('stock_update',async()=>{ await loadProducts(); if(currentPage==='stock') renderStock(); });
 }
 
 async function loadAll(){
-  [columns,products,machines,firms]=await Promise.all([api('/api/columns'),api('/api/products'),api('/api/machines'),api('/api/firms')]);
-  columns=columns||[]; products=products||[]; machines=machines||[]; firms=firms||[];
-  renderStock(); renderTakeForm(); renderMachines(); renderFirmLists();
+  [columns,products,machines,firms,allUsers]=await Promise.all([api('/api/columns'),api('/api/products'),api('/api/machines'),api('/api/firms'),api('/api/users')]);
+  columns=columns||[];products=products||[];machines=machines||[];firms=firms||[];allUsers=allUsers||[];
+  await loadTasks();
+  renderStock();renderTakeForm();renderFirmLists();
+}
+async function loadTasks(){
+  const all=await api('/api/tasks');
+  allTasks=all||[];
+  myTasks=allTasks.filter(t=>t.assigned_to===me.id);
+  pendingTransfers=await api('/api/task-transfers/pending')||[];
+  const pb=document.getElementById('pendingBadge');
+  const totalAlerts=pendingTransfers.length+(myTasks.filter(t=>t.status==='in_progress'||t.status==='pending_transfer').length);
+  if(pendingTransfers.length){pb.textContent=pendingTransfers.length;pb.style.display='inline';}else pb.style.display='none';
 }
 async function loadMyHistory(){
   const all=await api('/api/transactions?limit=300');
@@ -221,24 +203,138 @@ async function loadMyHistory(){
   renderHistory();
 }
 
-const pageTitles={stock:'Stok Durumu',take:'Ürün Al',bulktake:'Vinç İçin Al',return:'Ürün İade',history:'İşlem Geçmişim',machines:'Vinç Listesi'};
+let currentPage='mytasks';
+const pageTitles={mytasks:'İşlerim',opentasks:'Açık İşler',stock:'Stok Durumu',take:'Ürün Al',bulktake:'Vinç İçin Al',return:'Ürün İade',history:'İşlem Geçmişim'};
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active'); });
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes("'"+name+"'"))n.classList.add('active');});
   document.getElementById('pageTitle').textContent=pageTitles[name]||name;
-  if (name==='history') loadMyHistory();
-  if (name==='stock'||name==='take'||name==='bulktake'||name==='return') loadAll();
+  currentPage=name;
+  if(name==='history') loadMyHistory();
+  if(name==='stock'||name==='take'||name==='bulktake'||name==='return') loadAll();
 }
 
-// ── Firm datalists ────────────────────────────────────────────────────────
-function renderFirmLists(){
-  const opts=firms.map(f=>`<option value="${esc(f.name)}">`).join('');
-  ['firmList','firmList2','firmList3'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+// ── MY TASKS ─────────────────────────────────────────────────────────────
+function renderMyTasks(){
+  // Transfer alerts
+  const alerts=document.getElementById('transferAlerts');
+  alerts.innerHTML=pendingTransfers.map(tr=>`
+    <div class="transfer-alert">
+      <span style="font-size:1.2rem">🔄</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.85rem">${esc(tr.from_name)} sana bir iş devrediyor</div>
+        <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${esc(tr.title)}</div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="respondTransfer(${tr.id},true)">Kabul</button>
+      <button class="btn btn-danger btn-sm" onclick="respondTransfer(${tr.id},false)">Reddet</button>
+    </div>`).join('');
+
+  const el=document.getElementById('myTaskList');
+  const active=myTasks.filter(t=>t.status!=='completed'&&t.status!=='cancelled');
+  const completed=myTasks.filter(t=>t.status==='completed').slice(0,5);
+  if(!active.length&&!pendingTransfers.length){el.innerHTML='<div class="card empty"><div class="icon">✅</div>Aktif işiniz yok</div>';return;}
+  el.innerHTML=active.map(t=>myTaskCard(t)).join('')+(completed.length?`<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:1rem 0 .5rem">Son Tamamlananlar</div>`+completed.map(t=>myTaskCard(t)).join(''):'');
 }
 
-// ── Stock view ────────────────────────────────────────────────────────────
+function myTaskCard(t){
+  const priorityColors={low:'var(--muted)',normal:'var(--text2)',high:'var(--warning)',urgent:'var(--danger)'};
+  const statusColors={in_progress:'var(--success)',pending_transfer:'var(--warning)',completed:'var(--accent)',open:'var(--text2)'};
+  const statusLabels={in_progress:'Devam Ediyor',pending_transfer:'Devir Bekliyor',completed:'Tamamlandı',open:'Açık'};
+  const isDone=t.status==='completed';
+  return `<div class="task-card priority-${t.priority}" style="${isDone?'opacity:.6':''}" onclick="showMyTaskDetail(${t.id})">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+      <span style="font-weight:700;font-size:.88rem">${esc(t.title)}</span>
+      <span style="font-family:var(--mono);font-size:.65rem;color:${statusColors[t.status]||'var(--text2)'}">${statusLabels[t.status]||t.status}</span>
+    </div>
+    <div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);display:flex;gap:.5rem;flex-wrap:wrap">
+      ${t.task_type?`<span>📌 ${esc(t.task_type)}</span>`:''}
+      ${t.firm_name?`<span>🏢 ${esc(t.firm_name)}</span>`:''}
+      ${t.machine_name?`<span>🏗️ ${esc(t.machine_name)}</span>`:''}
+      ${t.due_date?`<span ${new Date(t.due_date)<new Date()&&!isDone?'style="color:var(--danger)"':''}>📅 ${new Date(t.due_date).toLocaleDateString('tr-TR')}</span>`:''}
+    </div>
+    ${!isDone?`<div style="display:flex;gap:.4rem;margin-top:.6rem">
+      <button class="btn btn-success btn-sm" onclick="event.stopPropagation();completeTask(${t.id})">✅ Tamamla</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTransferModal(${t.id})">🔄 Devret</button>
+    </div>`:''}
+  </div>`;
+}
+
+async function showMyTaskDetail(id){
+  const t=allTasks.find(x=>x.id===id);if(!t)return;
+  document.getElementById('taskDetailTitle').textContent=t.title;
+  document.getElementById('taskDetailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;font-family:var(--mono);font-size:.78rem;margin-bottom:.85rem">
+      ${t.task_type?`<div><div style="color:var(--muted)">Tür</div>${esc(t.task_type)}</div>`:''}
+      ${t.firm_name?`<div><div style="color:var(--muted)">Firma</div>${esc(t.firm_name)}</div>`:''}
+      ${t.machine_name?`<div><div style="color:var(--muted)">Vinç</div>${esc(t.machine_name)}</div>`:''}
+      ${t.due_date?`<div><div style="color:var(--muted)">Son Tarih</div>${new Date(t.due_date).toLocaleDateString('tr-TR')}</div>`:''}
+    </div>
+    ${t.notes?`<div style="background:var(--surface2);border-radius:8px;padding:.75rem;font-size:.83rem">${esc(t.notes)}</div>`:''}
+  `;
+  const footer=document.getElementById('taskDetailFooter');
+  footer.innerHTML='<button class="btn btn-ghost" onclick="closeModal(\'taskDetailModal\')">Kapat</button>';
+  if(t.status!=='completed'&&t.assigned_to===me.id){
+    footer.innerHTML=`<button class="btn btn-success" onclick="completeTask(${t.id})">✅ Tamamla</button><button class="btn btn-ghost" onclick="openTransferModal(${t.id})">🔄 Devret</button>`+footer.innerHTML;
+  }
+  openModal('taskDetailModal');
+}
+
+// ── OPEN TASKS ────────────────────────────────────────────────────────────
+function renderOpenTasks(){
+  const fsel=document.getElementById('openTaskFirmFilter');const cur=fsel.value;
+  fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===cur?'selected':''}>${esc(f.name)}</option>`).join('');fsel.value=cur;
+  const open=allTasks.filter(t=>t.status==='open'&&(cur===''||String(t.firm_id)===cur));
+  const el=document.getElementById('openTaskList');
+  if(!open.length){el.innerHTML='<div class="card empty"><div class="icon">📭</div>Açık iş yok</div>';return;}
+  el.innerHTML=open.map(t=>`
+    <div class="task-card priority-${t.priority}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+        <span style="font-weight:700;font-size:.88rem">${esc(t.title)}</span>
+        <span class="badge badge-admin">${esc(t.task_type||'Genel')}</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
+        ${t.firm_name?`<span>🏢 ${esc(t.firm_name)}</span>`:''}
+        ${t.machine_name?`<span>🏗️ ${esc(t.machine_name)}</span>`:''}
+        ${t.due_date?`<span>📅 ${new Date(t.due_date).toLocaleDateString('tr-TR')}</span>`:''}
+        <span style="color:${t.priority==='urgent'?'var(--danger)':t.priority==='high'?'var(--warning)':'var(--muted)'}">${{low:'Düşük',normal:'Normal',high:'Yüksek',urgent:'Acil'}[t.priority]||t.priority}</span>
+      </div>
+      ${t.notes?`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.5rem">${esc(t.notes)}</div>`:''}
+      <button class="btn btn-primary btn-sm" onclick="takeTask(${t.id})">⚡ Üstlen</button>
+    </div>`).join('');
+}
+async function takeTask(id){
+  if(!confirm('Bu işi üstlenmek istiyor musunuz?'))return;
+  await api('/api/tasks/'+id+'/take','POST');await loadTasks();renderMyTasks();renderOpenTasks();toast('İş üstlenildi ✓','success');
+}
+
+// ── TASK ACTIONS ──────────────────────────────────────────────────────────
+async function completeTask(id){
+  if(!confirm('Bu işi tamamlandı olarak işaretlemek istiyor musunuz?'))return;
+  await api('/api/tasks/'+id+'/complete','POST');closeModal('taskDetailModal');await loadTasks();renderMyTasks();toast('Tamamlandı ✓','success');
+}
+function openTransferModal(id){
+  document.getElementById('transferTaskId').value=id;
+  const personnel=allUsers.filter(u=>u.role==='personnel'&&u.id!==me.id);
+  document.getElementById('transferTo').innerHTML='<option value="">— Personel Seçin —</option>'+personnel.map(u=>`<option value="${u.id}">${esc(u.display_name||u.username)}</option>`).join('');
+  document.getElementById('transferMsg').value='';
+  closeModal('taskDetailModal');openModal('transferModal');
+}
+async function doTransfer(){
+  const task_id=document.getElementById('transferTaskId').value;
+  const to_user_id=document.getElementById('transferTo').value;
+  const message=document.getElementById('transferMsg').value.trim();
+  if(!to_user_id){toast('Personel seçin','error');return;}
+  await api('/api/tasks/'+task_id+'/transfer','POST',{to_user_id,message});
+  closeModal('transferModal');await loadTasks();renderMyTasks();toast('Devir talebi gönderildi','success');
+}
+async function respondTransfer(transferId,accept){
+  await api('/api/task-transfers/'+transferId+'/respond','POST',{accept});
+  await loadTasks();renderMyTasks();toast(accept?'İş kabul edildi ✓':'Devir reddedildi','success');
+}
+
+// ── STOCK ─────────────────────────────────────────────────────────────────
 function renderStock(){
   const thead=document.getElementById('stockThead').querySelector('tr');
   thead.innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Durum</th>';
@@ -247,7 +343,7 @@ function renderStock(){
 function renderStockRows(prods){
   const numCol=columns.find(c=>c.data_type==='number');
   const tbody=document.getElementById('stockTbody');
-  if (!prods.length){ tbody.innerHTML=`<tr><td colspan="${columns.length+1}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`; return; }
+  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+1}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
   tbody.innerHTML=prods.map(p=>{
     const cells=columns.map(c=>`<td>${esc(p.values?.[c.id]||'')}</td>`).join('');
     const qty=numCol?parseFloat(p.values?.[numCol.id]||0):null;
@@ -261,61 +357,76 @@ function filterStock(){
   renderStockRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);
 }
 
-// ── Product search dropdown (shared) ─────────────────────────────────────
-function buildProductDropdown(inputId, dropdownId, hiddenId){
+// ── FIRM DATALISTS ────────────────────────────────────────────────────────
+function renderFirmLists(){
+  const opts=firms.map(f=>`<option value="${esc(f.name)}">`).join('');
+  ['firmList','firmList2','firmList3'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  // Open task firm filter
+  const fsel=document.getElementById('openTaskFirmFilter');
+  if(fsel) fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  // Bulk firm filter
+  const bsel=document.getElementById('bulkFirmFilter');
+  if(bsel) bsel.innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')+'<option value="all">Tümünü Göster</option>';
+}
+
+// ── TAKE FORM ─────────────────────────────────────────────────────────────
+function renderTakeForm(){
+  const sel=document.getElementById('bulkMachine');
+  if(sel){sel.innerHTML='<option value="">— Vinç seçin —</option>';sel.disabled=true;}
+}
+function buildProductDropdown(inputId,dropdownId,hiddenId){
   const q=document.getElementById(inputId).value.toLowerCase();
   const dd=document.getElementById(dropdownId);
-  if (!q){ dd.style.display='none'; return; }
+  if(!q){dd.style.display='none';return;}
   const matches=products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))).slice(0,10);
   const firstCol=columns[0];
-  if (!matches.length){ dd.style.display='none'; return; }
+  if(!matches.length){dd.style.display='none';return;}
   dd.innerHTML=matches.map(p=>{
     const name=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`;
     const numCol=columns.find(c=>c.data_type==='number');
     const qty=numCol?(p.values?.[numCol.id]||0):'?';
-    return `<div style="padding:.55rem .85rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.83rem;display:flex;justify-content:space-between;align-items:center" onmousedown="selectProduct('${inputId}','${dropdownId}','${hiddenId}',${p.id},'${esc(name)}')">${esc(name)}<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${qty}</span></div>`;
+    return `<div style="padding:.5rem .85rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.83rem;display:flex;justify-content:space-between" onmousedown="selectProduct('${inputId}','${dropdownId}','${hiddenId}',${p.id},'${name.replace(/'/g,"\\'")}')">${esc(name)}<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${qty}</span></div>`;
   }).join('');
   dd.style.display='block';
 }
 function selectProduct(inputId,dropdownId,hiddenId,pid,name){
-  document.getElementById(inputId).value=name;
-  document.getElementById(hiddenId).value=pid;
+  document.getElementById(inputId).value=name;document.getElementById(hiddenId).value=pid;
   document.getElementById(dropdownId).style.display='none';
-  if (inputId==='takeProductSearch') updateProductInfo();
+  if(inputId==='takeProductSearch') updateProductInfo();
 }
-function filterTakeProducts(){ buildProductDropdown('takeProductSearch','takeProductDropdown','takeProductId'); }
-function filterRetProducts(){ buildProductDropdown('retProductSearch','retProductDropdown','retProductId'); }
+function filterTakeProducts(){buildProductDropdown('takeProductSearch','takeProductDropdown','takeProductId');}
+function filterRetProducts(){buildProductDropdown('retProductSearch','retProductDropdown','retProductId');}
 document.addEventListener('click',e=>{
-  if (!e.target.closest('#takeProductSearch')&&!e.target.closest('#takeProductDropdown')) document.getElementById('takeProductDropdown').style.display='none';
-  if (!e.target.closest('#retProductSearch')&&!e.target.closest('#retProductDropdown')) document.getElementById('retProductDropdown').style.display='none';
+  if(!e.target.closest('#takeProductSearch')&&!e.target.closest('#takeProductDropdown')) document.getElementById('takeProductDropdown').style.display='none';
+  if(!e.target.closest('#retProductSearch')&&!e.target.closest('#retProductDropdown')) document.getElementById('retProductDropdown').style.display='none';
 });
-
 function updateProductInfo(){
   const pid=document.getElementById('takeProductId').value;
   const box=document.getElementById('productInfoBox');
-  if (!pid){ box.style.display='none'; return; }
+  if(!pid){box.style.display='none';return;}
   const prod=products.find(p=>p.id==pid);
-  if (!prod){ box.style.display='none'; return; }
-  const numCol=columns.find(c=>c.data_type==='number');
+  if(!prod){box.style.display='none';return;}
   box.innerHTML=columns.map(c=>{
     const val=prod.values?.[c.id]||'—';
     const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);
-    return `<div style="display:flex;justify-content:space-between;padding:.18rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${esc(c.name)}</span><span${isLow?' style="color:var(--danger)"':''}>${esc(val)}${isLow?' ⚠️':''}</span></div>`;
+    return `<div style="display:flex;justify-content:space-between;padding:.18rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${esc(c.name)}</span><span ${isLow?'style="color:var(--danger)"':''}>${esc(val)}${isLow?' ⚠️':''}</span></div>`;
   }).join('');
   box.style.display='block';
 }
-
-// ── Take form ─────────────────────────────────────────────────────────────
-function renderTakeForm(){
-  // Firma dropdown
-  const firmSel=document.getElementById('bulkFirmFilter');
-  if(firmSel){
-    firmSel.innerHTML='<option value="">— Önce firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-    firmSel.innerHTML += '<option value="all">Tümünü Göster</option>';
-  }
-  // Vinç dropdown başta disabled
-  const macSel=document.getElementById('bulkMachine');
-  if(macSel){ macSel.innerHTML='<option value="">— Vinç seçin —</option>'; macSel.disabled=true; }
+async function submitTake(){
+  const product_id=document.getElementById('takeProductId').value;
+  const company=document.getElementById('takeCompany').value.trim();
+  const quantity=parseFloat(document.getElementById('takeQty').value);
+  const notes=document.getElementById('takeNote').value.trim();
+  if(!product_id){toast('Ürün seçin','error');return;}
+  if(!company){toast('Firma girin','error');return;}
+  if(!quantity||quantity<=0){toast('Geçerli miktar girin','error');return;}
+  const r=await api('/api/transactions','POST',{product_id,company,quantity,notes});
+  if(!r)return;
+  document.getElementById('takeProductSearch').value='';document.getElementById('takeProductId').value='';
+  document.getElementById('takeCompany').value='';document.getElementById('takeQty').value='';
+  document.getElementById('takeNote').value='';document.getElementById('productInfoBox').style.display='none';
+  await loadProducts();renderStock();toast(`${quantity} adet kaydedildi ✓`,'success');
 }
 
 function filterMachinesByFirm(){
@@ -323,161 +434,72 @@ function filterMachinesByFirm(){
   const macSel=document.getElementById('bulkMachine');
   document.getElementById('machinePreview').style.display='none';
   document.getElementById('bulkSubmitBtn').disabled=true;
-  if(!firmId){ macSel.innerHTML='<option value="">— Vinç seçin —</option>'; macSel.disabled=true; return; }
-  const filtered = firmId==='all' ? machines : machines.filter(m=>String(m.firm_id)===firmId);
+  if(!firmId){macSel.innerHTML='<option value="">— Vinç seçin —</option>';macSel.disabled=true;return;}
+  const filtered=firmId==='all'?machines:machines.filter(m=>String(m.firm_id)===firmId);
   macSel.innerHTML='<option value="">— Vinç seçin —</option>'+filtered.map(m=>`<option value="${m.id}">🏗️ ${esc(m.machine_name)}</option>`).join('');
   macSel.disabled=false;
 }
-
-async function submitTake(){
-  const product_id=document.getElementById('takeProductId').value;
-  const company=document.getElementById('takeCompany').value.trim();
-  const quantity=parseFloat(document.getElementById('takeQty').value);
-  const notes=document.getElementById('takeNote').value.trim();
-  if (!product_id){ toast('Ürün seçin','error'); return; }
-  if (!company){ toast('Firma adını girin','error'); return; }
-  if (!quantity||quantity<=0){ toast('Geçerli miktar girin','error'); return; }
-  const r=await api('/api/transactions','POST',{product_id,company,quantity,notes});
-  if (!r) return;
-  document.getElementById('takeProductSearch').value='';
-  document.getElementById('takeProductId').value='';
-  document.getElementById('takeCompany').value='';
-  document.getElementById('takeQty').value='';
-  document.getElementById('takeNote').value='';
-  document.getElementById('productInfoBox').style.display='none';
-  await loadAll();
-  toast(`${quantity} adet alım kaydedildi ✓`,'success');
-}
-
-// ── Bulk take ─────────────────────────────────────────────────────────────
 function loadMachinePreview(){
   const mid=document.getElementById('bulkMachine').value;
   const preview=document.getElementById('machinePreview');
   const btn=document.getElementById('bulkSubmitBtn');
-  if (!mid){ preview.style.display='none'; btn.disabled=true; return; }
-  const m=machines.find(x=>x.id==mid);
-  if (!m){ preview.style.display='none'; btn.disabled=true; return; }
-  const firstCol=columns[0];
+  if(!mid){preview.style.display='none';btn.disabled=true;return;}
+  const m=machines.find(x=>x.id==mid);if(!m){preview.style.display='none';btn.disabled=true;return;}
   const numCol=columns.find(c=>c.data_type==='number');
   const rows=(m.items||[]).map(it=>{
     const prod=products.find(p=>p.id===Number(it.product_id));
-    const name=prod&&firstCol?(prod.values?.[firstCol.id]||'—'):'—';
     const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;
     const enough=stock!==null?stock>=it.quantity:true;
-    return `<tr>
-      <td>${esc(name)}</td>
-      <td style="font-family:var(--mono)">${it.quantity}</td>
-      <td>${stock!==null?(enough?`<span class="badge badge-ok">Var (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td>
-    </tr>`;
+    return `<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td><td>${stock!==null?(enough?`<span class="badge badge-ok">Var (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td></tr>`;
   }).join('');
-  preview.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:.5rem">
-    <table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Miktar</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  preview.style.display='block';
-  btn.disabled=false;
+  preview.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:.5rem"><table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Miktar</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  preview.style.display='block';btn.disabled=false;
 }
-
 async function submitBulkTake(){
   const machine_id=document.getElementById('bulkMachine').value;
   const company=document.getElementById('bulkCompany').value.trim();
   const notes=document.getElementById('bulkNote').value.trim();
-  if (!machine_id){ toast('Makine seçin','error'); return; }
-  if (!company){ toast('Firma adını girin','error'); return; }
+  if(!machine_id){toast('Vinç seçin','error');return;}
+  if(!company){toast('Firma girin','error');return;}
   const m=machines.find(x=>x.id==machine_id);
-  if (!confirm(`"${m?.machine_name}" vinci için ${m?.items?.length||0} ürün stoktan düşülecek. Onaylıyor musunuz?`)) return;
+  if(!confirm(`"${m?.machine_name}" için ${m?.items?.length||0} ürün düşülecek. Onaylıyor musunuz?`))return;
   const r=await api('/api/transactions/bulk','POST',{machine_id,company,notes});
-  if (!r) return;
-  document.getElementById('bulkMachine').value='';
-  document.getElementById('bulkCompany').value='';
-  document.getElementById('bulkNote').value='';
-  document.getElementById('machinePreview').style.display='none';
-  document.getElementById('bulkSubmitBtn').disabled=true;
-  await loadAll();
-  toast(`${r.count} ürün kaydedildi ✓`,'success');
+  if(!r)return;
+  document.getElementById('bulkMachine').value='';document.getElementById('bulkCompany').value='';
+  document.getElementById('bulkNote').value='';document.getElementById('machinePreview').style.display='none';document.getElementById('bulkSubmitBtn').disabled=true;
+  await loadProducts();renderStock();toast(`${r.count} ürün kaydedildi ✓`,'success');
 }
 
-// ── Return ────────────────────────────────────────────────────────────────
 async function submitReturn(){
   const product_id=document.getElementById('retProductId').value;
   const company=document.getElementById('retCompany').value.trim();
   const quantity=parseFloat(document.getElementById('retQty').value);
   const notes=document.getElementById('retNote').value.trim();
-  if (!product_id){ toast('Ürün seçin','error'); return; }
-  if (!company){ toast('Firma adını girin','error'); return; }
-  if (!quantity||quantity<=0){ toast('Geçerli miktar girin','error'); return; }
+  if(!product_id){toast('Ürün seçin','error');return;}
+  if(!company){toast('Firma girin','error');return;}
+  if(!quantity||quantity<=0){toast('Geçerli miktar girin','error');return;}
   const r=await api('/api/transactions','POST',{product_id,company,quantity,notes,tx_type:'return'});
-  if (!r) return;
-  document.getElementById('retProductSearch').value=''; document.getElementById('retProductId').value='';
-  document.getElementById('retCompany').value=''; document.getElementById('retQty').value=''; document.getElementById('retNote').value='';
-  await loadAll(); toast(`${quantity} adet iade kaydedildi ✓`,'success');
+  if(!r)return;
+  document.getElementById('retProductSearch').value='';document.getElementById('retProductId').value='';
+  document.getElementById('retCompany').value='';document.getElementById('retQty').value='';document.getElementById('retNote').value='';
+  await loadProducts();renderStock();toast(`${quantity} adet iade kaydedildi ✓`,'success');
 }
 
-// ── History ────────────────────────────────────────────────────────────────
 function renderHistory(){
-  document.getElementById('historyTbody').innerHTML=myTransactions.length?myTransactions.map(t=>`<tr>
-    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
-    <td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
-    <td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td>
-    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
-    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
-  </tr>`).join(''):'<tr><td colspan="6" class="empty">İşlem kaydınız yok</td></tr>';
+  document.getElementById('historyTbody').innerHTML=myTransactions.length?myTransactions.map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td><td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">İşlem kaydınız yok</td></tr>';
 }
 
-// ── Machines view ─────────────────────────────────────────────────────────
-function renderMachines(){
-  const div=document.getElementById('machineCards');
-  if (!machines.length){ div.innerHTML='<div class="card empty"><div class="icon">🏗️</div>Vinç kaydı yok</div>'; return; }
-  const numCol=columns.find(c=>c.data_type==='number');
-  // Firma bazlı grupla
-  const grouped={};
-  machines.forEach(m=>{ const k=m.firm_name||'__no_firm__'; if(!grouped[k])grouped[k]=[]; grouped[k].push(m); });
-  let html='';
-  Object.entries(grouped).forEach(([firmName,list])=>{
-    if(firmName!=='__no_firm__') html+=`<div style="display:flex;align-items:center;gap:.75rem;margin:1rem 0 .5rem"><div style="height:1px;flex:0 0 16px;background:var(--border)"></div><span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);text-transform:uppercase;letter-spacing:.12em">🏢 ${esc(firmName)}</span><div style="height:1px;flex:1;background:var(--border)"></div></div>`;
-    html+=list.map(m=>{
-      const rows=(m.items||[]).map(it=>{
-        const prod=products.find(p=>p.id===Number(it.product_id));
-        const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;
-        const enough=stock!==null?stock>=it.quantity:null;
-        return `<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td><td>${stock!==null?(enough?`<span class="badge badge-ok">Yeterli (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td></tr>`;
-      }).join('');
-      return `<div class="card" style="margin-bottom:.75rem">
-        <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:.5rem">
-            <span style="font-weight:800;font-size:.92rem">🏗️ ${esc(m.machine_name)}</span>
-            ${m.firm_name?`<span class="badge badge-admin">${esc(m.firm_name)}</span>`:''}
-          </div>
-          ${m.notes?`<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">${esc(m.notes)}</div>`:''}
-        </div>
-        <div style="padding:.9rem 1.1rem">${m.items?.length?`<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gereken</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table>`:'<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün yok</span>'}</div>
-      </div>`;
-    }).join('');
-  });
-  div.innerHTML=html;
-}
-
-function esc(s){ if(s==null)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function fmtDate(s){ return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 let toastTimer;
-function toast(msg,type='success'){ const el=document.getElementById('toast'); el.textContent=(type==='success'?'✓ ':'✗ ')+msg; el.className='show '+type; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',3500); }
-async function logout(){ localStorage.removeItem('stok_token');
-  await fetch('/api/logout',{method:'POST'}); window.location.href='/'; }
-
-function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
-function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
-document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{ if(window.innerWidth<=768) closeSidebar(); }));
-
-
-// ── JWT: tüm API isteklerine token ekle ──────────────────────────────────
-const _origFetch = window.fetch.bind(window);
-window.fetch = function(url, opts = {}) {
-  if (typeof url === 'string' && url.startsWith('/api')) {
-    const token = localStorage.getItem('stok_token');
-    if (token) {
-      opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + token };
-    }
-  }
-  return _origFetch(url, opts);
-};
+function toast(msg,type='success'){const el=document.getElementById('toast');el.textContent=(type==='success'?'✓ ':'✗ ')+msg;el.className='show '+type;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',3500);}
+async function logout(){localStorage.removeItem('stok_token');await fetch('/api/logout',{method:'POST'});window.location.href='/';}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
+document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
 
 init();
 </script>
