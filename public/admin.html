@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Yönetici — Stok Takip</title>
+<title>Yönetici — Elektrikhane</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -34,7 +34,10 @@
 <div class="mobile-bar"><div class="brand"><div class="icon">🏭</div><span>Stok Takip</span></div><button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button></div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-brand"><div class="icon">🏭</div><div><div class="title">Stok Takip</div><div class="subtitle">Yönetici</div></div></div>
+  <div class="sidebar-brand" style="padding:.75rem .85rem;flex-direction:column;align-items:flex-start;gap:.4rem">
+    <div style="background:#fff;border-radius:6px;padding:.3rem .6rem;display:inline-block"><img src="/logo.png" alt="Sekizli" style="height:22px;width:auto;display:block;"></div>
+    <div style="display:flex;align-items:center;gap:.5rem"><span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span><span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Yönetici</span></div>
+  </div>
   <div class="sidebar-nav">
     <div class="nav-section-label">Genel</div>
     <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
