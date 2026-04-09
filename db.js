@@ -26,7 +26,8 @@ async function init() {
       id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS machines (
-      id SERIAL PRIMARY KEY, machine_name TEXT NOT NULL, firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
+      id SERIAL PRIMARY KEY, machine_name TEXT NOT NULL,
+      firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
@@ -38,23 +39,30 @@ async function init() {
     CREATE TABLE IF NOT EXISTS tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
-      task_type TEXT NOT NULL DEFAULT 'Genel',
       firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
-      machine_id INT REFERENCES machines(id) ON DELETE SET NULL,
-      assigned_to INT REFERENCES users(id) ON DELETE SET NULL,
-      created_by INT NOT NULL REFERENCES users(id),
-      status TEXT NOT NULL DEFAULT 'open',
+      machine_id INT REFERENCES machines(id) ON DELETE CASCADE,
+      created_by INT REFERENCES users(id),
+      is_auto BOOLEAN DEFAULT FALSE,
       priority TEXT NOT NULL DEFAULT 'normal',
       notes TEXT DEFAULT '',
-      started_at TIMESTAMPTZ,
-      completed_at TIMESTAMPTZ,
-      due_date DATE,
+      status TEXT NOT NULL DEFAULT 'open',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
-    CREATE TABLE IF NOT EXISTS task_transfers (
+    CREATE TABLE IF NOT EXISTS task_stages (
       id SERIAL PRIMARY KEY,
       task_id INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      stage_order INT NOT NULL DEFAULT 1,
+      stage_name TEXT NOT NULL DEFAULT 'Aşama',
+      assigned_to INT REFERENCES users(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      started_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      notes TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS task_transfers (
+      id SERIAL PRIMARY KEY,
+      stage_id INT NOT NULL REFERENCES task_stages(id) ON DELETE CASCADE,
       from_user_id INT NOT NULL REFERENCES users(id),
       to_user_id INT NOT NULL REFERENCES users(id),
       message TEXT DEFAULT '',
