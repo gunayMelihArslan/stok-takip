@@ -104,7 +104,7 @@
         <div class="toolbar-left"><input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()"></div>
         <button class="btn btn-primary" onclick="addProductRow()">+ Yeni Ürün</button>
         <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
-        <button class="btn btn-ghost" onclick="loadProducts();renderProducts()">↺</button>
+        <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
     </div>
@@ -141,14 +141,14 @@
           <option value="in_progress">Devam Eden</option>
           <option value="completed">Tamamlandı</option>
         </select>
-        <button class="btn btn-ghost" onclick="loadTasks();renderTasks()">↺</button>
+        <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div id="taskBoard"></div>
     </div>
 
     <!-- PERFORMANCE -->
     <div class="page" id="page-performance">
-      <div class="toolbar"><button class="btn btn-ghost" onclick="loadPerformance()">↺ Yenile</button></div>
+      <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button></div>
       <div id="perfContent"></div>
     </div>
 
@@ -158,7 +158,7 @@
         <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
         <select id="txTypeFilter" style="max-width:120px" onchange="filterTx()"><option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option></select>
         <button class="btn btn-ghost" onclick="window.location='/api/export/transactions'">↓ CSV</button>
-        <button class="btn btn-ghost" onclick="loadTransactions();renderTransactions()">↺</button>
+        <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
@@ -267,13 +267,23 @@ async function init(){
   await loadAll();showPage('dashboard');connectSSE();loadGold();setInterval(loadGold,5*60*1000);
 }
 function connectSSE(){
-  const es=new EventSource('/api/events');
+  const _sseToken=localStorage.getItem('stok_token')||'';
+  const es=new EventSource('/api/events?token='+encodeURIComponent(_sseToken));
   es.addEventListener('connected',()=>{document.getElementById('liveInd').innerHTML='<span class="live-dot"></span>canlı';});
   es.addEventListener('tx_new',async()=>{await loadTransactions();if(currentPage==='transactions')renderTransactions();if(currentPage==='dashboard')renderDashboard();else{newTxCount++;document.getElementById('txBadge').textContent=newTxCount;document.getElementById('txBadge').style.display='inline';}});
   es.addEventListener('stock_update',async()=>{await loadProducts();if(currentPage==='products')renderProducts();if(currentPage==='dashboard')renderDashboard();});
-  es.addEventListener('task_update',async()=>{await loadTasks();if(currentPage==='tasks')renderTasks();if(currentPage==='dashboard')renderLiveBoard();document.getElementById('taskBadge').style.display='inline';});
+  es.addEventListener('task_update',async()=>{
+    await loadTasks();
+    document.getElementById('taskBadge').style.display='inline';
+    if(currentPage==='tasks'){renderTasks();}
+    if(currentPage==='dashboard'){renderDashboard();}
+    if(currentPage==='performance'){await loadPerformance();}
+  });
   es.addEventListener('gold_update',e=>{updateGoldDisplay(JSON.parse(e.data));});
-  es.onerror=()=>{document.getElementById('liveInd').innerHTML='<span style="color:var(--danger)">● kesildi</span>';setTimeout(connectSSE,5000);};
+  es.onerror=()=>{
+    document.getElementById('liveInd').innerHTML='<span style="color:var(--danger)">● yeniden bağlanıyor</span>';
+    es.close(); setTimeout(connectSSE,3000);
+  };
 }
 async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]);}
 async function loadColumns(){columns=await api('/api/columns')||[];}
@@ -538,6 +548,22 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
 document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+// ── Refresh helpers ───────────────────────────────────────────────────────
+async function refresh(){
+  const fns={
+    dashboard: async()=>{await loadAll();renderDashboard();},
+    products:  async()=>{await loadProducts();renderProducts();},
+    columns:   async()=>{await loadColumns();await loadProducts();renderColumns();},
+    firms:     async()=>{await loadFirms();await loadMachines();renderFirms();},
+    machines:  async()=>{await loadMachines();renderMachines();},
+    tasks:     async()=>{await loadTasks();renderTasks();},
+    transactions: async()=>{await loadTransactions();renderTransactions();},
+    users:     async()=>{await loadUsers();renderUsers();},
+    performance: loadPerformance,
+  };
+  const fn=fns[currentPage];
+  if(fn){await fn();toast('Güncellendi ✓','success');}
+}
 init();
 </script>
 </body>
