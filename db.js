@@ -91,8 +91,7 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
-
-  // ── Yoklama tablosu (eklemeli) ────────────────────────────────────────────
+  // ── Yoklama tablosu ───────────────────────────────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
       id SERIAL PRIMARY KEY,
