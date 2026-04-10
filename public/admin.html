@@ -584,3 +584,368 @@ init();
 </script>
 </body>
 </html>
+<!-- Lot Yönetimi Modal -->
+<div class="modal-overlay" id="lotModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><h3 id="lotModalTitle">Lot / Parti Yönetimi</h3><button class="modal-close" onclick="closeModal('lotModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="lotProductId">
+      <div id="lotList" style="margin-bottom:1rem"></div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yeni Lot Ekle / Güncelle</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+          <div class="form-group" style="margin:0"><label>Üretim Yılı</label><input type="number" id="lotYear" placeholder="2020" min="1990" max="2099"></div>
+          <div class="form-group" style="margin:0"><label>Adet</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
+        </div>
+        <div class="form-group" style="margin:.65rem 0 0"><label>Not</label><input type="text" id="lotNotes" placeholder="Opsiyonel..."></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:.65rem" onclick="saveLot()">Lotu Kaydet</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
+  </div>
+</div>
+
+<script>
+/* ── LOT YÖNETİMİ ─────────────────────────────────────────────────────── */
+async function openLotModal(productId, productName) {
+  document.getElementById('lotProductId').value = productId;
+  document.getElementById('lotModalTitle').textContent = 'Lot — ' + productName;
+  document.getElementById('lotYear').value = '';
+  document.getElementById('lotQty').value = '';
+  document.getElementById('lotNotes').value = '';
+  await refreshLotList(productId);
+  openModal('lotModal');
+}
+
+async function refreshLotList(productId) {
+  const lots = await api('/api/products/' + productId + '/lots');
+  const el = document.getElementById('lotList');
+  if (!lots || !lots.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Lot kaydı yok — aşağıdan ekleyin</div>';
+    return;
+  }
+  const total = lots.reduce((s,l) => s + parseFloat(l.quantity), 0);
+  el.innerHTML = lots.map((l, i) => `
+    <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .75rem;background:${i===0?'rgba(232,184,75,.08)':'var(--surface2)'};border:1px solid ${i===0?'rgba(232,184,75,.3)':'var(--border2)'};border-radius:8px;margin-bottom:.35rem">
+      ${i===0 ? '<span title="Önce bu kullanılır" style="font-size:.85rem">⚡</span>' : '<span style="font-size:.85rem;opacity:.4">📦</span>'}
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.88rem">${l.production_year} <span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">üretim</span></div>
+        ${l.notes ? `<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${esc(l.notes)}</div>` : ''}
+      </div>
+      <span style="font-family:var(--mono);font-weight:800;font-size:.95rem;color:${i===0?'var(--accent)':'var(--text)'}">${l.quantity}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteLot(${l.id},${l.product_id})">×</button>
+    </div>`).join('') +
+    `<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-align:right;padding:.25rem .5rem">Toplam: ${total} adet · ⚡ = önce kullanılacak</div>`;
+}
+
+async function saveLot() {
+  const product_id = document.getElementById('lotProductId').value;
+  const production_year = parseInt(document.getElementById('lotYear').value);
+  const quantity = parseFloat(document.getElementById('lotQty').value);
+  const notes = document.getElementById('lotNotes').value.trim();
+  if (!production_year || isNaN(quantity)) { toast('Yıl ve miktar gerekli','error'); return; }
+  const r = await api('/api/products/'+product_id+'/lots','POST',{production_year,quantity,notes});
+  if (!r) return;
+  document.getElementById('lotYear').value = '';
+  document.getElementById('lotQty').value = '';
+  document.getElementById('lotNotes').value = '';
+  await refreshLotList(product_id);
+  await loadProducts(); renderProducts();
+  toast('Lot kaydedildi ✓','success');
+}
+
+async function deleteLot(lotId, productId) {
+  if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
+  await api('/api/lots/'+lotId,'DELETE');
+  await refreshLotList(productId);
+  await loadProducts(); renderProducts();
+  toast('Lot silindi','success');
+}
+
+/* ── SAYFA FİLTRE SİSTEMLERİ ─────────────────────────────────────────── */
+
+// Ürünler sayfası filtreleri
+function initProductFilters() {
+  const toolbar = document.getElementById('productFilterBar');
+  if (!toolbar || toolbar.dataset.init) return;
+  toolbar.dataset.init = '1';
+  // Low stock filter already handled by search
+}
+
+// İş Panosu filtreleri — öncelik filtresi ekle
+function getTaskFilters() {
+  return {
+    firm: document.getElementById('taskFirmFilter')?.value || '',
+    status: document.getElementById('taskStatusFilter')?.value || '',
+    priority: document.getElementById('taskPriorityFilter')?.value || '',
+  };
+}
+
+// Orijinal renderTasks'ı genişlet — eğer priority filter varsa uygula
+const _origRenderTasks = typeof renderTasks !== 'undefined' ? renderTasks : null;
+
+// İşlem geçmişi ek filtreler
+function applyTxFilters(txs) {
+  const dateFrom = document.getElementById('txDateFrom')?.value;
+  const dateTo   = document.getElementById('txDateTo')?.value;
+  const userF    = document.getElementById('txUserFilter')?.value;
+  if (dateFrom) txs = txs.filter(t => t.created_at >= dateFrom);
+  if (dateTo)   txs = txs.filter(t => t.created_at <= dateTo + 'T23:59:59');
+  if (userF)    txs = txs.filter(t => String(t.user_id) === userF || String(t.user_name) === userF);
+  return txs;
+}
+
+/* ── PATCH: ürün tablosuna Lot butonu ekle ───────────────────────────────
+   renderProductRows çalıştıktan sonra lot butonlarını inject et          */
+const _baseRenderProductRows = window.renderProductRows;
+
+function injectLotButtons() {
+  // Ürün satırlarına lot butonu ekle (daha önce eklenmemişse)
+  document.querySelectorAll('#productTbody tr[data-pid]').forEach(tr => {
+    if (tr.querySelector('.lot-btn')) return; // zaten var
+    const pid = tr.dataset.pid;
+    const prod = products.find(p => p.id == pid);
+    const firstCol = columns[0];
+    const name = firstCol ? (prod?.values?.[firstCol.id] || `#${pid}`) : `#${pid}`;
+    // Insert before last td (delete button)
+    const lastTd = tr.querySelector('td:last-child');
+    const lotTd = document.createElement('td');
+    lotTd.innerHTML = `<button class="btn btn-ghost btn-sm lot-btn" onclick="openLotModal(${pid},'${esc(name)}')" title="Lot/Parti Yönetimi">🗂️</button>`;
+    tr.insertBefore(lotTd, lastTd);
+  });
+}
+
+// Override renderProductRows to inject lot buttons after render
+(function() {
+  const orig = window.renderProductRows;
+  if (!orig) return;
+  window.renderProductRows = function(prods) {
+    orig(prods);
+    // Add Lot column header if not present
+    const thead = document.getElementById('productThead')?.querySelector('tr');
+    if (thead && !thead.querySelector('.lot-th')) {
+      const th = document.createElement('th');
+      th.className = 'lot-th';
+      th.textContent = 'Lot';
+      // Insert before last th
+      thead.insertBefore(th, thead.lastElementChild);
+    }
+    injectLotButtons();
+  };
+})();
+
+/* ── PATCH: task board — priority filter & search ───────────────────── */
+(function patchTaskFilters() {
+  // Add priority filter + search to tasks toolbar after DOM ready
+  const addTaskFilters = () => {
+    const toolbar = document.querySelector('#page-tasks .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+
+    // Priority filter
+    const prioSel = document.createElement('select');
+    prioSel.id = 'taskPriorityFilter';
+    prioSel.style.maxWidth = '130px';
+    prioSel.innerHTML = '<option value="">Tüm Öncelikler</option><option value="urgent">Acil</option><option value="high">Yüksek</option><option value="normal">Normal</option><option value="low">Düşük</option>';
+    prioSel.onchange = renderTasks;
+
+    // Search
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.id = 'taskSearch';
+    search.placeholder = '🔍 İş ara...';
+    search.style.maxWidth = '200px';
+    search.oninput = renderTasks;
+
+    toolbar.appendChild(prioSel);
+    toolbar.appendChild(search);
+  };
+
+  // Patch renderTasks
+  const origRT = window.renderTasks;
+  window.renderTasks = function() {
+    addTaskFilters();
+    // Apply search and priority filter before rendering
+    const searchQ = document.getElementById('taskSearch')?.value?.toLowerCase() || '';
+    const prioF = document.getElementById('taskPriorityFilter')?.value || '';
+    const origTasks = window.tasks;
+    if (searchQ || prioF) {
+      window.tasks = origTasks.filter(t =>
+        (!searchQ || t.title.toLowerCase().includes(searchQ) || (t.firm_name||'').toLowerCase().includes(searchQ) || (t.machine_name||'').toLowerCase().includes(searchQ)) &&
+        (!prioF || t.priority === prioF)
+      );
+    }
+    origRT();
+    window.tasks = origTasks;
+  };
+})();
+
+/* ── PATCH: transactions — date range + user filter ──────────────────── */
+(function patchTxFilters() {
+  const addTxFilters = () => {
+    const toolbar = document.querySelector('#page-transactions .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+
+    // Date from
+    const df = document.createElement('input');
+    df.type = 'date'; df.id = 'txDateFrom'; df.style.maxWidth = '140px'; df.style.fontSize='.78rem';
+    df.title = 'Başlangıç tarihi'; df.onchange = filterTx;
+
+    // Date to
+    const dt = document.createElement('input');
+    dt.type = 'date'; dt.id = 'txDateTo'; dt.style.maxWidth = '140px'; dt.style.fontSize='.78rem';
+    dt.title = 'Bitiş tarihi'; dt.onchange = filterTx;
+
+    // User filter
+    const usel = document.createElement('select');
+    usel.id = 'txUserFilter'; usel.style.maxWidth = '150px';
+    usel.innerHTML = '<option value="">Tüm Personel</option>';
+    usel.onchange = filterTx;
+
+    toolbar.insertBefore(usel, toolbar.lastElementChild);
+    toolbar.insertBefore(dt, toolbar.lastElementChild);
+    toolbar.insertBefore(df, toolbar.lastElementChild);
+  };
+
+  const origFT = window.filterTx;
+  window.filterTx = function() {
+    addTxFilters();
+    // Populate user filter
+    const usel = document.getElementById('txUserFilter');
+    if (usel && usel.options.length === 1) {
+      const names = [...new Set(transactions.map(t => t.user_name || t.username).filter(Boolean))];
+      names.forEach(n => { const o = new Option(n, n); usel.appendChild(o); });
+    }
+    origFT?.();
+    // Apply extra filters
+    const tbody = document.getElementById('txTbody');
+    if (!tbody) return;
+    const filtered = applyTxFilters(
+      transactions.filter(t => {
+        const q = document.getElementById('txSearch')?.value?.toLowerCase() || '';
+        const typ = document.getElementById('txTypeFilter')?.value || '';
+        return (!q || (t.product_name||'').toLowerCase().includes(q) || t.company.toLowerCase().includes(q) || (t.user_name||'').toLowerCase().includes(q)) &&
+               (!typ || (t.tx_type||'out') === typ);
+      })
+    );
+    tbody.innerHTML = filtered.length ? filtered.map(t=>`<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
+      <td>${esc(t.user_name||t.username)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
+      <td style="font-family:var(--mono)">${t.quantity}</td>
+      <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})">↩</button></td>
+    </tr>`).join('') : '<tr><td colspan="8" class="empty">—</td></tr>';
+  };
+})();
+
+/* ── PATCH: products — low stock filter ──────────────────────────────── */
+(function patchProductFilter() {
+  const addProductFilters = () => {
+    const toolbar = document.querySelector('#page-products .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+
+    const lowBtn = document.createElement('button');
+    lowBtn.className = 'btn btn-ghost';
+    lowBtn.id = 'lowStockToggle';
+    lowBtn.textContent = '⚠️ Düşük Stok';
+    lowBtn.onclick = () => {
+      lowBtn.classList.toggle('btn-danger');
+      filterProducts();
+    };
+
+    const lotBtn = document.createElement('button');
+    lotBtn.className = 'btn btn-ghost';
+    lotBtn.id = 'lotOnlyToggle';
+    lotBtn.textContent = '🗂️ Lotlu';
+    lotBtn.title = 'Sadece lot kayıtlı ürünler';
+    lotBtn.onclick = () => { lotBtn.classList.toggle('active'); filterProducts(); };
+
+    const firstBtn = toolbar.querySelector('.btn-primary');
+    toolbar.insertBefore(lotBtn, firstBtn);
+    toolbar.insertBefore(lowBtn, firstBtn);
+  };
+
+  const origFP = window.filterProducts;
+  window.filterProducts = function() {
+    addProductFilters();
+    const q = document.getElementById('productSearch')?.value?.toLowerCase() || '';
+    const lowOnly = document.getElementById('lowStockToggle')?.classList.contains('btn-danger');
+    const numCol = columns.find(c => c.data_type === 'number');
+    let filtered = products;
+    if (q) filtered = filtered.filter(p => columns.some(c => (p.values?.[c.id]||'').toLowerCase().includes(q)));
+    if (lowOnly && numCol) filtered = filtered.filter(p => parseFloat(p.values?.[numCol.id]||0) < (numCol.min_stock||5));
+    renderProductRows(filtered);
+  };
+})();
+
+/* ── PATCH: firms — search filter ───────────────────────────────────── */
+(function patchFirmFilter() {
+  const addFirmFilter = () => {
+    const toolbar = document.querySelector('#page-firms .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+    const inp = document.createElement('input');
+    inp.type='text'; inp.placeholder='🔍 Firma ara...'; inp.style.maxWidth='220px';
+    inp.oninput = () => {
+      const q = inp.value.toLowerCase();
+      document.querySelectorAll('#firmsTbody tr').forEach(tr => {
+        tr.style.display = q ? (tr.textContent.toLowerCase().includes(q) ? '' : 'none') : '';
+      });
+    };
+    toolbar.appendChild(inp);
+  };
+  const origRF = window.renderFirms;
+  window.renderFirms = function() { origRF?.(); addFirmFilter(); };
+})();
+
+/* ── PATCH: users — role filter + search ───────────────────────────── */
+(function patchUserFilter() {
+  const addUserFilter = () => {
+    const toolbar = document.querySelector('#page-users .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+    const inp = document.createElement('input');
+    inp.type='text'; inp.placeholder='🔍 Kullanıcı ara...'; inp.style.maxWidth='200px';
+    const roleSel = document.createElement('select');
+    roleSel.style.maxWidth='130px';
+    roleSel.innerHTML='<option value="">Tüm Roller</option><option value="admin">Yönetici</option><option value="personnel">Personel</option>';
+    const filter = () => {
+      const q = inp.value.toLowerCase();
+      const r = roleSel.value;
+      document.querySelectorAll('#usersTbody tr').forEach(tr => {
+        tr.style.display = ((!q || tr.textContent.toLowerCase().includes(q)) && (!r || tr.innerHTML.includes('badge-'+r))) ? '' : 'none';
+      });
+    };
+    inp.oninput = filter; roleSel.onchange = filter;
+    toolbar.appendChild(roleSel); toolbar.appendChild(inp);
+  };
+  const origRU = window.renderUsers;
+  window.renderUsers = function() { origRU?.(); addUserFilter(); };
+})();
+
+/* ── PATCH: machines — search ───────────────────────────────────────── */
+(function patchMachineFilter() {
+  const addMachineSearch = () => {
+    const toolbar = document.querySelector('#page-machines .toolbar');
+    if (!toolbar || toolbar.dataset.enhanced) return;
+    toolbar.dataset.enhanced = '1';
+    const inp = document.createElement('input');
+    inp.type='text'; inp.placeholder='🔍 Vinç ara...'; inp.style.maxWidth='200px';
+    inp.oninput = () => {
+      const q = inp.value.toLowerCase();
+      document.querySelectorAll('#machineList .card').forEach(card => {
+        card.style.display = q ? (card.textContent.toLowerCase().includes(q) ? '' : 'none') : '';
+      });
+    };
+    const firstBtn = toolbar.querySelector('button');
+    toolbar.insertBefore(inp, firstBtn.nextSibling);
+  };
+  const origRM = window.renderMachines;
+  window.renderMachines = function() { origRM?.(); addMachineSearch(); };
+})();
+
+/* ── LOT PATCH SONU ──────────────────────────────────────────────────── */
+</script>
