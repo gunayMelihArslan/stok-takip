@@ -259,18 +259,9 @@ app.post('/api/transactions', auth, async (req, res) => {
   const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
     [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
   const numCol = await getNumCol();
-  if (type === 'out') {
-    const lotCount = parseInt((await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1',[product_id])).rows[0].c);
-    if (lotCount > 0) {
-      await deductFromLots(product_id, Number(quantity)); // lot varsa FIFO
-    } else {
-      await deductStock(product_id, Number(quantity), numCol); // yoksa normal
-    }
-  } else if (type === 'return') {
-    const lotCount = parseInt((await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1',[product_id])).rows[0].c);
-    if (lotCount > 0) await restoreToLots(product_id, Number(quantity));
-    else await restoreStock(product_id, Number(quantity), numCol);
-  }
+  const hasLots = parseInt((await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1',[product_id])).rows[0].c) > 0;
+  if (type === 'out') { if (hasLots) await deductFromLots(product_id, Number(quantity)); else await deductStock(product_id, Number(quantity), numCol); }
+  else if (type === 'return') { if (hasLots) await restoreToLots(product_id, Number(quantity)); else await restoreStock(product_id, Number(quantity), numCol); }
   broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
   res.json({ id: r.rows[0].id });
 });
@@ -483,64 +474,42 @@ app.get('/api/export/transactions', auth, async (req, res) => {
 
 
 // ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
-
-// Ürünün lotlarını getir (eskiden yeniye)
 app.get('/api/products/:id/lots', auth, async (req, res) => {
-  const rows = (await query(
-    'SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year ASC',
-    [req.params.id]
-  )).rows;
+  res.json((await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year ASC',[req.params.id])).rows);
+});
+app.get('/api/lots/summary', auth, async (req, res) => {
+  const rows = (await query('SELECT product_id, COUNT(*) as lot_count FROM product_lots GROUP BY product_id')).rows;
   res.json(rows);
 });
-
-// Lot ekle/güncelle + ana miktar sütununu otomatik güncelle
 app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
   const { production_year, quantity, notes } = req.body;
-  if (!production_year || quantity === undefined || quantity === null)
-    return res.status(400).json({ error: 'Yıl ve miktar zorunlu' });
-
-  await query(`
-    INSERT INTO product_lots(product_id,production_year,quantity,notes)
-    VALUES($1,$2,$3,$4)
-    ON CONFLICT(product_id,production_year)
-    DO UPDATE SET quantity=$3, notes=$4
-  `, [req.params.id, parseInt(production_year), parseFloat(quantity), notes||'']);
-
-  // Toplam miktarı hesapla ve products.values güncelle
+  if (!production_year || quantity === undefined) return res.status(400).json({ error: 'Yıl ve miktar zorunlu' });
+  await query(`INSERT INTO product_lots(product_id,production_year,quantity,notes) VALUES($1,$2,$3,$4)
+    ON CONFLICT(product_id,production_year) DO UPDATE SET quantity=$3,notes=$4`,
+    [req.params.id, parseInt(production_year), parseFloat(quantity), notes||'']);
   await syncLotTotal(req.params.id);
   broadcast('stock_update', {});
   res.json({ ok: true });
 });
-
 app.delete('/api/lots/:id', auth, admin, async (req, res) => {
   const lot = (await query('SELECT product_id FROM product_lots WHERE id=$1',[req.params.id])).rows[0];
-  if (!lot) return res.status(404).json({ error: 'Lot bulunamadı' });
+  if (!lot) return res.status(404).json({ error: 'Bulunamadı' });
   await query('DELETE FROM product_lots WHERE id=$1',[req.params.id]);
   await syncLotTotal(lot.product_id);
   broadcast('stock_update', {});
   res.json({ ok: true });
 });
-
-// Lot toplamını number sütununa yaz
 async function syncLotTotal(product_id) {
   const numCol = await getNumCol();
   if (!numCol) return;
-  const total = (await query(
-    'SELECT COALESCE(SUM(quantity),0) as t FROM product_lots WHERE product_id=$1',
-    [product_id]
-  )).rows[0].t;
+  const total = (await query('SELECT COALESCE(SUM(quantity),0) as t FROM product_lots WHERE product_id=$1',[product_id])).rows[0].t;
   const prod = (await query('SELECT values FROM products WHERE id=$1',[product_id])).rows[0];
   if (!prod) return;
   const vals = { ...(prod.values||{}), [numCol.id]: String(parseFloat(total)) };
   await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2',[JSON.stringify(vals),product_id]);
 }
-
-// FIFO lot düş
 async function deductFromLots(product_id, qty) {
-  const lots = (await query(
-    'SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC',
-    [product_id]
-  )).rows;
+  const lots = (await query('SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC',[product_id])).rows;
   let rem = parseFloat(qty);
   for (const lot of lots) {
     if (rem <= 0) break;
@@ -548,41 +517,12 @@ async function deductFromLots(product_id, qty) {
     await query('UPDATE product_lots SET quantity=quantity-$1 WHERE id=$2',[take,lot.id]);
     rem -= take;
   }
-  // Sync total
   await syncLotTotal(product_id);
 }
-
 async function restoreToLots(product_id, qty) {
-  // En yeni lota geri ekle
-  const lot = (await query(
-    'SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year DESC LIMIT 1',
-    [product_id]
-  )).rows[0];
-  if (lot) {
-    await query('UPDATE product_lots SET quantity=quantity+$1 WHERE id=$2',[parseFloat(qty),lot.id]);
-    await syncLotTotal(product_id);
-  }
+  const lot = (await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year DESC LIMIT 1',[product_id])).rows[0];
+  if (lot) { await query('UPDATE product_lots SET quantity=quantity+$1 WHERE id=$2',[parseFloat(qty),lot.id]); await syncLotTotal(product_id); }
 }
-
-
-// Lot özeti — ürün adlarıyla birlikte
-app.get('/api/lots/summary', auth, async (req, res) => {
-  const firstCol = await getFirstCol();
-  const rows = (await query(`
-    SELECT pl.product_id,
-      json_agg(json_build_object('id',pl.id,'year',pl.production_year,'quantity',pl.quantity)
-        ORDER BY pl.production_year ASC) as lots,
-      COUNT(*) as lot_count
-    FROM product_lots pl
-    GROUP BY pl.product_id
-  `)).rows;
-  const enriched = await Promise.all(rows.map(async r => {
-    const p = (await query('SELECT values FROM products WHERE id=$1',[r.product_id])).rows[0];
-    return { ...r, product_name: firstCol?(p?.values?.[firstCol.id]||'—'):'—' };
-  }));
-  res.json(enriched);
-});
-
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── START ─────────────────────────────────────────────────────────────────
