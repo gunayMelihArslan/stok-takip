@@ -60,7 +60,12 @@
     <!-- OPEN TASKS -->
     <div class="page" id="page-opentasks">
       <div class="toolbar">
-        <select id="openFirmFilter" style="max-width:180px" onchange="renderOpenTasks()"><option value="">Tüm Firmalar</option></select>
+        <input type="text" id="openQ" placeholder="🔍 İş ara..." style="max-width:160px" oninput="renderOpenTasks()">
+        <select id="openFirmFilter" style="max-width:145px" onchange="renderOpenTasks()"><option value="">Tüm Firmalar</option></select>
+        <select id="openPrioFilter" style="max-width:130px" onchange="renderOpenTasks()">
+          <option value="">Tüm Öncelikler</option><option value="urgent">🔴 Acil</option>
+          <option value="high">🟠 Yüksek</option><option value="normal">Normal</option><option value="low">Düşük</option>
+        </select>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div id="openTaskList"></div>
@@ -129,7 +134,11 @@
 
     <!-- HISTORY -->
     <div class="page" id="page-history">
-      <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺</button></div>
+      <div class="toolbar">
+        <input type="text" id="histQ" placeholder="🔍 Ürün / Firma..." style="max-width:180px" oninput="filterHistory()">
+        <select id="histType" style="max-width:110px" onchange="filterHistory()"><option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option></select>
+        <button class="btn btn-ghost" onclick="refresh()">↺</button>
+      </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div>
     </div>
 
@@ -199,7 +208,7 @@ async function loadTasks(){
   const ab=document.getElementById('alertBadge');
   if(cnt){ab.textContent=cnt;ab.style.display='inline';}else ab.style.display='none';
 }
-async function loadMyHistory(){const all=await api('/api/transactions?limit=300');myTransactions=(all||[]).filter(t=>t.user_id===me.id);renderHistory();}
+async function loadMyHistory(){const all=await api('/api/transactions?limit=300');myTransactions=(all||[]).filter(t=>t.user_id===me.id);filterHistory();}
 
 let currentPage='mytasks';
 const pageTitles={mytasks:'İşlerim',opentasks:'Açık İşler',stock:'Stok Durumu',take:'Ürün Al',bulktake:'Vinç İçin Al',return:'Ürün İade',history:'İşlem Geçmişim'};
@@ -271,8 +280,12 @@ function renderOpenTasks(){
   const fsel=document.getElementById('openFirmFilter');const cur=fsel.value;fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===cur?'selected':''}>${esc(f.name)}</option>`).join('');fsel.value=cur;
   // Find all open stages (not assigned to anyone)
   const openStages=[];
+  const prio=document.getElementById('openPrioFilter')?.value||'';
+  const oq=(document.getElementById('openQ')?.value||'').toLowerCase();
   allTasks.forEach(t=>{
     if(cur&&String(t.firm_id)!==cur)return;
+    if(prio&&t.priority!==prio)return;
+    if(oq&&!t.title.toLowerCase().includes(oq)&&!(t.firm_name||'').toLowerCase().includes(oq)&&!(t.machine_name||'').toLowerCase().includes(oq))return;
     (t.stages||[]).filter(s=>s.status==='open').forEach(s=>openStages.push({task:t,stage:s}));
   });
   const el=document.getElementById('openTaskList');
@@ -394,57 +407,46 @@ function loadMachinePreview(){
   if(!m){preview.style.display='none';btn.disabled=true;return;}
   const numCol=columns.find(c=>c.data_type==='number');
   const textCols=columns.filter(c=>c.data_type!=='number');
-  // Önce senkron render, sonra lot bilgisi async yükle
-  renderMachinePreviewCards(m, numCol, textCols, preview, btn, {});
-  // Lot bilgisini async getir
-  Promise.all((m.items||[]).map(it => {
-    const pid = Number(it.product_id);
-    return fetch('/api/products/'+pid+'/lots', {
-      headers:{'Authorization':'Bearer '+localStorage.getItem('stok_token')}
-    }).then(r=>r.ok?r.json():[]).then(lots => ({pid, lots}));
-  })).then(results => {
-    const lotMap = {};
-    results.forEach(r => { lotMap[r.pid] = r.lots; });
-    renderMachinePreviewCards(m, numCol, textCols, preview, btn, lotMap);
+  // Önce lot'suz render
+  buildPreviewCards(m,numCol,textCols,preview,btn,{});
+  // Lot bilgilerini async çek
+  const token=localStorage.getItem('stok_token');
+  Promise.all((m.items||[]).map(it=>
+    fetch('/api/products/'+it.product_id+'/lots',{headers:{'Authorization':'Bearer '+token}})
+      .then(r=>r.ok?r.json():[]).then(lots=>({pid:Number(it.product_id),lots}))
+  )).then(res=>{
+    const lm={};res.forEach(r=>{lm[r.pid]=r.lots;});
+    buildPreviewCards(m,numCol,textCols,preview,btn,lm);
   });
 }
-
-function renderMachinePreviewCards(m, numCol, textCols, preview, btn, lotMap){
+function buildPreviewCards(m,numCol,textCols,preview,btn,lotMap){
   const cards=(m.items||[]).map(it=>{
     const prod=products.find(p=>p.id===Number(it.product_id));
     const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;
     const enough=stock!==null?stock>=it.quantity:true;
-    const stockBadge=stock!==null
-      ?(enough?`<span class="badge badge-ok">Var: ${stock}</span>`:`<span class="badge badge-low">Yetersiz: ${stock}</span>`)
-      :'—';
-    // Metin sütunları
-    const colTags=textCols.map(c=>{
-      const val=prod?.values?.[c.id];
-      if(!val)return'';
-      return`<span style="font-family:var(--mono);font-size:.6rem;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;color:var(--text2);white-space:nowrap"><span style="color:var(--muted)">${esc(c.name)}: </span>${esc(val)}</span>`;
-    }).filter(Boolean).join(' ');
-    // Lot bilgisi
+    const sb=stock!==null?(enough?`<span class="badge badge-ok">Var: ${stock}</span>`:`<span class="badge badge-low">Yetersiz: ${stock}</span>`):'—';
+    const ct=textCols.map(c=>{const v=prod?.values?.[c.id];if(!v)return'';return`<span style="font-family:var(--mono);font-size:.6rem;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;color:var(--text2);white-space:nowrap"><span style="color:var(--muted)">${esc(c.name)}: </span>${esc(v)}</span>`;}).filter(Boolean).join(' ');
     const lots=(lotMap[Number(it.product_id)]||[]).filter(l=>parseFloat(l.quantity)>0);
-    let lotHtml='';
-    if(lots.length>0){
-      const tags=lots.map((l,i)=>`<span style="font-family:var(--mono);font-size:.6rem;padding:.12rem .4rem;border-radius:4px;background:${i===0?'rgba(232,184,75,.15)':'var(--surface)'};border:1px solid ${i===0?'rgba(232,184,75,.3)':'var(--border2)'};color:${i===0?'var(--accent)':'var(--text2)'};white-space:nowrap">${i===0?'⚡':''} ${l.production_year}: ${parseFloat(l.quantity)} adet</span>`).join('');
-      lotHtml=`<div style="display:flex;flex-wrap:wrap;gap:.2rem">${tags}</div>`;
-    }
-    return`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .75rem;display:flex;flex-direction:column;gap:.3rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
-        <span style="font-weight:700;font-size:.85rem">${esc(it.product_name||'—')}</span>
-        ${stockBadge}
-      </div>
-      ${colTags?`<div style="display:flex;flex-wrap:wrap;gap:.2rem">${colTags}</div>`:''}
-      ${lotHtml}
-      <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">Gerekli: <strong style="color:var(--text)">${it.quantity}</strong></div>
-    </div>`;
+    const lt=lots.length?'<div style="display:flex;flex-wrap:wrap;gap:.2rem">'+lots.map((l,i)=>`<span style="font-family:var(--mono);font-size:.6rem;padding:.12rem .4rem;border-radius:4px;background:${i===0?'rgba(232,184,75,.15)':'var(--surface)'};border:1px solid ${i===0?'rgba(232,184,75,.3)':'var(--border2)'};color:${i===0?'var(--accent)':'var(--text2)'}">${i===0?'⚡ ':''}${l.production_year}: ${parseFloat(l.quantity)}</span>`).join('')+'</div>':'';
+    return`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .75rem;display:flex;flex-direction:column;gap:.3rem"><div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><span style="font-weight:700;font-size:.85rem">${esc(it.product_name||'—')}</span>${sb}</div>${ct?`<div style="display:flex;flex-wrap:wrap;gap:.2rem">${ct}</div>`:''}${lt}<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">Gerekli: <strong style="color:var(--text)">${it.quantity}</strong></div></div>`;
   }).join('');
   preview.innerHTML=`<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   preview.style.display='block';btn.disabled=false;
 }
 async function submitBulkTake(){const machine_id=document.getElementById('bulkMachine').value;const company=document.getElementById('bulkCompany').value.trim();const notes=document.getElementById('bulkNote').value.trim();if(!machine_id){toast('Vinç seçin','error');return;}if(!company){toast('Firma girin','error');return;}const m=machines.find(x=>x.id==machine_id);if(!confirm(`"${m?.machine_name}" için ${m?.items?.length||0} ürün düşülecek. Onaylıyor musunuz?`))return;const r=await api('/api/transactions/bulk','POST',{machine_id,company,notes});if(!r)return;document.getElementById('bulkMachine').value='';document.getElementById('bulkCompany').value='';document.getElementById('bulkNote').value='';document.getElementById('machinePreview').style.display='none';document.getElementById('bulkSubmitBtn').disabled=true;await loadProducts();renderStock();toast(`${r.count} ürün kaydedildi ✓`,'success');}
 async function submitReturn(){const product_id=document.getElementById('retProductId').value;const company=document.getElementById('retCompany').value.trim();const quantity=parseFloat(document.getElementById('retQty').value);const notes=document.getElementById('retNote').value.trim();if(!product_id){toast('Ürün seçin','error');return;}if(!company){toast('Firma girin','error');return;}if(!quantity||quantity<=0){toast('Miktar girin','error');return;}const r=await api('/api/transactions','POST',{product_id,company,quantity,notes,tx_type:'return'});if(!r)return;document.getElementById('retProductSearch').value='';document.getElementById('retProductId').value='';document.getElementById('retCompany').value='';document.getElementById('retQty').value='';document.getElementById('retNote').value='';await loadProducts();renderStock();toast(`${quantity} adet iade kaydedildi ✓`,'success');}
+function filterHistory(){
+  const q=(document.getElementById('histQ')?.value||'').toLowerCase();
+  const typ=document.getElementById('histType')?.value||'';
+  const filtered=myTransactions.filter(t=>(!q||(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q))&&(!typ||(t.tx_type||'out')===typ));
+  document.getElementById('historyTbody').innerHTML=filtered.length?filtered.map(t=>`<tr>
+    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
+    <td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
+    <td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td>
+    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
+    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
+  </tr>`).join(''):'<tr><td colspan="6" class="empty">Kayıt yok</td></tr>';
+}
 function renderHistory(){document.getElementById('historyTbody').innerHTML=myTransactions.length?myTransactions.map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td><td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">İşlem kaydınız yok</td></tr>';}
 
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -472,90 +474,6 @@ async function refresh(){
   if(fn){await fn();toast('Güncellendi ✓','success');}
 }
 init();
-</script>
-
-<script>
-/* ── PERSONEL FİLTRELERİ ─────────────────────────────────────────────── */
-
-function addFilterOnce(pageId, buildFn) {
-  const toolbar = document.querySelector('#'+pageId+' .toolbar');
-  if (!toolbar || toolbar.dataset.fil) return;
-  toolbar.dataset.fil = '1';
-  buildFn(toolbar);
-}
-
-// ── Stok: Düşük Stok toggle ──────────────────────────────────────────
-const origFS = window.filterStock;
-window.filterStock = function() {
-  addFilterOnce('page-stock', tb => {
-    const btn=document.createElement('button');btn.className='btn btn-ghost btn-sm';btn.textContent='⚠️ Düşük Stok';
-    btn.onclick=()=>{btn.classList.toggle('btn-danger');filterStock();};
-    tb.insertBefore(btn,tb.lastElementChild);
-  });
-  const q=document.getElementById('stockSearch')?.value?.toLowerCase()||'';
-  const low=document.querySelector('#page-stock .btn-danger')!==null;
-  const numCol=columns.find(c=>c.data_type==='number');
-  let filtered=products;
-  if(q) filtered=filtered.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q)));
-  if(low&&numCol) filtered=filtered.filter(p=>parseFloat(p.values?.[numCol.id]||0)<(numCol.min_stock||5));
-  renderStockRows(filtered);
-};
-
-// ── Açık İşler: Öncelik + Arama ─────────────────────────────────────
-const origROT = window.renderOpenTasks;
-window.renderOpenTasks = function() {
-  addFilterOnce('page-opentasks', tb => {
-    const s=document.createElement('input');s.type='text';s.id='openQ';s.placeholder='🔍 İş ara...';s.style.maxWidth='170px';s.oninput=renderOpenTasks;
-    const p=document.createElement('select');p.id='openPrio';p.style.maxWidth='130px';p.onchange=renderOpenTasks;
-    p.innerHTML='<option value="">Tüm Öncelikler</option><option value="urgent">🔴 Acil</option><option value="high">🟠 Yüksek</option><option value="normal">Normal</option><option value="low">Düşük</option>';
-    tb.insertBefore(p,tb.lastElementChild);tb.insertBefore(s,tb.lastElementChild);
-  });
-  const q=document.getElementById('openQ')?.value?.toLowerCase()||'';
-  const prio=document.getElementById('openPrio')?.value||'';
-  const bak=window.allTasks;
-  if(q||prio) window.allTasks=bak.filter(t=>
-    (!q||t.title.toLowerCase().includes(q)||(t.firm_name||'').toLowerCase().includes(q)||(t.machine_name||'').toLowerCase().includes(q))&&
-    (!prio||t.priority===prio)
-  );
-  origROT();
-  window.allTasks=bak;
-};
-
-// ── İşlem Geçmişim: Tür + Ürün/Firma Arama ─────────────────────────
-const origRH = window.renderHistory;
-window.renderHistory = function() {
-  addFilterOnce('page-history', tb => {
-    const s=document.createElement('input');s.type='text';s.id='histQ';s.placeholder='🔍 Ürün / Firma...';s.style.maxWidth='180px';s.oninput=renderHistory;
-    const t=document.createElement('select');t.id='histTyp';t.style.maxWidth='110px';t.onchange=renderHistory;
-    t.innerHTML='<option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option>';
-    tb.insertBefore(t,tb.lastElementChild);tb.insertBefore(s,tb.lastElementChild);
-  });
-  const q=document.getElementById('histQ')?.value?.toLowerCase()||'';
-  const typ=document.getElementById('histTyp')?.value||'';
-  const filtered=myTransactions.filter(t=>
-    (!q||(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q))&&
-    (!typ||(t.tx_type||'out')===typ)
-  );
-  document.getElementById('historyTbody').innerHTML=filtered.length?filtered.map(t=>`<tr>
-    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
-    <td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td>
-    <td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td>
-    <td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td>
-    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td>
-  </tr>`).join(''):'<tr><td colspan="6" class="empty">Kayıt yok</td></tr>';
-};
-
-// ── İşlerim: Durum filtresi ──────────────────────────────────────────
-const origRMT = window.renderMyTasks;
-window.renderMyTasks = function() {
-  origRMT();
-  addFilterOnce('page-mytasks', tb => {
-    const s=document.createElement('select');s.style.maxWidth='160px';
-    s.innerHTML='<option value="">Tüm Durumlar</option><option value="Devam">Devam Eden</option><option value="Devir">Devir Bekliyor</option><option value="Tamamlandı">Tamamlandı</option>';
-    s.onchange=()=>document.querySelectorAll('#myTaskList .job-card').forEach(c=>c.style.display=s.value&&!c.textContent.includes(s.value)?'none':'');
-    tb.insertBefore(s,tb.lastElementChild);
-  });
-};
 </script>
 </body>
 </html>
