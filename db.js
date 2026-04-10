@@ -92,7 +92,6 @@ async function init() {
     );
   `);
 
-  // ── Lot/Parti sistemi (opsiyonel, eklemeli) ───────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS product_lots (
       id SERIAL PRIMARY KEY,
@@ -101,9 +100,8 @@ async function init() {
       quantity NUMERIC NOT NULL DEFAULT 0,
       notes TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
+      UNIQUE(product_id, production_year)
     );
-    CREATE INDEX IF NOT EXISTS idx_lots_product ON product_lots(product_id);
   `);
 }
 module.exports = { query, init, pool };
