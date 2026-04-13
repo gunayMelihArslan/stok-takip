@@ -97,7 +97,7 @@ async function init() {
     product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     production_year INT NOT NULL,
     quantity NUMERIC NOT NULL DEFAULT 0,
-    notes TEXT DEFAULT '',
+    notes TEXT DEFAULT \'\',
     UNIQUE(product_id, production_year)
   );`);
 }
