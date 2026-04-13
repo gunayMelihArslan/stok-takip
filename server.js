@@ -483,27 +483,29 @@ app.get('/api/lots/counts', auth, async (req, res) => {
 });
 app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
   const {production_year,quantity,notes}=req.body;
-  if(!production_year)return res.status(400).json({error:'Yıl zorunlu'});
+  if(!production_year) return res.status(400).json({error:'Yıl zorunlu'});
   const qty=parseFloat(quantity);
-  if(isNaN(qty)||qty<0)return res.status(400).json({error:'Geçersiz adet'});
+  if(isNaN(qty)||qty<0) return res.status(400).json({error:'Geçersiz adet'});
   await query(`INSERT INTO product_lots(product_id,production_year,quantity,notes)VALUES($1,$2,$3,$4)
     ON CONFLICT(product_id,production_year)DO UPDATE SET quantity=$3,notes=$4`,
     [req.params.id,parseInt(production_year),qty,notes||'']);
   await syncLotTotal(req.params.id);
-  broadcast('stock_update',{});res.json({ok:true});
+  broadcast('stock_update',{});
+  res.json({ok:true});
 });
 app.delete('/api/lots/:id', auth, admin, async (req, res) => {
   const lot=(await query('SELECT product_id FROM product_lots WHERE id=$1',[req.params.id])).rows[0];
-  if(!lot)return res.status(404).json({error:'Bulunamadı'});
+  if(!lot) return res.status(404).json({error:'Bulunamadı'});
   await query('DELETE FROM product_lots WHERE id=$1',[req.params.id]);
-  await syncLotTotal(lot.product_id);broadcast('stock_update',{});res.json({ok:true});
+  await syncLotTotal(lot.product_id);
+  broadcast('stock_update',{});
+  res.json({ok:true});
 });
-async function syncLotTotal(pid){
-  const numCol=await getNumCol();if(!numCol)return;
+async function syncLotTotal(pid) {
+  const numCol=await getNumCol(); if(!numCol)return;
   const t=parseFloat((await query('SELECT COALESCE(SUM(quantity),0) as t FROM product_lots WHERE product_id=$1',[pid])).rows[0].t);
-  const p=(await query('SELECT values FROM products WHERE id=$1',[pid])).rows[0];if(!p)return;
-  const v={...(p.values||{}),[numCol.id]:String(t)};
-  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2',[JSON.stringify(v),pid]);
+  const p=(await query('SELECT values FROM products WHERE id=$1',[pid])).rows[0]; if(!p)return;
+  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2',[JSON.stringify({...(p.values||{}),[numCol.id]:String(t)}),pid]);
 }
 async function deductFromLots(pid,qty){
   const lots=(await query('SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC',[pid])).rows;
