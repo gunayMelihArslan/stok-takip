@@ -287,7 +287,11 @@ function connectSSE(){
 }
 async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]);}
 async function loadColumns(){columns=await api('/api/columns')||[];}
-async function loadProducts(){products=await api('/api/products')||[];}
+async function loadProducts(){
+  const[prods,lc]=await Promise.all([api('/api/products'),api('/api/lots/counts')]);
+  products=prods||[];
+  if(lc)products.forEach(p=>{p._lc=lc[p.id]||0;});
+}
 async function loadTransactions(){transactions=await api('/api/transactions?limit=300')||[];}
 async function loadUsers(){users=await api('/api/users')||[];}
 async function loadMachines(){machines=await api('/api/machines')||[];}
@@ -373,12 +377,31 @@ function renderLiveBoard(){
 }
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
-function renderProducts(){document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th></th><th>İşlem</th>';renderProductRows(products);}
+function renderProducts(){document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Lot</th><th></th><th>İşlem</th>';renderProductRows(products);}
 function renderProductRows(prods){
-  const numCol=columns.find(c=>c.data_type==='number');const tbody=document.getElementById('productTbody');
-  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+2}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
-  tbody.innerHTML=prods.map(p=>{const cells=columns.map(c=>{const val=p.values?.[c.id]||'';const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);return`<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;}).join('');return`<tr>${cells}<td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td><td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;}).join('');
+  const numCol=columns.find(c=>c.data_type==='number');
+  const firstCol=columns[0];
+  const tbody=document.getElementById('productTbody');
+  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+3}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
+  tbody.innerHTML=prods.map(p=>{
+    const cells=columns.map(c=>{
+      const val=p.values?.[c.id]||'';
+      const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);
+      return`<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
+    }).join('');
+    const nm=firstCol?(p.values?.[firstCol.id]||'#'+p.id):'#'+p.id;
+    const lc=p._lc||0;
+    return`<tr data-pid="${p.id}">${cells}
+      <td><button class="btn btn-ghost btn-sm" onclick="lotOpen(${p.id},'${esc(nm)}')"
+        ${lc>0?'style="color:var(--accent);font-weight:700"':''} title="Model yılı bazlı stok">
+        ${lc>0?'⚡ '+lc+' yıl':'🗂️'}
+      </button></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
+    </tr>`;
+  }).join('');
 }
+
 function filterProducts(){const q=document.getElementById('productSearch').value.toLowerCase();renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);}
 async function addProductRow(){const r=await api('/api/products','POST',{values:{}});if(!r)return;await loadProducts();renderProducts();toast('Eklendi','success');}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
@@ -420,21 +443,21 @@ function addMachineItem(pid,qty,machineYear){
   pid=pid||'';qty=qty||1;machineYear=machineYear||'';
   var firstCol=columns[0];
   var opts=products.map(function(p){
-    var name=firstCol?(p.values&&p.values[firstCol.id]?p.values[firstCol.id]:'#'+p.id):'#'+p.id;
+    var name=firstCol&&p.values&&p.values[firstCol.id]?p.values[firstCol.id]:'#'+p.id;
     var extra=columns.filter(function(col){return col.data_type!=='number';}).slice(1)
       .map(function(col){return p.values&&p.values[col.id];}).filter(Boolean).slice(0,2).join(' · ');
     var numCol=columns.find(function(col){return col.data_type==='number';});
     var stock=numCol&&p.values?p.values[numCol.id]:null;
-    var label=name+(extra?' ['+extra+']':'')+(stock?' ('+stock+')':'');
+    var label=name+(extra?' ['+extra+']':'')+(stock?' (Stok:'+stock+')':'');
     return '<option value="'+p.id+'"'+(p.id==pid?' selected':'')+'>'+esc(label)+'</option>';
   }).join('');
   var div=document.createElement('div');
-  div.style.cssText='display:flex;gap:.4rem;align-items:center';
-  var html='<select style="flex:1">'+opts+'</select>';
-  html+='<input type="number" value="'+qty+'" min="0" step="any" style="width:90px">';
-  html+='<input type="number" value="'+machineYear+'" min="1980" max="2099" style="width:75px" placeholder="Yıl" title="Model Yılı (opsiyonel)">';
-  html+='<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>';
-  div.innerHTML=html;
+  div.style.cssText='display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.4rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px';
+  div.innerHTML=
+    '<select style="flex:2;min-width:180px">'+opts+'</select>'+
+    '<input type="number" value="'+qty+'" min="0" step="any" style="width:80px" placeholder="Adet" title="Adet">'+
+    '<input type="number" value="'+machineYear+'" min="1980" max="2099" style="width:80px" placeholder="Model Yılı" title="Model Yılı (opsiyonel)">'+
+    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>';
   document.getElementById('machineItems').appendChild(div);
 }
 
@@ -601,7 +624,114 @@ async function refresh(){
   const fn=fns[currentPage];
   if(fn){await fn();toast('Güncellendi ✓','success');}
 }
+
+async function lotOpen(pid,name){
+  document.getElementById('lotPid').value=String(pid);
+  document.getElementById('lotTitle').textContent=String(name);
+  document.getElementById('lotYear').value='';
+  document.getElementById('lotQty').value='';
+  document.getElementById('lotNotes').value='';
+  document.getElementById('lotMsg').textContent='';
+  await lotLoad(pid);
+  openModal('lotModal');
+}
+async function lotLoad(pid){
+  const tok=localStorage.getItem('stok_token');
+  const res=await fetch('/api/products/'+pid+'/lots',{headers:{'Authorization':'Bearer '+tok}});
+  const lots=res.ok?await res.json():[];
+  const total=lots.reduce((s,l)=>s+parseFloat(l.quantity),0);
+  document.getElementById('lotTotal').textContent=total;
+  const div=document.getElementById('lotRows');
+  if(!lots.length){div.innerHTML='<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Kayıt yok</div>';return;}
+  var html='';
+  lots.forEach(function(l,i){
+    html+='<div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;'+
+      'background:'+(i===0?'rgba(232,184,75,.1)':'var(--surface2)')+';'+
+      'border:1px solid '+(i===0?'rgba(232,184,75,.3)':'var(--border2)')+';'+
+      'border-radius:8px;margin-bottom:.3rem">'+
+      '<span>'+(i===0?'⚡':'📦')+'</span>'+
+      '<div style="flex:1">'+
+        '<span style="font-weight:800">'+l.production_year+'</span>'+
+        '<span style="font-family:var(--mono);font-size:.68rem;color:var(--text2)"> model yılı</span>'+
+        (l.notes?'<div style="font-size:.63rem;color:var(--muted)">'+esc(l.notes)+'</div>':'')+
+      '</div>'+
+      '<span style="font-family:var(--mono);font-weight:800;color:'+(i===0?'var(--accent)':'var(--text)')+'">'+parseFloat(l.quantity)+'</span>'+
+      '<button class="btn btn-ghost btn-sm" onclick="lotEdit('+l.production_year+','+parseFloat(l.quantity)+')">✏️</button>'+
+      '<button class="btn btn-danger btn-sm" onclick="lotDel('+l.id+','+pid+')">×</button>'+
+    '</div>';
+  });
+  html+='<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);text-align:right;margin-top:.2rem">Toplam: <strong>'+total+'</strong></div>';
+  div.innerHTML=html;
+}
+function lotEdit(yr,qty){
+  document.getElementById('lotYear').value=yr;
+  document.getElementById('lotQty').value=qty;
+  document.getElementById('lotYear').focus();
+}
+async function lotSave(){
+  const msg=document.getElementById('lotMsg');
+  const pid=document.getElementById('lotPid').value;
+  const yr=parseInt(document.getElementById('lotYear').value);
+  const qty=parseFloat(document.getElementById('lotQty').value);
+  const notes=document.getElementById('lotNotes').value.trim();
+  if(!pid){msg.style.color='var(--danger)';msg.textContent='Ürün ID yok';return;}
+  if(!yr||yr<1980||yr>2099){msg.style.color='var(--danger)';msg.textContent='Geçerli yıl girin (1980-2099)';return;}
+  if(isNaN(qty)||qty<0){msg.style.color='var(--danger)';msg.textContent='Geçerli adet girin';return;}
+  msg.style.color='var(--muted)';msg.textContent='Kaydediliyor...';
+  const tok=localStorage.getItem('stok_token');
+  try{
+    const res=await fetch('/api/products/'+pid+'/lots',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({production_year:yr,quantity:qty,notes:notes})
+    });
+    const data=await res.json();
+    if(!res.ok){msg.style.color='var(--danger)';msg.textContent='Hata: '+(data.error||res.status);return;}
+    document.getElementById('lotYear').value='';
+    document.getElementById('lotQty').value='';
+    document.getElementById('lotNotes').value='';
+    msg.style.color='var(--success)';msg.textContent='✓ Kaydedildi';
+    await lotLoad(pid);
+    await loadProducts();
+    renderProducts();
+  }catch(e){msg.style.color='var(--danger)';msg.textContent='Bağlantı hatası: '+e.message;}
+}
+async function lotDel(lotId,pid){
+  if(!confirm('Bu lotu silmek istediğinizden emin misiniz?'))return;
+  const tok=localStorage.getItem('stok_token');
+  const res=await fetch('/api/lots/'+lotId,{method:'DELETE',headers:{'Authorization':'Bearer '+tok}});
+  if(res.ok){await lotLoad(pid);await loadProducts();renderProducts();toast('Lot silindi','success');}
+  else{toast('Silinemedi','error');}
+}
 init();
 </script>
+
+<div class="modal-overlay" id="lotModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div>
+        <h3 id="lotTitle">Model Yılı</h3>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('lotModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lotPid">
+      <div id="lotRows" style="margin-bottom:1rem"></div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
+          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2020" min="1980" max="2099"></div>
+          <div class="form-group" style="margin:0"><label>Adet</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder=""></div>
+        <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
+        <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
+      </div>
+      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.</div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
+  </div>
+</div>
 </body>
 </html>
