@@ -288,9 +288,9 @@ function connectSSE(){
 async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]);}
 async function loadColumns(){columns=await api('/api/columns')||[];}
 async function loadProducts(){
-  const [prods,lc]=await Promise.all([api('/api/products'),api('/api/lots/counts')]);
+  const[prods,lc]=await Promise.all([api('/api/products'),api('/api/lots/counts')]);
   products=prods||[];
-  if(lc){products.forEach(p=>{p._lc=lc[p.id]||0;});}
+  if(lc)products.forEach(p=>{p._lc=lc[p.id]||0;});
 }
 async function loadTransactions(){transactions=await api('/api/transactions?limit=300')||[];}
 async function loadUsers(){users=await api('/api/users')||[];}
@@ -391,15 +391,17 @@ function renderProductRows(prods){
     }).join('');
     const nm=firstCol?(p.values?.[firstCol.id]||'#'+p.id):'#'+p.id;
     const lc=p._lc||0;
-    const lotBtn=lc>0
-      ?`<button class="btn btn-ghost btn-sm" style="color:var(--accent)" onclick="openLotModal(${p.id},'${esc(nm)}')" title="Lot/Model Yılı">⚡ ${lc} yıl</button>`
-      :`<button class="btn btn-ghost btn-sm" onclick="openLotModal(${p.id},'${esc(nm)}')" title="Model yılı bazlı stok gir">🗂️</button>`;
     return`<tr data-pid="${p.id}">${cells}
-      <td>${lotBtn}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openLotModal(${p.id},'${esc(nm)}')"
+        style="${lc>0?'color:var(--accent);font-weight:700':''}" title="Model yılı bazlı stok">
+        ${lc>0?'⚡ '+lc+' yıl':'🗂️'}
+      </button></td>
       <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;
+      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
+    </tr>`;
   }).join('');
 }
+
 function filterProducts(){const q=document.getElementById('productSearch').value.toLowerCase();renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);}
 async function addProductRow(){const r=await api('/api/products','POST',{values:{}});if(!r)return;await loadProducts();renderProducts();toast('Eklendi','success');}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
@@ -436,31 +438,9 @@ function renderMachines(){
   list.innerHTML=html;
 }
 function openMachineModal(){document.getElementById('editMachineId').value='';document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');document.getElementById('machineName').value='';document.getElementById('machineNotes').value='';document.getElementById('machineItems').innerHTML='';document.getElementById('machineModalTitle').textContent='Yeni Vinç';openModal('machineModal');}
-function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity,it.machine_year||''));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
-function addMachineItem(pid='',qty=1,machineYear=''){
-  const firstCol=columns[0];
-  const textCols=columns.filter(c=>c.data_type!=='number');
-  const opts=products.map(p=>{
-    const name=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`;
-    // Show extra info: code, brand etc.
-    const extras=textCols.slice(1).map(c=>p.values?.[c.id]).filter(Boolean).slice(0,2).join(' · ');
-    const label=extras?`${name}  [${extras}]`:name;
-    return`<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(label)}</option>`;
-  }).join('');
-  const div=document.createElement('div');
-  div.style.cssText='display:flex;gap:.4rem;align-items:center;flex-wrap:wrap';
-  div.innerHTML=`
-    <select style="flex:2;min-width:180px">${opts}</select>
-    <input type="number" value="${qty}" min="0" step="any" style="width:80px" placeholder="Adet" title="Adet">
-    <input type="number" value="${machineYear}" min="1980" max="2099" style="width:85px" placeholder="Model yılı" title="Bu vincin bu ürün için model yılı (opsiyonel)">
-    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;
-  document.getElementById('machineItems').appendChild(div);
-}
-async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}const rows=document.getElementById('machineItems').children;
-  const items=Array.from(rows).map(r=>{
-    const inputs=r.querySelectorAll('input');
-    return {product_id:r.querySelector('select').value, quantity:parseFloat(inputs[0]?.value)||1, machine_year:parseInt(inputs[1]?.value)||null};
-  }).filter(i=>i.product_id);if(id){await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});}else{await api('/api/machines','POST',{machine_name,firm_id,notes,items});toast('Vinç eklendi, iş panosu otomatik güncellendi ✓','success');}closeModal('machineModal');await Promise.all([loadMachines(),loadTasks()]);renderMachines();}
+function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
+function addMachineItem(pid='',qty=1){const firstCol=columns[0];const opts=products.map(p=>{const n=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`;return`<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(n)}</option>`;}).join('');const div=document.createElement('div');div.style.cssText='display:flex;gap:.4rem;align-items:center';div.innerHTML=`<select style="flex:1">${opts}</select><input type="number" value="${qty}" min="0" step="any" style="width:90px"><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;document.getElementById('machineItems').appendChild(div);}
+async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}const rows=document.getElementById('machineItems').children;const items=Array.from(rows).map(r=>({product_id:r.querySelector('select').value,quantity:parseFloat(r.querySelector('input').value)||1})).filter(i=>i.product_id);if(id){await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});}else{await api('/api/machines','POST',{machine_name,firm_id,notes,items});toast('Vinç eklendi, iş panosu otomatik güncellendi ✓','success');}closeModal('machineModal');await Promise.all([loadMachines(),loadTasks()]);renderMachines();}
 async function deleteMachine(id){if(!confirm('Silmek istediğinizden emin misiniz? İlgili iş de silinir.'))return;await api('/api/machines/'+id,'DELETE');await Promise.all([loadMachines(),loadTasks()]);renderMachines();toast('Silindi','success');}
 
 // ── TASKS ─────────────────────────────────────────────────────────────────
@@ -624,111 +604,128 @@ async function refresh(){
   if(fn){await fn();toast('Güncellendi ✓','success');}
 }
 
-// ── LOT / MODEL YILI YÖNETİMİ ────────────────────────────────────────────
+// ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
+// Bu fonksiyonlar ana script bloğunda, aynı scope'ta
+
 async function openLotModal(pid, name) {
-  document.getElementById('lotPid').value = pid;
-  document.getElementById('lotModalTitle').textContent = name;
+  document.getElementById('lotPid').value = String(pid);
+  document.getElementById('lotModalTitle').textContent = String(name);
   document.getElementById('lotYear').value = '';
   document.getElementById('lotQty').value = '';
   document.getElementById('lotNotes').value = '';
-  // Wire save button each time modal opens to ensure handler is fresh
+  document.getElementById('lotSaveStatus').textContent = '';
+
+  // Kaydet butonunu wire et
   const btn = document.getElementById('lotSaveBtn');
-  if (btn) {
-    const newBtn = btn.cloneNode(true); // remove old listeners
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      saveLotEntry();
-    });
-  }
-  await refreshLotList(pid);
+  const fresh = btn.cloneNode(true);
+  btn.parentNode.replaceChild(fresh, btn);
+  fresh.addEventListener('click', lotSave);
+
+  await lotRefresh(pid);
   openModal('lotModal');
 }
-async function refreshLotList(pid) {
-  const lots = await api('/api/products/' + pid + '/lots') || [];
-  const total = lots.reduce((s, l) => s + parseFloat(l.quantity), 0);
-  document.getElementById('lotTotalSpan').textContent = total;
-  const div = document.getElementById('lotListDiv');
-  if (!lots.length) {
-    div.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Lot kaydı yok — aşağıdan ekleyin</div>';
-    return;
-  }
-  div.innerHTML = lots.map((l, i) => `
-    <div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;
-      background:${i===0?'rgba(232,184,75,.1)':'var(--surface2)'};
-      border:1px solid ${i===0?'rgba(232,184,75,.35)':'var(--border2)'};
-      border-radius:8px;margin-bottom:.35rem">
-      <span>${i === 0 ? '⚡' : '📦'}</span>
-      <div style="flex:1">
-        <div style="font-weight:800">${l.production_year}
-          <span style="font-family:var(--mono);font-weight:400;font-size:.7rem;color:var(--text2)">model yılı</span>
-        </div>
-        ${l.notes ? `<div style="font-size:.65rem;color:var(--muted)">${esc(l.notes)}</div>` : ''}
-      </div>
-      <span style="font-family:var(--mono);font-weight:800;font-size:1rem;
-        color:${i===0?'var(--accent)':'var(--text)'}">
-        ${parseFloat(l.quantity)}
-      </span>
-      <button class="btn btn-ghost btn-sm"
-        onclick="document.getElementById('lotYear').value=${l.production_year};
-                 document.getElementById('lotQty').value=${parseFloat(l.quantity)};
-                 document.getElementById('lotNotes').value='${esc(l.notes||'')}';
-                 document.getElementById('lotYear').focus()">✏️</button>
-      <button class="btn btn-danger btn-sm"
-        onclick="deleteLotEntry(${l.id}, ${pid})">×</button>
-    </div>`
-  ).join('') + `
-    <div style="text-align:right;font-family:var(--mono);font-size:.68rem;
-      color:var(--muted);margin-top:.2rem">
-      Toplam: <strong>${total}</strong>
-    </div>`;
-}
-async function saveLotEntry() {
+
+async function lotRefresh(pid) {
+  const tok = localStorage.getItem('stok_token');
   try {
-    const pidEl  = document.getElementById('lotPid');
-    const yrEl   = document.getElementById('lotYear');
-    const qtyEl  = document.getElementById('lotQty');
-    const notEl  = document.getElementById('lotNotes');
-    if (!pidEl || !yrEl || !qtyEl) { toast('Modal elementi bulunamadı','error'); return; }
-    const pid   = pidEl.value;
-    const yr    = parseInt(yrEl.value);
-    const qty   = parseFloat(qtyEl.value);
-    const notes = notEl ? notEl.value.trim() : '';
-    if (!pid)               { toast('Hata: ürün ID yok — modalı kapatıp yeniden açın','error'); return; }
-    if (!yr||yr<1980||yr>2099) { toast('Geçerli bir yıl giriniz (1980-2099)','error'); return; }
-    if (isNaN(qty)||qty<0)     { toast('Geçerli bir adet giriniz','error'); return; }
-    const r = await api('/api/products/'+pid+'/lots','POST',{production_year:yr,quantity:qty,notes});
-    if (!r) return;
-    yrEl.value=''; qtyEl.value=''; if(notEl)notEl.value='';
-    await refreshLotList(pid);
-    await loadProducts();
-    renderProducts();
-    toast('Kaydedildi ✓ — Stok güncellendi','success');
+    const res = await fetch('/api/products/'+pid+'/lots', {
+      headers: { 'Authorization': 'Bearer '+tok }
+    });
+    const lots = res.ok ? await res.json() : [];
+    const total = lots.reduce((s,l)=>s+parseFloat(l.quantity),0);
+    document.getElementById('lotTotalSpan').textContent = total;
+    const div = document.getElementById('lotListDiv');
+    if (!lots.length) {
+      div.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Lot kaydı yok — aşağıdan ekleyin</div>';
+      return;
+    }
+    div.innerHTML = lots.map((l,i) => `
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;
+        background:${i===0?'rgba(232,184,75,.1)':'var(--surface2)'};
+        border:1px solid ${i===0?'rgba(232,184,75,.35)':'var(--border2)'};
+        border-radius:8px;margin-bottom:.35rem">
+        <span>${i===0?'⚡':'📦'}</span>
+        <div style="flex:1">
+          <div style="font-weight:800">${l.production_year}
+            <span style="font-family:var(--mono);font-weight:400;font-size:.7rem;color:var(--text2)"> model yılı</span>
+          </div>
+          ${l.notes?`<div style="font-size:.65rem;color:var(--muted)">${esc(l.notes)}</div>`:''}
+        </div>
+        <span style="font-family:var(--mono);font-weight:800;font-size:1rem;color:${i===0?'var(--accent)':'var(--text)'}">${parseFloat(l.quantity)}</span>
+        <button class="btn btn-ghost btn-sm"
+          onclick="document.getElementById('lotYear').value=${l.production_year};document.getElementById('lotQty').value=${parseFloat(l.quantity)};document.getElementById('lotNotes').value='${esc(l.notes||'')}';document.getElementById('lotYear').focus()">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="lotDelete(${l.id},${pid})">×</button>
+      </div>`
+    ).join('') + `<div style="text-align:right;font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:.2rem">Toplam: <strong>${total}</strong></div>`;
   } catch(e) {
-    toast('Hata: '+e.message,'error');
+    document.getElementById('lotListDiv').innerHTML = '<div style="color:var(--danger);font-family:var(--mono);font-size:.75rem">Yüklenemedi: '+e.message+'</div>';
   }
-}
-async function deleteLotEntry(lotId, pid) {
-  if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
-  const r = await api('/api/lots/' + lotId, 'DELETE');
-  if (!r) return;
-  await refreshLotList(pid);
-  await loadProducts();
-  renderProducts();
-  toast('Lot silindi', 'success');
 }
 
-// Wire up lot save button via addEventListener (backup for onclick)
-document.addEventListener('DOMContentLoaded', function() {
-  var lotSaveBtn = document.querySelector('#lotModal .btn-primary');
-  if (lotSaveBtn) {
-    lotSaveBtn.removeAttribute('onclick');
-    lotSaveBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      saveLotEntry();
+async function lotSave() {
+  const statusEl = document.getElementById('lotSaveStatus');
+  const btn = document.getElementById('lotSaveBtn');
+  try {
+    const pid  = document.getElementById('lotPid').value;
+    const yr   = parseInt(document.getElementById('lotYear').value);
+    const qty  = parseFloat(document.getElementById('lotQty').value);
+    const notes = document.getElementById('lotNotes').value.trim();
+
+    if (!pid)                  { statusEl.style.color='var(--danger)'; statusEl.textContent='❌ Ürün ID bulunamadı'; return; }
+    if (!yr||yr<1980||yr>2099) { statusEl.style.color='var(--danger)'; statusEl.textContent='❌ Geçerli yıl giriniz (1980-2099)'; return; }
+    if (isNaN(qty)||qty<0)     { statusEl.style.color='var(--danger)'; statusEl.textContent='❌ Geçerli adet giriniz'; return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Kaydediliyor...';
+    statusEl.textContent = '';
+
+    const tok = localStorage.getItem('stok_token');
+    const res = await fetch('/api/products/'+pid+'/lots', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer '+tok
+      },
+      body: JSON.stringify({ production_year: yr, quantity: qty, notes })
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sunucu hatası ('+res.status+')');
+
+    document.getElementById('lotYear').value = '';
+    document.getElementById('lotQty').value = '';
+    document.getElementById('lotNotes').value = '';
+    statusEl.style.color = 'var(--success)';
+    statusEl.textContent = '✓ Kaydedildi';
+    await lotRefresh(pid);
+    await loadProducts();
+    renderProducts();
+  } catch(e) {
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Kaydet';
   }
-});
+}
+
+async function lotDelete(lotId, pid) {
+  if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
+  const tok = localStorage.getItem('stok_token');
+  try {
+    const res = await fetch('/api/lots/'+lotId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer '+tok }
+    });
+    if (!res.ok) { const d=await res.json(); throw new Error(d.error||'Hata'); }
+    await lotRefresh(pid);
+    await loadProducts();
+    renderProducts();
+    toast('Lot silindi','success');
+  } catch(e) {
+    toast('Silinemedi: '+e.message,'error');
+  }
+}
+
 init();
 </script>
 
@@ -737,9 +734,9 @@ init();
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
       <div>
-        <h3 id="lotModalTitle">Model Yılı / Lot</h3>
+        <h3 id="lotModalTitle">Model Yılı Yönetimi</h3>
         <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.1rem">
-          Toplam stok: <span id="lotTotalSpan" style="color:var(--accent);font-weight:800">0</span> adet
+          Toplam: <span id="lotTotalSpan" style="color:var(--accent);font-weight:800">0</span> adet
         </div>
       </div>
       <button class="modal-close" onclick="closeModal('lotModal')">×</button>
@@ -750,25 +747,31 @@ init();
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
         <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
-          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label>
+          <div class="form-group" style="margin:0">
+            <label>Model / Üretim Yılı</label>
             <input type="number" id="lotYear" placeholder="2020" min="1980" max="2099" step="1">
           </div>
-          <div class="form-group" style="margin:0"><label>Adet</label>
+          <div class="form-group" style="margin:0">
+            <label>Adet</label>
             <input type="number" id="lotQty" placeholder="0" min="0" step="any">
           </div>
         </div>
-        <div class="form-group" style="margin:.5rem 0 0"><label>Not</label>
-          <input type="text" id="lotNotes" placeholder="Opsiyonel...">
+        <div class="form-group" style="margin:.5rem 0 0">
+          <label>Not (opsiyonel)</label>
+          <input type="text" id="lotNotes" placeholder="">
         </div>
         <button type="button" id="lotSaveBtn" class="btn btn-primary" style="width:100%;margin-top:.65rem">
           💾 Kaydet
         </button>
+        <div id="lotSaveStatus" style="font-family:var(--mono);font-size:.72rem;text-align:center;margin-top:.5rem;height:1.2em"></div>
       </div>
       <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">
         ⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button>
+    </div>
   </div>
 </div>
 </body>
