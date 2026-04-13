@@ -506,14 +506,18 @@ app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty < 0) return res.status(400).json({error: 'Geçersiz adet'});
 
-    // EXCLUDED kullan - $3/$4 parametresi ON CONFLICT içinde çalışmaz
-    await query(
-      `INSERT INTO product_lots(product_id, production_year, quantity, notes)
-       VALUES($1, $2, $3, $4)
-       ON CONFLICT(product_id, production_year)
-       DO UPDATE SET quantity = EXCLUDED.quantity, notes = EXCLUDED.notes`,
-      [req.params.id, parseInt(production_year), qty, notes || '']
-    );
+    // Varsa güncelle, yoksa ekle
+    const existing = (await query(
+      'SELECT id FROM product_lots WHERE product_id=$1 AND production_year=$2',
+      [req.params.id, parseInt(production_year)]
+    )).rows[0];
+    if (existing) {
+      await query('UPDATE product_lots SET quantity=$1, notes=$2 WHERE id=$3',
+        [qty, notes || '', existing.id]);
+    } else {
+      await query('INSERT INTO product_lots(product_id, production_year, quantity, notes) VALUES($1,$2,$3,$4)',
+        [req.params.id, parseInt(production_year), qty, notes || '']);
+    }
 
     await syncLotTotal(req.params.id);
     broadcast('stock_update', {});
