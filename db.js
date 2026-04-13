@@ -91,5 +91,17 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS product_lots (
+      id SERIAL PRIMARY KEY,
+      product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      production_year INT NOT NULL,
+      quantity NUMERIC NOT NULL DEFAULT 0,
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(product_id, production_year)
+    );
+  `);
 }
 module.exports = { query, init, pool };
