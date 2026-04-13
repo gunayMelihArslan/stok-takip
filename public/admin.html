@@ -631,6 +631,16 @@ async function openLotModal(pid, name) {
   document.getElementById('lotYear').value = '';
   document.getElementById('lotQty').value = '';
   document.getElementById('lotNotes').value = '';
+  // Wire save button each time modal opens to ensure handler is fresh
+  const btn = document.getElementById('lotSaveBtn');
+  if (btn) {
+    const newBtn = btn.cloneNode(true); // remove old listeners
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      saveLotEntry();
+    });
+  }
   await refreshLotList(pid);
   openModal('lotModal');
 }
@@ -674,22 +684,29 @@ async function refreshLotList(pid) {
     </div>`;
 }
 async function saveLotEntry() {
-  const pid = document.getElementById('lotPid').value;
-  const yr  = parseInt(document.getElementById('lotYear').value);
-  const qty = parseFloat(document.getElementById('lotQty').value);
-  const notes = document.getElementById('lotNotes').value.trim();
-  if (!pid) { toast('Hata: ürün seçilmedi', 'error'); return; }
-  if (!yr || yr < 1980 || yr > 2099) { toast('Geçerli bir yıl giriniz (1980-2099)', 'error'); return; }
-  if (isNaN(qty) || qty < 0) { toast('Geçerli bir adet giriniz', 'error'); return; }
-  const r = await api('/api/products/' + pid + '/lots', 'POST', { production_year: yr, quantity: qty, notes });
-  if (!r) return;
-  document.getElementById('lotYear').value = '';
-  document.getElementById('lotQty').value = '';
-  document.getElementById('lotNotes').value = '';
-  await refreshLotList(pid);
-  await loadProducts();
-  renderProducts();
-  toast('Kaydedildi ✓ — Toplam stok güncellendi', 'success');
+  try {
+    const pidEl  = document.getElementById('lotPid');
+    const yrEl   = document.getElementById('lotYear');
+    const qtyEl  = document.getElementById('lotQty');
+    const notEl  = document.getElementById('lotNotes');
+    if (!pidEl || !yrEl || !qtyEl) { toast('Modal elementi bulunamadı','error'); return; }
+    const pid   = pidEl.value;
+    const yr    = parseInt(yrEl.value);
+    const qty   = parseFloat(qtyEl.value);
+    const notes = notEl ? notEl.value.trim() : '';
+    if (!pid)               { toast('Hata: ürün ID yok — modalı kapatıp yeniden açın','error'); return; }
+    if (!yr||yr<1980||yr>2099) { toast('Geçerli bir yıl giriniz (1980-2099)','error'); return; }
+    if (isNaN(qty)||qty<0)     { toast('Geçerli bir adet giriniz','error'); return; }
+    const r = await api('/api/products/'+pid+'/lots','POST',{production_year:yr,quantity:qty,notes});
+    if (!r) return;
+    yrEl.value=''; qtyEl.value=''; if(notEl)notEl.value='';
+    await refreshLotList(pid);
+    await loadProducts();
+    renderProducts();
+    toast('Kaydedildi ✓ — Stok güncellendi','success');
+  } catch(e) {
+    toast('Hata: '+e.message,'error');
+  }
 }
 async function deleteLotEntry(lotId, pid) {
   if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
@@ -701,6 +718,17 @@ async function deleteLotEntry(lotId, pid) {
   toast('Lot silindi', 'success');
 }
 
+// Wire up lot save button via addEventListener (backup for onclick)
+document.addEventListener('DOMContentLoaded', function() {
+  var lotSaveBtn = document.querySelector('#lotModal .btn-primary');
+  if (lotSaveBtn) {
+    lotSaveBtn.removeAttribute('onclick');
+    lotSaveBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      saveLotEntry();
+    });
+  }
+});
 init();
 </script>
 
@@ -732,7 +760,7 @@ init();
         <div class="form-group" style="margin:.5rem 0 0"><label>Not</label>
           <input type="text" id="lotNotes" placeholder="Opsiyonel...">
         </div>
-        <button class="btn btn-primary" style="width:100%;margin-top:.65rem" onclick="saveLotEntry()">
+        <button type="button" id="lotSaveBtn" class="btn btn-primary" style="width:100%;margin-top:.65rem">
           💾 Kaydet
         </button>
       </div>
