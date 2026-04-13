@@ -287,11 +287,7 @@ function connectSSE(){
 }
 async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]);}
 async function loadColumns(){columns=await api('/api/columns')||[];}
-async function loadProducts(){
-  const[prods,lc]=await Promise.all([api('/api/products'),api('/api/lots/counts')]);
-  products=prods||[];
-  if(lc)products.forEach(p=>{p._lc=lc[p.id]||0;});
-}
+async function loadProducts(){products=await api('/api/products')||[];}
 async function loadTransactions(){transactions=await api('/api/transactions?limit=300')||[];}
 async function loadUsers(){users=await api('/api/users')||[];}
 async function loadMachines(){machines=await api('/api/machines')||[];}
@@ -377,31 +373,12 @@ function renderLiveBoard(){
 }
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
-function renderProducts(){document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Lot</th><th></th><th>İşlem</th>';renderProductRows(products);}
+function renderProducts(){document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th></th><th>İşlem</th>';renderProductRows(products);}
 function renderProductRows(prods){
-  const numCol=columns.find(c=>c.data_type==='number');
-  const firstCol=columns[0];
-  const tbody=document.getElementById('productTbody');
-  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+3}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
-  tbody.innerHTML=prods.map(p=>{
-    const cells=columns.map(c=>{
-      const val=p.values?.[c.id]||'';
-      const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);
-      return`<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
-    }).join('');
-    const nm=firstCol?(p.values?.[firstCol.id]||'#'+p.id):'#'+p.id;
-    const lc=p._lc||0;
-    return`<tr data-pid="${p.id}">${cells}
-      <td><button class="btn btn-ghost btn-sm" onclick="lotOpen(${p.id},'${esc(nm)}')"
-        ${lc>0?'style="color:var(--accent);font-weight:700"':''} title="Model yılı bazlı stok">
-        ${lc>0?'⚡ '+lc+' yıl':'🗂️'}
-      </button></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
-    </tr>`;
-  }).join('');
+  const numCol=columns.find(c=>c.data_type==='number');const tbody=document.getElementById('productTbody');
+  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+2}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
+  tbody.innerHTML=prods.map(p=>{const cells=columns.map(c=>{const val=p.values?.[c.id]||'';const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);return`<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;}).join('');return`<tr>${cells}<td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td><td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td></tr>`;}).join('');
 }
-
 function filterProducts(){const q=document.getElementById('productSearch').value.toLowerCase();renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);}
 async function addProductRow(){const r=await api('/api/products','POST',{values:{}});if(!r)return;await loadProducts();renderProducts();toast('Eklendi','success');}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
@@ -438,312 +415,95 @@ function renderMachines(){
   list.innerHTML=html;
 }
 function openMachineModal(){document.getElementById('editMachineId').value='';document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');document.getElementById('machineName').value='';document.getElementById('machineNotes').value='';document.getElementById('machineItems').innerHTML='';document.getElementById('machineModalTitle').textContent='Yeni Vinç';openModal('machineModal');}
-function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
-function addMachineItem(pid='',qty=1){const firstCol=columns[0];const opts=products.map(p=>{const n=firstCol?(p.values?.[firstCol.id]||`#${p.id}`):`#${p.id}`;return`<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(n)}</option>`;}).join('');const div=document.createElement('div');div.style.cssText='display:flex;gap:.4rem;align-items:center';div.innerHTML=`<select style="flex:1">${opts}</select><input type="number" value="${qty}" min="0" step="any" style="width:90px"><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>`;document.getElementById('machineItems').appendChild(div);}
-async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}const rows=document.getElementById('machineItems').children;const items=Array.from(rows).map(r=>({product_id:r.querySelector('select').value,quantity:parseFloat(r.querySelector('input').value)||1})).filter(i=>i.product_id);if(id){await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});}else{await api('/api/machines','POST',{machine_name,firm_id,notes,items});toast('Vinç eklendi, iş panosu otomatik güncellendi ✓','success');}closeModal('machineModal');await Promise.all([loadMachines(),loadTasks()]);renderMachines();}
-async function deleteMachine(id){if(!confirm('Silmek istediğinizden emin misiniz? İlgili iş de silinir.'))return;await api('/api/machines/'+id,'DELETE');await Promise.all([loadMachines(),loadTasks()]);renderMachines();toast('Silindi','success');}
+function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity,it.machine_year||''));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
+function addMachineItem(pid='', qty=1, machineYear='') {
+  // Select seçeneğinde: Ürün Adı + tüm text sütunları
+  const opts = products.map(p => {
+    const parts = columns.map(col => {
+      const v = p.values?.[col.id];
+      if (!v) return null;
+      return col.data_type === 'number' ? `${col.name}:${v}` : v;
+    }).filter(Boolean);
+    const label = parts.join(' · ') || '#'+p.id;
+    return `<option value="${p.id}" ${p.id==pid?'selected':''}>${esc(label)}</option>`;
+  }).join('');
 
-// ── TASKS ─────────────────────────────────────────────────────────────────
-const stageStatusIcon={open:'○',in_progress:'⚡',pending_transfer:'🔄',completed:'✅'};
-const stageStatusColor={open:'var(--muted)',in_progress:'var(--success)',pending_transfer:'var(--warning)',completed:'var(--accent)'};
-
-function renderTasks(){
-  // Update filters
-  const fsel=document.getElementById('taskFirmFilter');const curF=fsel.value;fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===curF?'selected':''}>${esc(f.name)}</option>`).join('');fsel.value=curF;
-  let filtered=tasks;
-  if(curF)filtered=filtered.filter(t=>String(t.firm_id)===curF);
-  const statF=document.getElementById('taskStatusFilter').value;
-  if(statF)filtered=filtered.filter(t=>t.status===statF);
-
-  const board=document.getElementById('taskBoard');
-  if(!filtered.length){board.innerHTML='<div class="card empty"><div class="icon">📋</div>İş yok — Vinç ekleyince otomatik oluşur</div>';return;}
-
-  // Group by firm
-  const grouped={};
-  filtered.forEach(t=>{const k=t.firm_name||'__';if(!grouped[k])grouped[k]=[];grouped[k].push(t);});
-  let html='';
-  Object.entries(grouped).forEach(([fn,list])=>{
-    if(fn!=='__')html+=`<div class="firm-divider"><div></div><span>🏢 ${esc(fn)}</span><div></div></div>`;
-    html+=list.map(t=>{
-      const allDone=t.stages?.every(s=>s.status==='completed');
-      const stagesHtml=(t.stages||[]).map(s=>`
-        <div class="stage-cell">
-          <div class="stage-name">${esc(s.stage_name)}</div>
-          <div class="stage-assignee stage-status-${s.status}">
-            ${stageStatusIcon[s.status]||'○'} ${esc(s.assignee_name||'Boş')}
-          </div>
-          ${s.status==='pending_transfer'&&s.pending_transfer?`<div style="font-family:var(--mono);font-size:.62rem;color:var(--warning);margin-top:.2rem">→ devir talebi</div>`:''}
-          <div class="stage-actions">
-            ${s.status!=='completed'?`<button class="btn btn-ghost btn-sm" onclick="openAssignModal(${s.id},'${esc(s.stage_name)}')">${s.assigned_to?'Yeniden Ata':'Ata'}</button>`:''}
-            ${s.status==='in_progress'?`<button class="btn btn-success btn-sm" onclick="completeStage(${s.id},${t.id})">✓</button>`:''}
-          </div>
-        </div>`).join('');
-      return`<div class="task-row">
-        <div class="task-row-header">
-          <span style="font-size:.9rem">🏗️</span>
-          <span style="font-weight:800;font-size:.9rem;flex:1">${esc(t.title)}</span>
-          ${t.is_auto?'<span class="badge" style="background:var(--success-dim);color:var(--success);font-size:.6rem">Otomatik</span>':'<span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.6rem">Manuel</span>'}
-          ${allDone?'<span class="badge badge-ok">Tamamlandı</span>':''}
-          <button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">Sil</button>
-        </div>
-        <div class="stages-grid">${stagesHtml}</div>
-      </div>`;
-    }).join('');
-  });
-  board.innerHTML=html;
-}
-
-function openAssignModal(stageId,stageName){
-  document.getElementById('assignStageId').value=stageId;
-  document.getElementById('assignModalTitle').textContent='Ata: '+stageName;
-  const personnel=users.filter(u=>u.role==='personnel');
-  document.getElementById('assignUser').innerHTML='<option value="">— Atamayı Kaldır —</option>'+personnel.map(u=>`<option value="${u.id}">${esc(u.display_name||u.username)}</option>`).join('');
-  openModal('assignModal');
-}
-async function doAssign(){
-  const stage_id=document.getElementById('assignStageId').value;
-  const user_id=document.getElementById('assignUser').value||null;
-  const r=await api('/api/task-stages/'+stage_id+'/assign','POST',{user_id});
-  if(!r)return;
-  closeModal('assignModal');await loadTasks();renderTasks();renderLiveBoard();toast(user_id?'Atandı ✓':'Atama kaldırıldı','success');
-}
-async function completeStage(stageId,taskId){
-  if(!confirm('Bu aşamayı tamamlandı olarak işaretlemek istiyor musunuz?'))return;
-  await api('/api/task-stages/'+stageId+'/complete','POST');await loadTasks();renderTasks();renderLiveBoard();toast('Aşama tamamlandı ✓','success');
-}
-function openTaskModal(){
-  document.getElementById('taskTitle').value='';
-  document.getElementById('taskFirm').innerHTML='<option value="">— Firma —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-  document.getElementById('taskMachine').innerHTML='<option value="">— Vinç —</option>';
-  document.getElementById('taskPriority').value='normal';
-  document.getElementById('taskStages').value='Pano, Yerleştirme, Kedi Tesisat';
-  document.getElementById('taskNotes').value='';
-  openModal('taskModal');
-}
-function filterTaskMachines(){const fid=document.getElementById('taskFirm').value;const sel=document.getElementById('taskMachine');sel.innerHTML='<option value="">— Vinç —</option>'+(fid?machines.filter(m=>String(m.firm_id)===fid):machines).map(m=>`<option value="${m.id}">${esc(m.machine_name)}</option>`).join('');}
-async function saveTask(){
-  const title=document.getElementById('taskTitle').value.trim();
-  const firm_id=document.getElementById('taskFirm').value||null;
-  const machine_id=document.getElementById('taskMachine').value||null;
-  const priority=document.getElementById('taskPriority').value;
-  const notes=document.getElementById('taskNotes').value.trim();
-  const stage_names=document.getElementById('taskStages').value.split(',').map(s=>s.trim()).filter(Boolean);
-  if(!title){toast('Başlık gerekli','error');return;}
-  await api('/api/tasks','POST',{title,firm_id,machine_id,priority,notes,stage_names});
-  closeModal('taskModal');await loadTasks();renderTasks();toast('İş oluşturuldu','success');
-}
-async function deleteTask(id){if(!confirm('Bu işi ve tüm aşamalarını silmek istediğinizden emin misiniz?'))return;await api('/api/tasks/'+id,'DELETE');await loadTasks();renderTasks();toast('Silindi','success');}
-
-// ── PERFORMANCE ───────────────────────────────────────────────────────────
-function renderPerformance(){
-  if(!perf.length){document.getElementById('perfContent').innerHTML='<div class="card empty"><div class="icon">🏆</div>Veri yok</div>';return;}
-  const maxScore=Math.max(...perf.map(p=>p.score),1);
-  const medals=['🥇','🥈','🥉'];
-  document.getElementById('perfContent').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem">${perf.map((p,i)=>`
-    <div class="card" style="padding:1rem 1.2rem;${i===0?'border-color:var(--accent)':''}">
-      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
-        <div style="font-size:1.4rem">${medals[i]||'👤'}</div>
-        <div style="flex:1"><div style="font-weight:800">${esc(p.display_name||p.username)}</div><div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${p.score} puan</div></div>
-        <div style="font-size:1.35rem;font-weight:800;color:var(--accent)">${p.score}</div>
-      </div>
-      <div class="perf-bar"><div class="perf-bar-fill" style="width:${Math.round(p.score/maxScore*100)}%"></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:.75rem;font-family:var(--mono);font-size:.7rem;text-align:center">
-        <div><div style="color:var(--muted)">Aşama</div><div style="font-weight:700;color:var(--success)">${p.completed_stages}</div></div>
-        <div><div style="color:var(--muted)">Devam</div><div style="font-weight:700;color:var(--warning)">${p.in_progress}</div></div>
-        <div><div style="color:var(--muted)">Stok</div><div style="font-weight:700">${p.tx_count}</div></div>
-      </div>
-      ${p.avg_hours?`<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);text-align:center;margin-top:.5rem">Ort: ${p.avg_hours} saat/aşama</div>`:''}
-    </div>`).join('')}</div>
-  <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:1rem">Puan: Tamamlanan aşama ×10 + Stok işlemi ×2 + Hız bonusu (4h altı: +5)</div>`;
-}
-
-// ── TRANSACTIONS ─────────────────────────────────────────────────────────
-function renderTransactions(){
-  const q=document.getElementById('txSearch').value.toLowerCase();const typ=document.getElementById('txTypeFilter').value;
-  let txs=transactions;
-  if(q)txs=txs.filter(t=>(t.product_name||'').toLowerCase().includes(q)||t.company.toLowerCase().includes(q)||(t.user_name||'').toLowerCase().includes(q));
-  if(typ)txs=txs.filter(t=>(t.tx_type||'out')===typ);
-  document.getElementById('txTbody').innerHTML=txs.length?txs.map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td><td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td><td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})">↩</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty">—</td></tr>';
-}
-function filterTx(){renderTransactions();}
-async function deleteTx(id){if(!confirm('Bu işlemi iptal edip stoku geri yüklemek istiyor musunuz?'))return;await api('/api/transactions/'+id,'DELETE');await Promise.all([loadTransactions(),loadProducts()]);renderTransactions();toast('İptal edildi','success');}
-
-// ── USERS ─────────────────────────────────────────────────────────────────
-function renderUsers(){document.getElementById('usersTbody').innerHTML=users.map(u=>`<tr><td><strong>${esc(u.display_name||u.username)}</strong></td><td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td><td><span class="badge badge-${u.role}">${u.role==='admin'?'Yönetici':'Personel'}</span></td><td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td><td style="display:flex;gap:.4rem"><button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button></td></tr>`).join('');}
-function openUserModal(){document.getElementById('editUserId').value='';document.getElementById('userDisplayName').value='';document.getElementById('userUsername').value='';document.getElementById('userPassword').value='';document.getElementById('userRole').value='personnel';document.getElementById('userUsername').disabled=false;document.getElementById('passOptional').style.display='none';document.getElementById('userModalTitle').textContent='Yeni Kullanıcı';openModal('userModal');}
-function editUser(id){const u=users.find(x=>x.id===id);if(!u)return;document.getElementById('editUserId').value=id;document.getElementById('userDisplayName').value=u.display_name||'';document.getElementById('userUsername').value=u.username;document.getElementById('userPassword').value='';document.getElementById('userRole').value=u.role;document.getElementById('userUsername').disabled=true;document.getElementById('passOptional').style.display='inline';document.getElementById('userModalTitle').textContent='Kullanıcı Düzenle';openModal('userModal');}
-async function saveUser(){const id=document.getElementById('editUserId').value;const display_name=document.getElementById('userDisplayName').value.trim();const username=document.getElementById('userUsername').value.trim();const password=document.getElementById('userPassword').value;const role=document.getElementById('userRole').value;if(!display_name||(!id&&!username)||(!id&&!password)){toast('Tüm alanları doldurun','error');return;}if(id)await api('/api/users/'+id,'PUT',{display_name,role,password:password||undefined});else await api('/api/users','POST',{username,password,role,display_name});closeModal('userModal');await loadUsers();renderUsers();toast('Kaydedildi','success');}
-async function deleteUser(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/users/'+id,'DELETE');await loadUsers();renderUsers();toast('Silindi','success');}
-
-// ── UTILS ─────────────────────────────────────────────────────────────────
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function fmtDate(s){return new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
-let toastTimer;
-function toast(msg,type='success'){const el=document.getElementById('toast');el.textContent=(type==='success'?'✓ ':'✗ ')+msg;el.className='show '+type;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',3000);}
-async function logout(){localStorage.removeItem('stok_token');await fetch('/api/logout',{method:'POST'});window.location.href='/';}
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
-function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
-document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
-// ── Refresh helpers ───────────────────────────────────────────────────────
-async function refresh(){
-  const fns={
-    dashboard: async()=>{await loadAll();renderDashboard();},
-    products:  async()=>{await loadProducts();renderProducts();},
-    columns:   async()=>{await loadColumns();await loadProducts();renderColumns();},
-    firms:     async()=>{await loadFirms();await loadMachines();renderFirms();},
-    machines:  async()=>{await loadMachines();renderMachines();},
-    tasks:     async()=>{await loadTasks();renderTasks();},
-    transactions: async()=>{await loadTransactions();renderTransactions();},
-    users:     async()=>{await loadUsers();renderUsers();},
-    performance: loadPerformance,
+  // Lot yıllarını al (seçili ürün için)
+  const lotYearOpts = () => {
+    if (!pid) return '<option value="">— Model Yılı —</option>';
+    // Lot yıllarını async çekeceğiz, şimdilik boş bırak
+    return `<option value="${machineYear}" ${machineYear?'':''selected}>${machineYear||'— Model Yılı —'}</option>`;
   };
-  const fn=fns[currentPage];
-  if(fn){await fn();toast('Güncellendi ✓','success');}
-}
 
-// ════════════════════════════════════════════════════════
-// LOT / MODEL YILI YÖNETİMİ
-// ════════════════════════════════════════════════════════
-async function lotOpen(pid, name) {
-  document.getElementById('lotPid').value = String(pid);
-  document.getElementById('lotTitle').textContent = String(name);
-  document.getElementById('lotYear').value = '';
-  document.getElementById('lotQty').value = '';
-  document.getElementById('lotNotes').value = '';
-  document.getElementById('lotMsg').textContent = '';
-  await lotLoad(pid);
-  openModal('lotModal');
-}
-
-async function lotLoad(pid) {
-  const tok = localStorage.getItem('stok_token');
-  const res = await fetch('/api/products/'+pid+'/lots', {
-    headers: {'Authorization':'Bearer '+tok}
-  });
-  const lots = res.ok ? await res.json() : [];
-  const total = lots.reduce((s,l) => s + parseFloat(l.quantity), 0);
-  document.getElementById('lotTotal').textContent = total;
-  const div = document.getElementById('lotRows');
-  if (!lots.length) {
-    div.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem 0">Kayıt yok — aşağıdan ekleyin</div>';
-    return;
-  }
-  div.innerHTML = lots.map((l,i) => `
-    <div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;
-        background:${i===0?'rgba(232,184,75,.1)':'var(--surface2)'};
-        border:1px solid ${i===0?'rgba(232,184,75,.3)':'var(--border2)'};
-        border-radius:8px;margin-bottom:.3rem">
-      <span>${i===0?'⚡':'📦'}</span>
-      <div style="flex:1">
-        <span style="font-weight:800">${l.production_year}</span>
-        <span style="font-family:var(--mono);font-size:.68rem;color:var(--text2)"> model yılı</span>
-        ${l.notes?`<div style="font-size:.63rem;color:var(--muted)">${esc(l.notes)}</div>`:''}
-      </div>
-      <span style="font-family:var(--mono);font-weight:800;color:${i===0?'var(--accent)':'var(--text)'}">${parseFloat(l.quantity)}</span>
-      <button class="btn btn-ghost btn-sm"
-        onclick="document.getElementById('lotYear').value=${l.production_year};document.getElementById('lotQty').value=${parseFloat(l.quantity)};document.getElementById('lotNotes').value='${esc(l.notes||'')}';document.getElementById('lotYear').focus()">✏️</button>
-      <button class="btn btn-danger btn-sm" onclick="lotDel(${l.id},${pid})">×</button>
-    </div>`
-  ).join('') + `<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);text-align:right;margin-top:.2rem">Toplam: <strong>${total}</strong></div>`;
-}
-
-async function lotSave() {
-  const msg  = document.getElementById('lotMsg');
-  const pid  = document.getElementById('lotPid').value;
-  const yr   = parseInt(document.getElementById('lotYear').value);
-  const qty  = parseFloat(document.getElementById('lotQty').value);
-  const notes = document.getElementById('lotNotes').value.trim();
-
-  if (!pid)                   { msg.style.color='var(--danger)'; msg.textContent='Ürün ID yok'; return; }
-  if (!yr || yr<1980 || yr>2099) { msg.style.color='var(--danger)'; msg.textContent='Geçerli yıl girin (1980-2099)'; return; }
-  if (isNaN(qty) || qty < 0)  { msg.style.color='var(--danger)'; msg.textContent='Geçerli adet girin'; return; }
-
-  msg.style.color = 'var(--muted)';
-  msg.textContent = 'Kaydediliyor...';
-
-  const tok = localStorage.getItem('stok_token');
-  try {
-    const res = await fetch('/api/products/'+pid+'/lots', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+tok},
-      body: JSON.stringify({production_year:yr, quantity:qty, notes})
-    });
-    const data = await res.json();
-    if (!res.ok) { msg.style.color='var(--danger)'; msg.textContent='Hata: '+(data.error||res.status); return; }
-    document.getElementById('lotYear').value = '';
-    document.getElementById('lotQty').value = '';
-    document.getElementById('lotNotes').value = '';
-    msg.style.color = 'var(--success)';
-    msg.textContent = '✓ Kaydedildi — stok güncellendi';
-    await lotLoad(pid);
-    await loadProducts();
-    renderProducts();
-  } catch(e) {
-    msg.style.color = 'var(--danger)';
-    msg.textContent = 'Bağlantı hatası: '+e.message;
-  }
-}
-
-async function lotDel(lotId, pid) {
-  if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
-  const tok = localStorage.getItem('stok_token');
-  const res = await fetch('/api/lots/'+lotId, {
-    method:'DELETE', headers:{'Authorization':'Bearer '+tok}
-  });
-  if (res.ok) { await lotLoad(pid); await loadProducts(); renderProducts(); toast('Lot silindi','success'); }
-  else { toast('Silinemedi','error'); }
-}
-// ════════════════════════════════════════════════════════
-init();
-</script>
-
-<!-- ── Lot Modal ─────────────────────────────────────── -->
-<div class="modal-overlay" id="lotModal">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-header">
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .75rem;display:flex;flex-direction:column;gap:.4rem;margin-bottom:.4rem';
+  div.innerHTML = `
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <select style="flex:1;font-size:.82rem" onchange="updateMachineItemLots(this)">
+        ${opts}
+      </select>
+      <button class="btn btn-danger btn-sm" onclick="this.closest('[data-mitem]').remove()">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
       <div>
-        <h3 id="lotTitle">Model Yılı</h3>
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">
-          Toplam stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet
-        </div>
+        <div style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;margin-bottom:.2rem">Adet</div>
+        <input type="number" value="${qty}" min="0" step="any" style="width:100%" placeholder="Adet">
       </div>
-      <button class="modal-close" onclick="closeModal('lotModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="lotPid">
-      <div id="lotRows" style="margin-bottom:1rem"></div>
-      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
-          <div class="form-group" style="margin:0">
-            <label>Model / Üretim Yılı</label>
-            <input type="number" id="lotYear" placeholder="2020" min="1980" max="2099">
-          </div>
-          <div class="form-group" style="margin:0">
-            <label>Adet</label>
-            <input type="number" id="lotQty" placeholder="0" min="0" step="any">
-          </div>
-        </div>
-        <div class="form-group" style="margin:0 0 .65rem">
-          <label>Not (opsiyonel)</label>
-          <input type="text" id="lotNotes" placeholder="">
-        </div>
-        <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">
-          💾 Kaydet
-        </button>
-        <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
-      </div>
-      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">
-        ⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.
+      <div>
+        <div style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;margin-bottom:.2rem">Model Yılı (opsiyonel)</div>
+        <select class="lot-year-sel" style="width:100%">
+          <option value="">— Yıl —</option>
+          ${machineYear ? `<option value="${machineYear}" selected>${machineYear}</option>` : ''}
+        </select>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button>
-    </div>
-  </div>
-</div>
-</body>
-</html>
+    <div class="mitem-info" style="font-family:var(--mono);font-size:.65rem;color:var(--text2);min-height:.8em"></div>
+  `;
+  div.dataset.mitem = '1';
+  document.getElementById('machineItems').appendChild(div);
+
+  // Seçili ürün varsa lot yıllarını yükle
+  const sel = div.querySelector('select');
+  if (sel.value) updateMachineItemLots(sel);
+}
+
+async function updateMachineItemLots(sel) {
+  const div = sel.closest('[data-mitem]');
+  if (!div) return;
+  const pid = sel.value;
+  const infoEl = div.querySelector('.mitem-info');
+  const yearSel = div.querySelector('.lot-year-sel');
+  const currentYear = yearSel?.value;
+
+  if (!pid) { if(infoEl) infoEl.textContent=''; return; }
+
+  // Ürün detayları göster
+  const prod = products.find(p=>p.id==pid);
+  if (prod && infoEl) {
+    const numCol = columns.find(c=>c.data_type==='number');
+    const stock = numCol ? prod.values?.[numCol.id] : null;
+    const textInfo = columns.filter(c=>c.data_type!=='number').slice(1)
+      .map(c=>prod.values?.[c.id]).filter(Boolean).join(' · ');
+    infoEl.textContent = (textInfo?textInfo+' — ':'') + (stock!==null?`Stok: ${stock}`:'');
+  }
+
+  // Lot yıllarını çek
+  if (!yearSel) return;
+  try {
+    const tok = localStorage.getItem('stok_token');
+    const res = await fetch('/api/products/'+pid+'/lots', {
+      headers: {'Authorization':'Bearer '+tok}
+    });
+    const lots = res.ok ? await res.json() : [];
+    yearSel.innerHTML = '<option value="">— Yıl —</option>' +
+      lots.filter(l=>parseFloat(l.quantity)>0).map(l=>
+        `<option value="${l.production_year}" ${l.production_year==currentYear?'selected':''}>
+          ${l.production_year} (${parseFloat(l.quantity)} adet)
+        </option>`
+      ).join('');
+    if (!yearSel.value && lots.length > 0)
+      yearSel.value = ''; // boş bırak, kullanıcı seçsin
+  } catch(e) {}
+}
+
+
