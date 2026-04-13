@@ -259,9 +259,18 @@ app.post('/api/transactions', auth, async (req, res) => {
   const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
     [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
   const numCol = await getNumCol();
-  const lc=parseInt((await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1',[product_id])).rows[0].c);
-  if(type==='out'){if(lc>0)await deductFromLots(product_id,Number(quantity));else await deductStock(product_id,Number(quantity),numCol);}
-  else if(type==='return'){if(lc>0)await restoreToLots(product_id,Number(quantity));else await restoreStock(product_id,Number(quantity),numCol);}
+  let hasLots = false;
+  try {
+    const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [product_id])).rows[0];
+    hasLots = parseInt(lc.c) > 0;
+  } catch(e) { hasLots = false; }
+  if (type === 'out') {
+    if (hasLots) await deductFromLots(product_id, Number(quantity));
+    else await deductStock(product_id, Number(quantity), numCol);
+  } else if (type === 'return') {
+    if (hasLots) await restoreToLots(product_id, Number(quantity));
+    else await restoreStock(product_id, Number(quantity), numCol);
+  }
   broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
   res.json({ id: r.rows[0].id });
 });
@@ -474,48 +483,96 @@ app.get('/api/export/transactions', auth, async (req, res) => {
 
 
 // ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
-app.get('/api/products/:id/lots', auth, async (req,res) => {
-  res.json((await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year ASC',[req.params.id])).rows);
+app.get('/api/products/:id/lots', auth, async (req, res) => {
+  try {
+    const rows = (await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year ASC', [req.params.id])).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({error: e.message}); }
 });
-app.get('/api/lots/counts', auth, async (req,res) => {
-  const rows=(await query('SELECT product_id,COUNT(*) as cnt FROM product_lots WHERE quantity>0 GROUP BY product_id')).rows;
-  const m={};rows.forEach(r=>{m[r.product_id]=parseInt(r.cnt);});res.json(m);
+
+app.get('/api/lots/counts', auth, async (req, res) => {
+  try {
+    const rows = (await query('SELECT product_id, COUNT(*) as cnt FROM product_lots WHERE quantity>0 GROUP BY product_id')).rows;
+    const m = {};
+    rows.forEach(r => { m[r.product_id] = parseInt(r.cnt); });
+    res.json(m);
+  } catch(e) { res.status(500).json({error: e.message}); }
 });
-app.post('/api/products/:id/lots', auth, admin, async (req,res) => {
-  const {production_year,quantity,notes}=req.body;
-  if(!production_year) return res.status(400).json({error:'Yıl zorunlu'});
-  const qty=parseFloat(quantity);
-  if(isNaN(qty)||qty<0) return res.status(400).json({error:'Geçersiz adet'});
-  await query(`INSERT INTO product_lots(product_id,production_year,quantity,notes)VALUES($1,$2,$3,$4)
-    ON CONFLICT(product_id,production_year)DO UPDATE SET quantity=$3,notes=$4`,
-    [req.params.id,parseInt(production_year),qty,notes||'']);
-  await syncLotTotal(req.params.id);
-  broadcast('stock_update',{});
-  res.json({ok:true});
+
+app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
+  try {
+    const { production_year, quantity, notes } = req.body;
+    if (!production_year) return res.status(400).json({error: 'Yıl zorunlu'});
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty < 0) return res.status(400).json({error: 'Geçersiz adet'});
+
+    // EXCLUDED kullan - $3/$4 parametresi ON CONFLICT içinde çalışmaz
+    await query(
+      `INSERT INTO product_lots(product_id, production_year, quantity, notes)
+       VALUES($1, $2, $3, $4)
+       ON CONFLICT(product_id, production_year)
+       DO UPDATE SET quantity = EXCLUDED.quantity, notes = EXCLUDED.notes`,
+      [req.params.id, parseInt(production_year), qty, notes || '']
+    );
+
+    await syncLotTotal(req.params.id);
+    broadcast('stock_update', {});
+    res.json({ok: true});
+  } catch(e) {
+    console.error('lot POST error:', e.message);
+    res.status(500).json({error: e.message});
+  }
 });
-app.delete('/api/lots/:id', auth, admin, async (req,res) => {
-  const lot=(await query('SELECT product_id FROM product_lots WHERE id=$1',[req.params.id])).rows[0];
-  if(!lot) return res.status(404).json({error:'Bulunamadı'});
-  await query('DELETE FROM product_lots WHERE id=$1',[req.params.id]);
-  await syncLotTotal(lot.product_id);
-  broadcast('stock_update',{});
-  res.json({ok:true});
+
+app.delete('/api/lots/:id', auth, admin, async (req, res) => {
+  try {
+    const lot = (await query('SELECT product_id FROM product_lots WHERE id=$1', [req.params.id])).rows[0];
+    if (!lot) return res.status(404).json({error: 'Bulunamadı'});
+    await query('DELETE FROM product_lots WHERE id=$1', [req.params.id]);
+    await syncLotTotal(lot.product_id);
+    broadcast('stock_update', {});
+    res.json({ok: true});
+  } catch(e) { res.status(500).json({error: e.message}); }
 });
-async function syncLotTotal(pid){
-  const numCol=await getNumCol();if(!numCol)return;
-  const t=parseFloat((await query('SELECT COALESCE(SUM(quantity),0) as t FROM product_lots WHERE product_id=$1',[pid])).rows[0].t);
-  const p=(await query('SELECT values FROM products WHERE id=$1',[pid])).rows[0];if(!p)return;
-  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2',[JSON.stringify({...(p.values||{}),[numCol.id]:String(t)}),pid]);
+
+async function syncLotTotal(pid) {
+  try {
+    const numCol = await getNumCol();
+    if (!numCol) return; // sayısal sütun yoksa stok güncellemesi yapma
+    const total = parseFloat(
+      (await query('SELECT COALESCE(SUM(quantity), 0) as t FROM product_lots WHERE product_id=$1', [pid])).rows[0].t
+    );
+    const prod = (await query('SELECT values FROM products WHERE id=$1', [pid])).rows[0];
+    if (!prod) return;
+    const vals = { ...(prod.values || {}), [numCol.id]: String(total) };
+    await query('UPDATE products SET values=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), pid]);
+  } catch(e) {
+    console.error('syncLotTotal error:', e.message);
+  }
 }
-async function deductFromLots(pid,qty){
-  const lots=(await query('SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC',[pid])).rows;
-  let rem=qty;
-  for(const l of lots){if(rem<=0)break;const take=Math.min(parseFloat(l.quantity),rem);await query('UPDATE product_lots SET quantity=quantity-$1 WHERE id=$2',[take,l.id]);rem-=take;}
+
+async function deductFromLots(pid, qty) {
+  const lots = (await query(
+    'SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC', [pid]
+  )).rows;
+  let rem = qty;
+  for (const l of lots) {
+    if (rem <= 0) break;
+    const take = Math.min(parseFloat(l.quantity), rem);
+    await query('UPDATE product_lots SET quantity = quantity - $1 WHERE id=$2', [take, l.id]);
+    rem -= take;
+  }
   await syncLotTotal(pid);
 }
-async function restoreToLots(pid,qty){
-  const l=(await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year DESC LIMIT 1',[pid])).rows[0];
-  if(l){await query('UPDATE product_lots SET quantity=quantity+$1 WHERE id=$2',[qty,l.id]);await syncLotTotal(pid);}
+
+async function restoreToLots(pid, qty) {
+  const l = (await query(
+    'SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year DESC LIMIT 1', [pid]
+  )).rows[0];
+  if (l) {
+    await query('UPDATE product_lots SET quantity = quantity + $1 WHERE id=$2', [qty, l.id]);
+    await syncLotTotal(pid);
+  }
 }
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
