@@ -415,68 +415,30 @@ function renderMachines(){
   list.innerHTML=html;
 }
 function openMachineModal(){document.getElementById('editMachineId').value='';document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');document.getElementById('machineName').value='';document.getElementById('machineNotes').value='';document.getElementById('machineItems').innerHTML='';document.getElementById('machineModalTitle').textContent='Yeni Vinç';openModal('machineModal');}
-function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(function(it){addMachineItem(it.product_id,it.quantity,it.machine_year||'');});document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
-function addMachineItem(pid, qty, machineYear) {
-  pid = pid || ''; qty = qty || 1; machineYear = machineYear || '';
-  var firstCol = columns[0];
-  var opts = products.map(function(p) {
-    var name = firstCol ? (p.values && p.values[firstCol.id] ? p.values[firstCol.id] : '#'+p.id) : '#'+p.id;
-    var extras = columns.filter(function(c){ return c.data_type !== 'number'; }).slice(1)
-      .map(function(c){ return p.values && p.values[c.id]; }).filter(Boolean).slice(0,2).join(' · ');
-    var label = name + (extras ? '  [' + extras + ']' : '');
-    return '<option value="' + p.id + '"' + (p.id == pid ? ' selected' : '') + '>' + esc(label) + '</option>';
+function editMachine(id){const m=machines.find(x=>x.id===id);if(!m)return;document.getElementById('editMachineId').value=id;document.getElementById('machineFirm').innerHTML='<option value="">— Firma seçin —</option>'+firms.map(f=>`<option value="${f.id}" ${f.id==m.firm_id?'selected':''}>${esc(f.name)}</option>`).join('');document.getElementById('machineName').value=m.machine_name;document.getElementById('machineNotes').value=m.notes||'';document.getElementById('machineItems').innerHTML='';m.items.forEach(it=>addMachineItem(it.product_id,it.quantity,it.machine_year||''));document.getElementById('machineModalTitle').textContent='Vinç Düzenle';openModal('machineModal');}
+function addMachineItem(pid,qty,machineYear){
+  pid=pid||'';qty=qty||1;machineYear=machineYear||'';
+  var firstCol=columns[0];
+  var opts=products.map(function(p){
+    var name=firstCol?(p.values&&p.values[firstCol.id]?p.values[firstCol.id]:'#'+p.id):'#'+p.id;
+    var extra=columns.filter(function(col){return col.data_type!=='number';}).slice(1)
+      .map(function(col){return p.values&&p.values[col.id];}).filter(Boolean).slice(0,2).join(' · ');
+    var numCol=columns.find(function(col){return col.data_type==='number';});
+    var stock=numCol&&p.values?p.values[numCol.id]:null;
+    var label=name+(extra?' ['+extra+']':'')+(stock?' ('+stock+')':'');
+    return '<option value="'+p.id+'"'+(p.id==pid?' selected':'')+'>'+esc(label)+'</option>';
   }).join('');
-
-  var div = document.createElement('div');
-  div.dataset.mitem = '1';
-  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .75rem;margin-bottom:.4rem';
-  div.innerHTML =
-    '<div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem">' +
-      '<select style="flex:1;font-size:.82rem" onchange="updateItemLots(this)">' + opts + '</select>' +
-      '<button class="btn btn-danger btn-sm" onclick="this.closest('[data-mitem]').remove()">×</button>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">' +
-      '<div><div style="font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-bottom:.2rem">ADET</div>' +
-      '<input type="number" value="' + qty + '" min="0" step="any" style="width:100%" placeholder="Adet"></div>' +
-      '<div><div style="font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-bottom:.2rem">MODEL YILI (opsiyonel)</div>' +
-      '<select class="yr-sel" style="width:100%">' +
-        '<option value="">— Yıl seçin —</option>' +
-        (machineYear ? '<option value="' + machineYear + '" selected>' + machineYear + '</option>' : '') +
-      '</select></div>' +
-    '</div>' +
-    '<div class="item-info" style="font-family:var(--mono);font-size:.63rem;color:var(--text2);margin-top:.3rem;min-height:.8em"></div>';
+  var div=document.createElement('div');
+  div.style.cssText='display:flex;gap:.4rem;align-items:center';
+  var html='<select style="flex:1">'+opts+'</select>';
+  html+='<input type="number" value="'+qty+'" min="0" step="any" style="width:90px">';
+  html+='<input type="number" value="'+machineYear+'" min="1980" max="2099" style="width:75px" placeholder="Yıl" title="Model Yılı (opsiyonel)">';
+  html+='<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>';
+  div.innerHTML=html;
   document.getElementById('machineItems').appendChild(div);
-  var sel = div.querySelector('select');
-  if (sel && sel.value) updateItemLots(sel);
-}
-async function updateItemLots(sel) {
-  var div = sel.closest('[data-mitem]');
-  if (!div) return;
-  var pid = sel.value;
-  var infoEl = div.querySelector('.item-info');
-  var yrSel = div.querySelector('.yr-sel');
-  var curYr = yrSel ? yrSel.value : '';
-  if (!pid) { if (infoEl) infoEl.textContent = ''; return; }
-  var prod = products.find(function(p){ return p.id == pid; });
-  if (prod && infoEl) {
-    var numCol = columns.find(function(col){ return col.data_type === 'number'; });
-    var stock = numCol && prod.values ? prod.values[numCol.id] : null;
-    var extras = columns.filter(function(col){ return col.data_type !== 'number'; })
-      .slice(1).map(function(col){ return prod.values && prod.values[col.id]; }).filter(Boolean).join(' · ');
-    infoEl.textContent = (extras ? extras + (stock !== null ? ' — ' : '') : '') + (stock !== null ? 'Stok: ' + stock : '');
-  }
-  if (!yrSel) return;
-  try {
-    var tok = localStorage.getItem('stok_token');
-    var res = await fetch('/api/products/' + pid + '/lots', { headers: {'Authorization': 'Bearer ' + tok} });
-    var lots = res.ok ? await res.json() : [];
-    yrSel.innerHTML = '<option value="">— Yıl seçin —</option>' +
-      lots.filter(function(l){ return parseFloat(l.quantity) > 0; })
-          .map(function(l){ return '<option value="' + l.production_year + '"' + (l.production_year == curYr ? ' selected' : '') + '>' + l.production_year + ' (' + parseFloat(l.quantity) + ' adet)</option>'; }).join('');
-  } catch(e) {}
 }
 
-async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}var mrows=document.getElementById('machineItems').querySelectorAll('[data-mitem]');var items=Array.from(mrows).map(function(r){var sels=r.querySelectorAll('select');return {product_id:sels[0]?sels[0].value:'',quantity:parseFloat(r.querySelector('input[type=number]')?r.querySelector('input[type=number]').value:1)||1,machine_year:sels[1]&&sels[1].value?parseInt(sels[1].value):null};}).filter(function(i){return i.product_id;});if(id){await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});}else{await api('/api/machines','POST',{machine_name,firm_id,notes,items});toast('Vinç eklendi, iş panosu otomatik güncellendi ✓','success');}closeModal('machineModal');await Promise.all([loadMachines(),loadTasks()]);renderMachines();}
+async function saveMachine(){const id=document.getElementById('editMachineId').value;const machine_name=document.getElementById('machineName').value.trim();const notes=document.getElementById('machineNotes').value.trim();const firm_id=document.getElementById('machineFirm').value||null;if(!machine_name){toast('Vinç adı gerekli','error');return;}const rows=document.getElementById('machineItems').children;const items=Array.from(rows).map(r=>{const ins=r.querySelectorAll('input');return{product_id:r.querySelector('select').value,quantity:parseFloat(ins[0]&&ins[0].value)||1,machine_year:ins[1]&&ins[1].value?parseInt(ins[1].value):null};}).filter(i=>i.product_id);if(id){await api('/api/machines/'+id,'PUT',{machine_name,firm_id,notes,items});}else{await api('/api/machines','POST',{machine_name,firm_id,notes,items});toast('Vinç eklendi, iş panosu otomatik güncellendi ✓','success');}closeModal('machineModal');await Promise.all([loadMachines(),loadTasks()]);renderMachines();}
 async function deleteMachine(id){if(!confirm('Silmek istediğinizden emin misiniz? İlgili iş de silinir.'))return;await api('/api/machines/'+id,'DELETE');await Promise.all([loadMachines(),loadTasks()]);renderMachines();toast('Silindi','success');}
 
 // ── TASKS ─────────────────────────────────────────────────────────────────
