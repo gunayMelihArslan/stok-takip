@@ -638,19 +638,30 @@ app.delete('/api/stage-comments/:id', auth, async (req,res) => {
 
 // ══ SATIN ALMA TALEPLERİ ═══════════════════════════════════════
 app.get('/api/purchase-requests', auth, async (req,res) => {
-  const isAdmin=req.user.role==='admin';
-  const sql=isAdmin
-    ? `SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END, pr.created_at DESC`
-    : `SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`;
-  res.json((await query(sql,isAdmin?[]:[req.user.id])).rows);
+  try {
+    const isAdmin=req.user.role==='admin';
+    const sql=isAdmin
+      ? "SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END, pr.created_at DESC"
+      : "SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC";
+    res.json((await query(sql,isAdmin?[]:[req.user.id])).rows);
+  } catch(e) {
+    console.error('purchase GET error:', e.message);
+    res.status(500).json({error: e.message});
+  }
 });
 app.post('/api/purchase-requests', auth, async (req,res) => {
-  const{product_name,quantity,unit,reason,task_id}=req.body;
-  if(!product_name||!product_name.trim()) return res.status(400).json({error:'Ürün adı zorunlu'});
-  const r=(await query("INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[req.user.id,product_name.trim(),parseFloat(quantity)||1,unit||'adet',reason||'',task_id||null])).rows[0];
-  const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
-  for(const a of admins) await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
-  broadcast('purchase_new',{}); res.json(r);
+  try {
+    const{product_name,quantity,unit,reason,task_id}=req.body;
+    if(!product_name||!product_name.trim()) return res.status(400).json({error:'Ürün adı zorunlu'});
+    const r=(await query("INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[req.user.id,product_name.trim(),parseFloat(quantity)||1,unit||'adet',reason||'',task_id||null])).rows[0];
+    const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
+    for(const a of admins) await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
+    broadcast('purchase_new',{});
+    res.json(r);
+  } catch(e) {
+    console.error('purchase POST error:', e.message);
+    res.status(500).json({error: e.message});
+  }
 });
 app.put('/api/purchase-requests/:id/status', auth, admin, async (req,res) => {
   const{status,admin_note}=req.body;
