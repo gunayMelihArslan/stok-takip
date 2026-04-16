@@ -92,5 +92,28 @@ async function init() {
     );
   `);
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
+
+  await query(`CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL, body TEXT DEFAULT '', type TEXT DEFAULT 'info',
+    is_read BOOLEAN DEFAULT FALSE, link TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS stage_comments (
+    id SERIAL PRIMARY KEY,
+    stage_id INT NOT NULL REFERENCES task_stages(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS purchase_requests (
+    id SERIAL PRIMARY KEY,
+    requested_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_name TEXT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 1,
+    unit TEXT DEFAULT 'adet', reason TEXT DEFAULT '',
+    task_id INT REFERENCES tasks(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
 }
 module.exports = { query, init, pool };
