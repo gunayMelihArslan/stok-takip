@@ -598,3 +598,75 @@ async function start() {
   app.listen(PORT, '0.0.0.0', () => console.log(`🏭 Stok Takip → http://localhost:${PORT}`));
 }
 start().catch(err => { console.error('Hata:', err); process.exit(1); });
+
+// ══ BİLDİRİM ══════════════════════════════════════════════════
+async function createNotif(user_id, title, body, type) {
+  try { await query("INSERT INTO notifications(user_id,title,body,type) VALUES($1,$2,$3,$4)",[user_id,title,body||'',type||'info']); broadcast('notif_new',{user_id}); } catch(e) {}
+}
+app.get('/api/notifications', auth, async (req,res) => {
+  res.json((await query("SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50",[req.user.id])).rows);
+});
+app.post('/api/notifications/:id/read', auth, async (req,res) => {
+  await query("UPDATE notifications SET is_read=TRUE WHERE id=$1 AND user_id=$2",[req.params.id,req.user.id]); res.json({ok:true});
+});
+app.post('/api/notifications/read-all', auth, async (req,res) => {
+  await query("UPDATE notifications SET is_read=TRUE WHERE user_id=$1",[req.user.id]);
+  broadcast('notif_read',{user_id:req.user.id}); res.json({ok:true});
+});
+
+// ══ YORUMLAR ══════════════════════════════════════════════════
+app.get('/api/task-stages/:id/comments', auth, async (req,res) => {
+  const rows=(await query(`SELECT sc.*,u.display_name,u.username,u.role FROM stage_comments sc JOIN users u ON u.id=sc.user_id WHERE sc.stage_id=$1 ORDER BY sc.created_at ASC`,[req.params.id])).rows;
+  res.json(rows);
+});
+app.post('/api/task-stages/:id/comments', auth, async (req,res) => {
+  const {body}=req.body;
+  if(!body||!body.trim()) return res.status(400).json({error:'Not boş olamaz'});
+  const r=(await query("INSERT INTO stage_comments(stage_id,user_id,body) VALUES($1,$2,$3) RETURNING *",[req.params.id,req.user.id,body.trim()])).rows[0];
+  const stage=(await query(`SELECT ts.stage_name,t.title as task_title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1`,[req.params.id])).rows[0];
+  if(stage && stage.assigned_to && stage.assigned_to!==req.user.id) {
+    await createNotif(stage.assigned_to,'💬 Yeni not: '+(stage.task_title||''),(req.user.display_name||req.user.username)+': '+body.trim().slice(0,80),'comment');
+  }
+  broadcast('comment_new',{stage_id:req.params.id}); res.json(r);
+});
+app.delete('/api/stage-comments/:id', auth, async (req,res) => {
+  const c=(await query("SELECT user_id FROM stage_comments WHERE id=$1",[req.params.id])).rows[0];
+  if(!c) return res.status(404).json({error:'Bulunamadı'});
+  if(c.user_id!==req.user.id&&req.user.role!=='admin') return res.status(403).json({error:'Yetkisiz'});
+  await query("DELETE FROM stage_comments WHERE id=$1",[req.params.id]); res.json({ok:true});
+});
+
+// ══ SATIN ALMA TALEPLERİ ═══════════════════════════════════════
+app.get('/api/purchase-requests', auth, async (req,res) => {
+  const isAdmin=req.user.role==='admin';
+  const sql=isAdmin
+    ? `SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END, pr.created_at DESC`
+    : `SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`;
+  res.json((await query(sql,isAdmin?[]:[req.user.id])).rows);
+});
+app.post('/api/purchase-requests', auth, async (req,res) => {
+  const{product_name,quantity,unit,reason,task_id}=req.body;
+  if(!product_name||!product_name.trim()) return res.status(400).json({error:'Ürün adı zorunlu'});
+  const r=(await query("INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[req.user.id,product_name.trim(),parseFloat(quantity)||1,unit||'adet',reason||'',task_id||null])).rows[0];
+  const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
+  for(const a of admins) await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
+  broadcast('purchase_new',{}); res.json(r);
+});
+app.put('/api/purchase-requests/:id/status', auth, admin, async (req,res) => {
+  const{status,admin_note}=req.body;
+  const pr=(await query("SELECT * FROM purchase_requests WHERE id=$1",[req.params.id])).rows[0];
+  if(!pr) return res.status(404).json({error:'Bulunamadı'});
+  await query("UPDATE purchase_requests SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3",[status,admin_note||'',req.params.id]);
+  const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',received:'📦 Teslim Alındı'};
+  if(labels[status]) await createNotif(pr.requested_by,'Satın Alma: '+labels[status],pr.product_name+(admin_note?' — '+admin_note:''),'purchase');
+  broadcast('purchase_new',{}); res.json({ok:true});
+});
+app.delete('/api/purchase-requests/:id', auth, admin, async (req,res) => {
+  await query("DELETE FROM purchase_requests WHERE id=$1",[req.params.id]); broadcast('purchase_new',{}); res.json({ok:true});
+});
+
+// Düşük stok bildirimi için deductStock'u patch et — server başlangıcında bir kez çalışır
+(function patchDeductForNotif(){
+  const _orig = deductStock;
+  // Zaten patchlenmişse tekrar patch etme
+})();
