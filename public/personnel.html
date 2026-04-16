@@ -193,7 +193,7 @@ async function init(){
 function updateTime(){document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR');}
 async function api(url,method='GET',body=null){
   try{const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(url,opts);const data=await res.json();if(!res.ok){toast(data.error||'Hata','error');return null;}return data;}
-  catch{toast('Bağlantı hatası','error');return null;}
+  catch(e){toast('Hata: '+e.message,'error');return null;}
 }
 function connectSSE(){
   const _sseToken=localStorage.getItem('stok_token')||'';
