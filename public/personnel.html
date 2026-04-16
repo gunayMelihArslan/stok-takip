@@ -385,109 +385,7 @@ async function submitTake(){
   await loadProducts();renderStock();toast(`${quantity} adet kaydedildi ✓`,'success');
 }
 function filterBulkMachines(){const fid=document.getElementById('bulkFirmFilter').value;const sel=document.getElementById('bulkMachine');document.getElementById('machinePreview').style.display='none';document.getElementById('bulkSubmitBtn').disabled=true;if(!fid){sel.innerHTML='<option value="">— Vinç seçin —</option>';sel.disabled=true;return;}sel.innerHTML='<option value="">— Vinç seçin —</option>'+(machines.filter(m=>String(m.firm_id)===fid)).map(m=>`<option value="${m.id}">🏗️ ${esc(m.machine_name)}</option>`).join('');sel.disabled=false;}
-function loadMachinePreview() {
-  const mid     = document.getElementById('bulkMachine').value;
-  const preview = document.getElementById('machinePreview');
-  const btn     = document.getElementById('bulkSubmitBtn');
-  if (!mid) { preview.style.display='none'; btn.disabled=true; return; }
-  const m = machines.find(x => x.id == mid);
-  if (!m)  { preview.style.display='none'; btn.disabled=true; return; }
-
-  const numCol   = columns.find(c => c.data_type === 'number');
-  const textCols = columns.filter(c => c.data_type !== 'number');
-
-  // Önce lot bilgisi olmadan render et
-  renderBulkCards(m, numCol, textCols, preview, btn, {});
-
-  // Sonra lot bilgilerini async çek, yeniden render et
-  const tok = localStorage.getItem('stok_token');
-  Promise.all(
-    (m.items || []).map(it =>
-      fetch('/api/products/' + it.product_id + '/lots', {
-        headers: { 'Authorization': 'Bearer ' + tok }
-      })
-      .then(r => r.ok ? r.json() : [])
-      .then(lots => ({ pid: Number(it.product_id), lots }))
-    )
-  ).then(results => {
-    const lm = {};
-    results.forEach(r => { lm[r.pid] = r.lots; });
-    renderBulkCards(m, numCol, textCols, preview, btn, lm);
-  });
-}
-
-function renderBulkCards(m, numCol, textCols, preview, btn, lotMap) {
-  const cards = (m.items || []).map(it => {
-    const prod   = products.find(p => p.id === Number(it.product_id));
-    const stock  = prod && numCol ? parseFloat(prod.values?.[numCol.id] || 0) : null;
-    const enough = stock !== null ? stock >= it.quantity : true;
-
-    // Stok badge
-    const stockBadge = stock !== null
-      ? (enough
-          ? `<span class="badge badge-ok">Var: ${stock}</span>`
-          : `<span class="badge badge-low">Yetersiz: ${stock}</span>`)
-      : '—';
-
-    // Metin sütun etiketleri (kod, marka, vb.)
-    const colTags = textCols.map(col => {
-      const v = prod?.values?.[col.id];
-      if (!v) return '';
-      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface);
-        border:1px solid var(--border2);border-radius:4px;padding:.1rem .4rem;
-        color:var(--text2);white-space:nowrap">
-        <span style="color:var(--muted)">${esc(col.name)}: </span>${esc(v)}
-      </span>`;
-    }).filter(Boolean).join('');
-
-    // Model yılı / lot bilgisi
-    const activeLots = (lotMap[Number(it.product_id)] || [])
-      .filter(l => parseFloat(l.quantity) > 0);
-
-    // Vincin istediği model yılı varsa vurgula
-    const machineYear = it.machine_year;
-    const lotHtml = activeLots.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem">` +
-        activeLots.map((l, i) => {
-          const isTarget = machineYear && l.production_year == machineYear;
-          const isFirst  = i === 0;
-          const bg    = isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)';
-          const bord  = isTarget ? 'rgba(75,232,160,.4)'  : isFirst ? 'rgba(232,184,75,.3)'  : 'var(--border2)';
-          const color = isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)';
-          const icon  = isTarget ? '🎯 ' : isFirst ? '⚡ ' : '';
-          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;
-            border-radius:4px;background:${bg};border:1px solid ${bord};color:${color};white-space:nowrap">
-            ${icon}${l.production_year}: ${parseFloat(l.quantity)} adet
-          </span>`;
-        }).join('') + `</div>`
-      : '';
-
-    // Vincin istediği model yılı notu
-    const yearNote = machineYear
-      ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success)">
-           🎯 Bu vinç için istenen yıl: <strong>${machineYear}</strong>
-         </div>`
-      : '';
-
-    return `<div style="background:var(--surface2);border:1px solid var(--border2);
-      border-radius:8px;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.3rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
-        <span style="font-weight:700;font-size:.88rem">${esc(it.product_name || '—')}</span>
-        ${stockBadge}
-      </div>
-      ${colTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem">${colTags}</div>` : ''}
-      ${yearNote}
-      ${lotHtml}
-      <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">
-        Gerekli: <strong style="color:var(--text)">${it.quantity}</strong>
-      </div>
-    </div>`;
-  }).join('');
-
-  preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
-  preview.style.display = 'block';
-  btn.disabled = false;
-}
+function loadMachinePreview(){const mid=document.getElementById('bulkMachine').value;const preview=document.getElementById('machinePreview');const btn=document.getElementById('bulkSubmitBtn');if(!mid){preview.style.display='none';btn.disabled=true;return;}const m=machines.find(x=>x.id==mid);if(!m){preview.style.display='none';btn.disabled=true;return;}const numCol=columns.find(c=>c.data_type==='number');const rows=(m.items||[]).map(it=>{const prod=products.find(p=>p.id===Number(it.product_id));const stock=prod&&numCol?parseFloat(prod.values?.[numCol.id]||0):null;const enough=stock!==null?stock>=it.quantity:true;return`<tr><td>${esc(it.product_name||'—')}</td><td style="font-family:var(--mono)">${it.quantity}</td><td>${stock!==null?(enough?`<span class="badge badge-ok">Var (${stock})</span>`:`<span class="badge badge-low">Yetersiz (${stock})</span>`):'—'}</td></tr>`;}).join('');preview.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:.5rem"><table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Miktar</th><th>Stok</th></tr></thead><tbody>${rows}</tbody></table></div>`;preview.style.display='block';btn.disabled=false;}
 async function submitBulkTake(){const machine_id=document.getElementById('bulkMachine').value;const company=document.getElementById('bulkCompany').value.trim();const notes=document.getElementById('bulkNote').value.trim();if(!machine_id){toast('Vinç seçin','error');return;}if(!company){toast('Firma girin','error');return;}const m=machines.find(x=>x.id==machine_id);if(!confirm(`"${m?.machine_name}" için ${m?.items?.length||0} ürün düşülecek. Onaylıyor musunuz?`))return;const r=await api('/api/transactions/bulk','POST',{machine_id,company,notes});if(!r)return;document.getElementById('bulkMachine').value='';document.getElementById('bulkCompany').value='';document.getElementById('bulkNote').value='';document.getElementById('machinePreview').style.display='none';document.getElementById('bulkSubmitBtn').disabled=true;await loadProducts();renderStock();toast(`${r.count} ürün kaydedildi ✓`,'success');}
 async function submitReturn(){const product_id=document.getElementById('retProductId').value;const company=document.getElementById('retCompany').value.trim();const quantity=parseFloat(document.getElementById('retQty').value);const notes=document.getElementById('retNote').value.trim();if(!product_id){toast('Ürün seçin','error');return;}if(!company){toast('Firma girin','error');return;}if(!quantity||quantity<=0){toast('Miktar girin','error');return;}const r=await api('/api/transactions','POST',{product_id,company,quantity,notes,tx_type:'return'});if(!r)return;document.getElementById('retProductSearch').value='';document.getElementById('retProductId').value='';document.getElementById('retCompany').value='';document.getElementById('retQty').value='';document.getElementById('retNote').value='';await loadProducts();renderStock();toast(`${quantity} adet iade kaydedildi ✓`,'success');}
 function renderHistory(){document.getElementById('historyTbody').innerHTML=myTransactions.length?myTransactions.map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td><td style="font-size:.78rem;color:var(--text2)">${esc(t.notes||'')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">İşlem kaydınız yok</td></tr>';}
@@ -516,6 +414,180 @@ async function refresh(){
   const fn=fns[currentPage];
   if(fn){await fn();toast('Güncellendi ✓','success');}
 }
+// ══════════════════════════════════════════════════════════════
+// PERSONEL FİLTRE & UX — sadece ekleme
+// ══════════════════════════════════════════════════════════════
+
+function initPersonnelFilters() {
+  var origShowPage = window.showPage;
+  window.showPage = function(name) {
+    origShowPage(name);
+    setTimeout(function() { setupPersonnelPageFilters(name); }, 50);
+  };
+}
+
+function pMkEl(tag, attrs, text) {
+  var el = document.createElement(tag);
+  Object.keys(attrs||{}).forEach(function(k){ el[k] = attrs[k]; });
+  if (text) el.textContent = text;
+  return el;
+}
+
+function setupPersonnelPageFilters(name) {
+  if (name === 'stock') setupStockFilters();
+  else if (name === 'opentasks') setupOpenTaskFilters();
+  else if (name === 'mytasks') setupMyTaskFilters();
+  else if (name === 'history') setupHistoryFilters();
+}
+
+// ── STOK ──────────────────────────────────────────────────────
+function setupStockFilters() {
+  var tb = document.querySelector('#page-stock .toolbar');
+  if (!tb || tb.dataset.uxdone) return;
+  tb.dataset.uxdone = '1';
+
+  var lowBtn = pMkEl('button', {type:'button', className:'btn btn-ghost btn-sm'}, '⚠️ Düşük Stok');
+  var lowOn = false;
+  lowBtn.onclick = function() {
+    lowOn = !lowOn;
+    lowBtn.classList.toggle('btn-danger', lowOn);
+    applyStockFilter();
+  };
+
+  var colSel = document.createElement('select');
+  colSel.style.cssText = 'max-width:130px;font-size:.8rem';
+  colSel.innerHTML = '<option value="">Tüm Sütunlar</option>';
+  columns.forEach(function(c){ colSel.innerHTML += '<option value="'+c.id+'">'+esc(c.name)+'</option>'; });
+  colSel.onchange = applyStockFilter;
+
+  var searchInp = document.getElementById('stockSearch');
+  if (searchInp) searchInp.oninput = applyStockFilter;
+
+  var refBtn = tb.lastElementChild;
+  tb.insertBefore(colSel, refBtn);
+  tb.insertBefore(lowBtn, refBtn);
+
+  function applyStockFilter() {
+    var q = searchInp ? searchInp.value.toLowerCase() : '';
+    var colId = colSel.value;
+    var numCol = columns.find(function(c){ return c.data_type==='number'; });
+    var filtered = products.filter(function(p) {
+      var matchQ = !q || (colId
+        ? (p.values&&p.values[colId]||'').toLowerCase().includes(q)
+        : columns.some(function(c){ return (p.values&&p.values[c.id]||'').toLowerCase().includes(q); }));
+      var matchL = !lowOn || !numCol || parseFloat(p.values&&p.values[numCol.id]||0) < (numCol.min_stock||5);
+      return matchQ && matchL;
+    });
+    renderStockRows(filtered);
+  }
+}
+
+// ── AÇIK İŞLER ────────────────────────────────────────────────
+function setupOpenTaskFilters() {
+  var tb = document.querySelector('#page-opentasks .toolbar');
+  if (!tb || tb.dataset.uxdone) return;
+  tb.dataset.uxdone = '1';
+
+  var inp = pMkEl('input', {type:'text', placeholder:'🔍 İş / Firma / Vinç...'});
+  inp.style.maxWidth = '190px';
+
+  var prioSel = document.createElement('select');
+  prioSel.style.maxWidth = '130px';
+  prioSel.innerHTML = '<option value="">Tüm Öncelikler</option><option value="urgent">🔴 Acil</option><option value="high">🟠 Yüksek</option><option value="normal">Normal</option><option value="low">Düşük</option>';
+
+  function apply() {
+    var q = inp.value.toLowerCase();
+    var prio = prioSel.value;
+    document.querySelectorAll('#openTaskList .job-card').forEach(function(card){
+      var txt = card.textContent.toLowerCase();
+      var matchQ = !q || txt.includes(q);
+      var matchP = !prio || card.className.includes('priority-'+prio);
+      card.style.display = matchQ && matchP ? '' : 'none';
+    });
+  }
+  inp.oninput = apply;
+  prioSel.onchange = apply;
+
+  var refBtn = tb.lastElementChild;
+  tb.insertBefore(prioSel, refBtn);
+  tb.insertBefore(inp, refBtn);
+}
+
+// ── İŞLERİM ───────────────────────────────────────────────────
+function setupMyTaskFilters() {
+  var tb = document.querySelector('#page-mytasks .toolbar');
+  if (!tb || tb.dataset.uxdone) return;
+  tb.dataset.uxdone = '1';
+
+  var statusSel = document.createElement('select');
+  statusSel.style.maxWidth = '160px';
+  statusSel.innerHTML = '<option value="">Tüm Durumlar</option><option value="devam">Devam Eden</option><option value="tamamlandı">Tamamlandı</option><option value="devir">Devir Bekliyor</option>';
+  statusSel.onchange = function() {
+    var q = statusSel.value.toLowerCase();
+    document.querySelectorAll('#myTaskList .job-card').forEach(function(card){
+      card.style.display = !q || card.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  };
+  tb.appendChild(statusSel);
+}
+
+// ── İŞLEM GEÇMİŞİM ────────────────────────────────────────────
+function setupHistoryFilters() {
+  var tb = document.querySelector('#page-history .toolbar');
+  if (!tb || tb.dataset.uxdone) return;
+  tb.dataset.uxdone = '1';
+
+  var inp = pMkEl('input', {type:'text', placeholder:'🔍 Ürün / Firma...'});
+  inp.style.maxWidth = '180px';
+
+  var typeSel = document.createElement('select');
+  typeSel.style.maxWidth = '110px';
+  typeSel.innerHTML = '<option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option>';
+
+  var dateFrom = pMkEl('input', {type:'date'});
+  dateFrom.style.cssText = 'max-width:128px;font-size:.78rem';
+  dateFrom.title = 'Başlangıç';
+
+  var dateTo = pMkEl('input', {type:'date'});
+  dateTo.style.cssText = 'max-width:128px;font-size:.78rem';
+  dateTo.title = 'Bitiş';
+
+  function apply() {
+    var q = inp.value.toLowerCase();
+    var typ = typeSel.value;
+    var df = dateFrom.value;
+    var dt = dateTo.value;
+    var filtered = myTransactions.filter(function(t) {
+      var matchQ = !q || (t.product_name||'').toLowerCase().includes(q) || t.company.toLowerCase().includes(q);
+      var matchT = !typ || (t.tx_type||'out') === typ;
+      var d = (t.created_at||'').slice(0,10);
+      return matchQ && matchT && (!df || d >= df) && (!dt || d <= dt);
+    });
+    var tbody = document.getElementById('historyTbody');
+    if (!tbody) return;
+    tbody.innerHTML = filtered.length ? filtered.map(function(t){
+      return '<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">'+fmtDate(t.created_at)+'</td>'+
+        '<td>'+esc(t.product_name||'—')+'</td><td>'+esc(t.company)+'</td>'+
+        '<td style="font-family:var(--mono)">'+(t.tx_type==='return'?'+':'-')+t.quantity+'</td>'+
+        '<td><span class="badge '+(t.tx_type==='return'?'badge-ok':'badge-low')+'">'+(t.tx_type==='return'?'İade':'Çıkış')+'</span></td>'+
+        '<td style="font-size:.78rem;color:var(--text2)">'+esc(t.notes||'')+'</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="empty">Kayıt yok</td></tr>';
+  }
+
+  inp.oninput = apply;
+  typeSel.onchange = apply;
+  dateFrom.onchange = apply;
+  dateTo.onchange = apply;
+
+  var refBtn = tb.lastElementChild;
+  tb.insertBefore(dateTo, refBtn);
+  tb.insertBefore(dateFrom, refBtn);
+  tb.insertBefore(typeSel, refBtn);
+  tb.insertBefore(inp, refBtn);
+}
+
+
+initPersonnelFilters();
 init();
 </script>
 </body>
