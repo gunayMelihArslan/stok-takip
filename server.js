@@ -681,3 +681,20 @@ app.delete('/api/purchase-requests/:id', auth, admin, async (req,res) => {
   const _orig = deductStock;
   // Zaten patchlenmişse tekrar patch etme
 })();
+
+// ══ PERSONEL ŞİFRE DEĞİŞTİRME ══════════════════════════════════
+app.put('/api/users/change-password', auth, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) return res.status(400).json({ error: 'Mevcut ve yeni şifre gerekli' });
+    if (new_password.length < 4) return res.status(400).json({ error: 'Şifre en az 4 karakter olmalı' });
+    const user = (await query('SELECT * FROM users WHERE id=$1', [req.user.id])).rows[0];
+    if (!user || !bcrypt.compareSync(current_password, user.password_hash))
+      return res.status(401).json({ error: 'Mevcut şifre yanlış' });
+    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [bcrypt.hashSync(new_password, 10), req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══ İŞ TAMAMLAMA BİLDİRİMİ — stage complete hook ══════════════
+// task_stages complete endpoint'e bildirim ekle (zaten var, buraya not)
