@@ -305,7 +305,7 @@ function connectSSE(){
     es.close(); setTimeout(connectSSE,3000);
   };
 }
-async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks()]);}
+async function loadAll(){await Promise.all([loadColumns(),loadProducts(),loadTransactions(),loadUsers(),loadMachines(),loadFirms(),loadTasks(),loadPurchases()]);}
 async function loadColumns(){columns=await api('/api/columns')||[];}
 async function loadProducts(){
   const[prods,lc]=await Promise.all([api('/api/products'),api('/api/lots/counts')]);
@@ -354,6 +354,7 @@ function showPage(name){
     transactions: async()=>{await loadTransactions();if(currentPage===name)renderTransactions();},
     users:        async()=>{await loadUsers();if(currentPage===name)renderUsers();},
     performance:  loadPerformance,
+    purchases:    async()=>{await loadPurchases();if(currentPage===name)renderPurchases();},
   };
   fetchMap[name]?.();
 }
@@ -365,11 +366,13 @@ function renderDashboard(){
   const lowP=numCol?products.filter(p=>parseFloat(p.values?.[numCol.id]||0)<minS):[];
   const openT=tasks.filter(t=>t.status==='open').length;
   const inProg=tasks.filter(t=>t.status==='in_progress').length;
+  const pendingPR=_purchases?_purchases.filter(function(p){return p.status==='pending';}).length:0;
   document.getElementById('statsRow').innerHTML=`
     <div class="stat-card"><div class="label">Toplam Ürün</div><div class="value">${products.length}</div><div class="sub">stok kalemi</div></div>
     <div class="stat-card"><div class="label">Düşük Stok</div><div class="value" style="color:var(--danger)">${lowP.length}</div><div class="sub">kritik</div></div>
     <div class="stat-card"><div class="label">Açık İşler</div><div class="value" style="color:var(--warning)">${openT}</div><div class="sub">aşama bekleniyor</div></div>
-    <div class="stat-card"><div class="label">Devam Eden</div><div class="value" style="color:var(--success)">${inProg}</div><div class="sub">aktif</div></div>`;
+    <div class="stat-card"><div class="label">Devam Eden</div><div class="value" style="color:var(--success)">${inProg}</div><div class="sub">aktif</div></div>
+    ${pendingPR>0?`<div class="stat-card" style="border-color:var(--danger)"><div class="label">Satın Alma</div><div class="value" style="color:var(--danger)">${pendingPR}</div><div class="sub">bekleyen talep</div></div>`:''}`;
   renderLiveBoard();
   document.querySelector('#dashTxTable tbody').innerHTML=transactions.slice(0,8).map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.product_name||'—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.quantity}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">—</td></tr>';
   const ll=document.getElementById('lowStockList');const firstCol=columns[0];
@@ -641,6 +644,7 @@ async function refresh(){
     transactions: async()=>{await loadTransactions();renderTransactions();},
     users:     async()=>{await loadUsers();renderUsers();},
     performance: loadPerformance,
+    purchases:  async()=>{await loadPurchases();renderPurchases();},
   };
   const fn=fns[currentPage];
   if(fn){await fn();toast('Güncellendi ✓','success');}
@@ -986,6 +990,96 @@ async function initNewFeatures() {
 
 
 initNewFeatures();
+// ══════════════════════════════════════════════════════════════
+// EK ÖZELLİKLER — Şifre değiştir, çeşitli UX iyileştirmeleri
+// ══════════════════════════════════════════════════════════════
+
+// ── Şifre değiştir (admin için de geçerli, kendi şifresini) ──
+function openChangePassword() {
+  var html = '<div class="modal-overlay open" id="pwModal" style="z-index:9999">' +
+    '<div class="modal" style="max-width:360px">' +
+      '<div class="modal-header"><h3>🔑 Şifre Değiştir</h3>' +
+        '<button class="modal-close" onclick="document.getElementById(\'pwModal\').remove()">×</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group"><label>Mevcut Şifre</label><input type="password" id="pwCurrent" placeholder="••••••••"></div>' +
+        '<div class="form-group"><label>Yeni Şifre</label><input type="password" id="pwNew" placeholder="••••••••"></div>' +
+        '<div class="form-group"><label>Yeni Şifre (tekrar)</label><input type="password" id="pwNew2" placeholder="••••••••"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-ghost" onclick="document.getElementById(\'pwModal\').remove()">İptal</button>' +
+        '<button class="btn btn-primary" onclick="doChangePassword()">Değiştir</button>' +
+      '</div>' +
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function doChangePassword() {
+  var cur  = document.getElementById('pwCurrent').value;
+  var nw   = document.getElementById('pwNew').value;
+  var nw2  = document.getElementById('pwNew2').value;
+  if (!cur)       { toast('Mevcut şifreyi girin','error'); return; }
+  if (!nw)        { toast('Yeni şifreyi girin','error'); return; }
+  if (nw !== nw2) { toast('Şifreler eşleşmiyor','error'); return; }
+  var r = await api('/api/users/change-password','PUT',{current_password:cur,new_password:nw});
+  if (!r) return;
+  document.getElementById('pwModal').remove();
+  toast('Şifre değiştirildi ✓','success');
+}
+
+// ── Sidebar footer'a şifre değiştir butonu ekle ───────────────
+function addPasswordChangeBtn() {
+  var footer = document.querySelector('.sidebar-footer');
+  if (!footer || footer.querySelector('.pw-change-btn')) return;
+  var btn = document.createElement('button');
+  btn.className = 'logout-btn pw-change-btn';
+  btn.style.cssText = 'margin-bottom:.5rem;border-color:var(--border2)';
+  btn.textContent = '🔑 Şifre Değiştir';
+  btn.onclick = openChangePassword;
+  footer.insertBefore(btn, footer.querySelector('.logout-btn'));
+}
+
+// ── Dashboard'da son bildirimleri göster ──────────────────────
+function renderDashboardNotifs() {
+  var el = document.getElementById('dashNotifList');
+  if (!el) return;
+  var recent = (typeof _notifs !== 'undefined' ? _notifs : []).slice(0, 5);
+  if (!recent.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Bildirim yok</div>'; return; }
+  var icons = {task:'⚡',transfer:'🔄',comment:'💬',purchase:'📦',warning:'⚠️',info:'ℹ️'};
+  el.innerHTML = recent.map(function(n){
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);' +
+      (n.is_read?'':'background:rgba(232,184,75,.04);') + '">' +
+      '<span style="font-size:.9rem">' + (icons[n.type]||'ℹ️') + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:' + (n.is_read?400:700) + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.title) + '</div>' +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
+      (!n.is_read ? '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>' : '') +
+    '</div>';
+  }).join('');
+}
+
+// ── Topbar'da son güncelleme zamanı ──────────────────────────
+function updateTopbarTime() {
+  var el = document.getElementById('pageTime');
+  if (el) el.textContent = new Date().toLocaleString('tr-TR');
+}
+
+// ── Enter tuşu ile form gönderme (modal'larda) ────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  var active = document.querySelector('.modal-overlay.open');
+  if (!active) return;
+  var primaryBtn = active.querySelector('.modal-footer .btn-primary');
+  if (primaryBtn && document.activeElement && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    primaryBtn.click();
+  }
+});
+
+// Init çağrısı
+setTimeout(function() {
+  addPasswordChangeBtn();
+}, 500);
+
+
 init();
 </script>
 
