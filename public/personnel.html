@@ -189,11 +189,12 @@ async function init(){
   document.getElementById('avatarInit').textContent=(u.display_name||u.username)[0].toUpperCase();
   updateTime();setInterval(updateTime,30000);
   await loadAll();showPage('mytasks');connectSSE();
+  initPersonnelExtras();
 }
 function updateTime(){document.getElementById('pageTime').textContent=new Date().toLocaleString('tr-TR');}
 async function api(url,method='GET',body=null){
   try{const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(url,opts);const data=await res.json();if(!res.ok){toast(data.error||'Hata','error');return null;}return data;}
-  catch(e){toast('Hata: '+e.message,'error');return null;}
+  catch{toast('Bağlantı hatası','error');return null;}
 }
 function connectSSE(){
   const _sseToken=localStorage.getItem('stok_token')||'';
@@ -208,14 +209,13 @@ function connectSSE(){
     const ab=document.getElementById('alertBadge');
     if(cnt){ab.textContent=cnt;ab.style.display='inline';}else ab.style.display='none';
   });
-  es.addEventListener('notif_new',async()=>{await loadPNotifs();});
-  es.addEventListener('purchase_new',async()=>{await loadMyPurchases();if(currentPage==='purchase')renderMyPurchases();});
-  es.addEventListener('comment_new',()=>{if(document.getElementById('pCommentModal')?.classList.contains('open')&&_pCommentStageId)loadPComments();});
   es.addEventListener('stock_update',async()=>{
     await loadProducts();
     if(currentPage==='stock'){renderStock();}
     if(currentPage==='take'||currentPage==='bulktake'||currentPage==='return'){await loadAll();}
   });
+  es.addEventListener('notif_new',function(){loadPNotifs();});
+  es.addEventListener('purchase_new',function(){if(typeof loadMyPurchases==='function'){loadMyPurchases().then(function(){if(currentPage==='purchase')renderMyPurchases();});}});
 }
 async function loadAll(){
   [columns,products,machines,firms,allUsers]=await Promise.all([api('/api/columns'),api('/api/products'),api('/api/machines'),api('/api/firms'),api('/api/users')]);
@@ -236,12 +236,18 @@ const pageTitles={mytasks:'İşlerim',opentasks:'Açık İşler',stock:'Stok Dur
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
+  const pageEl=document.getElementById('page-'+name);
+  if(!pageEl)return;
+  pageEl.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes("'"+name+"'"))n.classList.add('active');});
   document.getElementById('pageTitle').textContent=pageTitles[name]||name;
   currentPage=name;
   if(name==='history')loadMyHistory();
+  if(name==='purchase'&&typeof loadMyPurchases==='function'){loadMyPurchases().then(function(){renderMyPurchases();});}
   if(['stock','take','bulktake','return'].includes(name))loadAll();
+  if(name==='purchase'&&typeof loadMyPurchases==='function'){
+    loadMyPurchases().then(function(){renderMyPurchases();});
+  }
 }
 
 // ── MY TASKS ─────────────────────────────────────────────────────────────
@@ -543,16 +549,218 @@ async function refresh(){
     bulktake:  loadAll,
     return:    loadAll,
     history:   loadMyHistory,
-    purchase:  async()=>{await loadMyPurchases();if(currentPage===name)renderMyPurchases();},
   };
   const fn=fns[currentPage];
   if(fn){await fn();toast('Güncellendi ✓','success');}
 }
 // ══════════════════════════════════════════════════════════════
-// PERSONEL — Bildirim, Yorum, Satın Alma Talebi, Sütun Sıralama
+// PERSONEL EK ÖZELLİKLER — init()'ten sonra çalışır
 // ══════════════════════════════════════════════════════════════
 
-// Sütun sıralama (admin ile aynı)
+// Bildirimler
+var _pNotifs = [];
+var _pNotifOpen = false;
+
+async function loadPNotifs() {
+  var r = await api('/api/notifications');
+  _pNotifs = r || [];
+  renderPNotifBadge();
+}
+
+function renderPNotifBadge() {
+  var n = _pNotifs.filter(function(x){ return !x.is_read; }).length;
+  var b = document.getElementById('pNotifBadge');
+  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none'; }
+}
+
+function togglePNotifPanel() {
+  _pNotifOpen = !_pNotifOpen;
+  var p = document.getElementById('pNotifPanel');
+  if (p) p.style.display = _pNotifOpen ? 'block' : 'none';
+  if (_pNotifOpen) renderPNotifPanel();
+}
+
+function renderPNotifPanel() {
+  var list = document.getElementById('pNotifList');
+  if (!list) return;
+  var icons = {task:'⚡',transfer:'🔄',comment:'💬',purchase:'📦',warning:'⚠️',info:'ℹ️'};
+  if (!_pNotifs.length) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
+    return;
+  }
+  list.innerHTML = _pNotifs.slice(0,20).map(function(n){
+    return '<div onclick="markPRead(' + n.id + ')" style="display:flex;gap:.6rem;padding:.6rem .8rem;border-bottom:1px solid var(--border);cursor:pointer;background:' + (n.is_read?'transparent':'rgba(232,184,75,.05)') + '">' +
+      '<span>' + (icons[n.type]||'ℹ️') + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read?400:700) + '">' + esc(n.title) + '</div>' +
+      (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
+      (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
+    '</div>';
+  }).join('');
+}
+
+async function markPRead(id) {
+  await api('/api/notifications/'+id+'/read','POST');
+  _pNotifs = _pNotifs.map(function(n){ return n.id===id ? Object.assign({},n,{is_read:true}) : n; });
+  renderPNotifBadge();
+  renderPNotifPanel();
+}
+
+async function markAllPRead() {
+  await api('/api/notifications/read-all','POST');
+  _pNotifs = _pNotifs.map(function(n){ return Object.assign({},n,{is_read:true}); });
+  renderPNotifBadge();
+  renderPNotifPanel();
+}
+
+// Aşama yorumları
+var _pCommentStageId = null;
+
+async function openPComments(stageId, stageName) {
+  _pCommentStageId = stageId;
+  document.getElementById('pCommentTitle').textContent = stageName + ' — Notlar';
+  document.getElementById('pCommentBody').value = '';
+  await loadPComments();
+  openModal('pCommentModal');
+}
+
+async function loadPComments() {
+  var list = document.getElementById('pCommentList');
+  if (!list) return;
+  var comments = await api('/api/task-stages/'+_pCommentStageId+'/comments') || [];
+  if (!comments.length) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
+    return;
+  }
+  list.innerHTML = comments.map(function(c){
+    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .8rem;margin-bottom:.35rem">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
+        '<span style="font-weight:700;font-size:.83rem">' + esc(c.display_name||c.username) + '</span>' +
+        '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(c.created_at) + '</span>' +
+      '</div>' +
+      '<div style="font-size:.85rem;line-height:1.5">' + esc(c.body) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function savePComment() {
+  var body = document.getElementById('pCommentBody').value;
+  if (!body || !body.trim()) { toast('Not boş olamaz','error'); return; }
+  var r = await api('/api/task-stages/'+_pCommentStageId+'/comments','POST',{body:body.trim()});
+  if (!r) return;
+  document.getElementById('pCommentBody').value = '';
+  await loadPComments();
+  toast('Not eklendi','success');
+}
+
+// Satın alma talebi
+var _myPurchases = [];
+
+async function loadMyPurchases() {
+  var r = await api('/api/purchase-requests');
+  _myPurchases = r || [];
+}
+
+function renderMyPurchases() {
+  var taskSel = document.getElementById('prTaskSel');
+  if (taskSel && taskSel.options.length < 2 && typeof allTasks !== 'undefined') {
+    allTasks.filter(function(t){ return t.status !== 'completed'; }).forEach(function(t){
+      var o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.title + (t.firm_name ? ' — '+t.firm_name : '');
+      taskSel.appendChild(o);
+    });
+  }
+  var PSTATUS = {
+    pending: {l:'⏳ Bekliyor', c:'var(--warning)'},
+    approved:{l:'✅ Onaylandı', c:'var(--success)'},
+    rejected:{l:'❌ Reddedildi',c:'var(--danger)'},
+    ordered: {l:'🚚 Sipariş',  c:'var(--accent)'},
+    received:{l:'📦 Teslim',   c:'#1a6b56'}
+  };
+  var tbody = document.getElementById('myPurchaseTbody');
+  if (!tbody) return;
+  tbody.innerHTML = _myPurchases.length ? _myPurchases.map(function(p){
+    var st = PSTATUS[p.status] || {l:p.status, c:'var(--text)'};
+    return '<tr>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
+      '<td><strong>' + esc(p.product_name) + '</strong></td>' +
+      '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit||'') + '</td>' +
+      '<td style="font-size:.78rem;color:var(--text2)">' + esc(p.task_title||'—') + '</td>' +
+      '<td><span style="font-family:var(--mono);font-size:.7rem;color:' + st.c + '">' + st.l + '</span>' +
+        (p.admin_note ? '<div style="font-size:.63rem;color:var(--muted)">' + esc(p.admin_note) + '</div>' : '') +
+      '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">Talep kaydınız yok</td></tr>';
+}
+
+async function submitPR() {
+  var name = document.getElementById('prName').value;
+  var qty  = parseFloat(document.getElementById('prQty').value);
+  var unit = document.getElementById('prUnit').value || 'adet';
+  var reason = document.getElementById('prReason').value || '';
+  var task_id = document.getElementById('prTaskSel').value || null;
+  if (!name || !name.trim()) { toast('Ürün adı zorunlu','error'); return; }
+  if (isNaN(qty) || qty <= 0) { toast('Geçerli miktar girin','error'); return; }
+  var r = await api('/api/purchase-requests','POST',{
+    product_name: name.trim(), quantity: qty, unit: unit, reason: reason, task_id: task_id||null
+  });
+  if (!r) return;
+  document.getElementById('prName').value = '';
+  document.getElementById('prQty').value = '';
+  document.getElementById('prReason').value = '';
+  document.getElementById('prUnit').value = 'adet';
+  document.getElementById('prTaskSel').value = '';
+  await loadMyPurchases();
+  renderMyPurchases();
+  toast('Talep gönderildi ✓','success');
+}
+
+// Şifre değiştir
+function openChangePassword() {
+  if (document.getElementById('pwModal')) return;
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.id = 'pwModal';
+  overlay.style.zIndex = '9999';
+  overlay.innerHTML =
+    '<div class="modal" style="max-width:360px">' +
+      '<div class="modal-header">' +
+        '<h3>🔑 Şifre Değiştir</h3>' +
+        '<button class="modal-close" id="pwCloseBtn">×</button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group"><label>Mevcut Şifre</label><input type="password" id="pwCurrent" placeholder="••••••••"></div>' +
+        '<div class="form-group"><label>Yeni Şifre</label><input type="password" id="pwNew" placeholder="••••••••"></div>' +
+        '<div class="form-group" style="margin:0"><label>Yeni Şifre (tekrar)</label><input type="password" id="pwNew2" placeholder="••••••••"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-ghost" id="pwCancelBtn">İptal</button>' +
+        '<button class="btn btn-primary" id="pwSaveBtn">Değiştir</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('pwCloseBtn').onclick = function(){ overlay.remove(); };
+  document.getElementById('pwCancelBtn').onclick = function(){ overlay.remove(); };
+  document.getElementById('pwSaveBtn').onclick = doChangePassword;
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+}
+
+async function doChangePassword() {
+  var cur  = document.getElementById('pwCurrent').value;
+  var nw   = document.getElementById('pwNew').value;
+  var nw2  = document.getElementById('pwNew2').value;
+  if (!cur)       { toast('Mevcut şifreyi girin','error'); return; }
+  if (!nw)        { toast('Yeni şifreyi girin','error'); return; }
+  if (nw !== nw2) { toast('Şifreler eşleşmiyor','error'); return; }
+  var r = await api('/api/users/change-password','PUT',{current_password:cur,new_password:nw});
+  if (!r) return;
+  var modal = document.getElementById('pwModal');
+  if (modal) modal.remove();
+  toast('Şifre değiştirildi ✓','success');
+}
+
+// Sütun sıralama
 var _pSortState = {};
 function pMakeSortable(tableId) {
   var table = document.getElementById(tableId);
@@ -562,19 +770,18 @@ function pMakeSortable(tableId) {
   ths.forEach(function(th, i) {
     th.style.cursor = 'pointer';
     th.style.userSelect = 'none';
-    th.title = 'Sırala';
     var s = document.createElement('span');
     s.className = 'sort-icon';
-    s.style.cssText = 'margin-left:4px;opacity:.3;font-size:.65em';
+    s.style.cssText = 'margin-left:3px;opacity:.3;font-size:.6em';
     s.textContent = '⇅';
     th.appendChild(s);
-    th.addEventListener('click', function() {
-      var state = _pSortState[tableId] || {col:-1,dir:1};
-      var nd = state.col===i ? -state.dir : 1;
+    th.addEventListener('click', function(){
+      var st = _pSortState[tableId] || {col:-1,dir:1};
+      var nd = st.col===i ? -st.dir : 1;
       _pSortState[tableId] = {col:i,dir:nd};
       ths.forEach(function(t,j){
         var si=t.querySelector('.sort-icon');
-        if(si){ si.textContent=j===i?(nd===1?'▲':'▼'):'⇅'; si.style.opacity=j===i?'1':'0.3'; }
+        if(si){si.textContent=j===i?(nd===1?'▲':'▼'):'⇅';si.style.opacity=j===i?'1':'0.3';}
       });
       var tbody=table.querySelector('tbody');
       if(!tbody)return;
@@ -599,241 +806,64 @@ function pAutoSortable(){
   });
 }
 
-// ── Bildirim ──────────────────────────────────────────────────
-var _pNotifs = [];
-var _pNotifOpen = false;
-async function loadPNotifs() {
-  _pNotifs = await api('/api/notifications') || [];
-  renderPNotifBadge();
-}
-function renderPNotifBadge() {
-  var unread = _pNotifs.filter(function(n){return !n.is_read;}).length;
-  var badge = document.getElementById('pNotifBadge');
-  if(badge){badge.textContent=unread;badge.style.display=unread>0?'inline-flex':'none';}
-}
-function togglePNotifPanel() {
-  _pNotifOpen = !_pNotifOpen;
-  var panel = document.getElementById('pNotifPanel');
-  if(panel) panel.style.display = _pNotifOpen?'block':'none';
-  if(_pNotifOpen) renderPNotifPanel();
-}
-function renderPNotifPanel() {
-  var list = document.getElementById('pNotifList');if(!list)return;
-  var icons={task:'⚡',transfer:'🔄',comment:'💬',purchase:'📦',warning:'⚠️',info:'ℹ️'};
-  list.innerHTML = _pNotifs.length ? _pNotifs.slice(0,20).map(function(n){
-    return '<div onclick="markPRead('+n.id+')" style="display:flex;gap:.6rem;padding:.6rem .8rem;border-bottom:1px solid var(--border);cursor:pointer;background:'+(n.is_read?'transparent':'rgba(232,184,75,.05)')+'">'+
-      '<span>'+(icons[n.type]||'ℹ️')+'</span>'+
-      '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:'+(n.is_read?400:700)+'">'+esc(n.title)+'</div>'+
-      (n.body?'<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(n.body)+'</div>':'')+
-      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">'+fmtDate(n.created_at)+'</div></div>'+
-      (!n.is_read?'<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>':'')+
-    '</div>';
-  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
-}
-async function markPRead(id) {
-  await api('/api/notifications/'+id+'/read','POST');
-  _pNotifs=_pNotifs.map(function(n){return n.id===id?Object.assign({},n,{is_read:true}):n;});
-  renderPNotifBadge();renderPNotifPanel();
-}
-async function markAllPRead() {
-  await api('/api/notifications/read-all','POST');
-  _pNotifs=_pNotifs.map(function(n){return Object.assign({},n,{is_read:true});});
-  renderPNotifBadge();renderPNotifPanel();
-}
-
-// ── Aşama Yorumları ───────────────────────────────────────────
-var _pCommentStageId = null;
-async function openPComments(stageId, stageName) {
-  _pCommentStageId = stageId;
-  document.getElementById('pCommentTitle').textContent = stageName + ' — Notlar';
-  document.getElementById('pCommentBody').value = '';
-  await loadPComments();
-  openModal('pCommentModal');
-}
-async function loadPComments() {
-  var comments = await api('/api/task-stages/'+_pCommentStageId+'/comments') || [];
-  var list = document.getElementById('pCommentList');if(!list)return;
-  list.innerHTML = comments.length ? comments.map(function(c){
-    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .8rem;margin-bottom:.35rem">'+
-      '<div style="display:flex;justify-content:space-between;margin-bottom:.2rem">'+
-        '<span style="font-weight:700;font-size:.83rem">'+esc(c.display_name||c.username)+'</span>'+
-        '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">'+fmtDate(c.created_at)+'</span>'+
-      '</div>'+
-      '<div style="font-size:.85rem;line-height:1.5;white-space:pre-wrap">'+esc(c.body)+'</div>'+
-    '</div>';
-  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
-}
-async function savePComment() {
-  var body = document.getElementById('pCommentBody').value;
-  if(!body||!body.trim()){toast('Not boş olamaz','error');return;}
-  var r = await api('/api/task-stages/'+_pCommentStageId+'/comments','POST',{body:body.trim()});
-  if(!r)return;
-  document.getElementById('pCommentBody').value='';
-  await loadPComments();toast('Not eklendi','success');
-}
-
-// ── Satın Alma Talebi ─────────────────────────────────────────
-var _myPurchases = [];
-async function loadMyPurchases() {
-  _myPurchases = await api('/api/purchase-requests') || [];
-}
-function renderMyPurchases() {
-  var taskSel = document.getElementById('prTaskSel');
-  if(taskSel && taskSel.options.length<2){
-    allTasks.filter(function(t){return t.status!=='completed';}).forEach(function(t){
-      var o=document.createElement('option');o.value=t.id;
-      o.textContent=t.title+(t.firm_name?' — '+t.firm_name:'');taskSel.appendChild(o);
-    });
-  }
-  var PR_ST={pending:{l:'⏳ Bekliyor',c:'var(--warning)'},approved:{l:'✅ Onaylandı',c:'var(--success)'},rejected:{l:'❌ Reddedildi',c:'var(--danger)'},ordered:{l:'🚚 Sipariş',c:'var(--accent)'},received:{l:'📦 Teslim',c:'#1a6b56'}};
-  var tbody=document.getElementById('myPurchaseTbody');if(!tbody)return;
-  tbody.innerHTML=_myPurchases.length?_myPurchases.map(function(p){
-    var st=PR_ST[p.status]||{l:p.status,c:'var(--text)'};
-    return '<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">'+fmtDate(p.created_at)+'</td>'+
-      '<td><strong>'+esc(p.product_name)+'</strong></td>'+
-      '<td style="font-family:var(--mono)">'+p.quantity+' '+esc(p.unit||'')+'</td>'+
-      '<td style="font-size:.78rem;color:var(--text2)">'+esc(p.task_title||'—')+'</td>'+
-      '<td><span style="font-family:var(--mono);font-size:.7rem;color:'+st.c+'">'+st.l+'</span>'+
-        (p.admin_note?'<div style="font-size:.63rem;color:var(--muted)">'+esc(p.admin_note)+'</div>':'')+
-      '</td></tr>';
-  }).join(''):'<tr><td colspan="5" class="empty">Talep kaydınız yok</td></tr>';
-  setTimeout(pAutoSortable,50);
-}
-async function submitPR() {
-  var name=(document.getElementById('prName')||{}).value;
-  var qty=parseFloat((document.getElementById('prQty')||{}).value);
-  var unit=(document.getElementById('prUnit')||{}).value||'adet';
-  var reason=(document.getElementById('prReason')||{}).value||'';
-  var task_id=(document.getElementById('prTaskSel')||{}).value||null;
-  if(!name||!name.trim()){toast('Ürün adı zorunlu','error');return;}
-  if(isNaN(qty)||qty<=0){toast('Geçerli miktar girin','error');return;}
-  var r=await api('/api/purchase-requests','POST',{product_name:name.trim(),quantity:qty,unit:unit,reason:reason,task_id:task_id||null});
-  if(!r)return;
-  ['prName','prQty','prReason'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('prUnit').value='adet';
-  if(document.getElementById('prTaskSel'))document.getElementById('prTaskSel').value='';
-  await loadMyPurchases();renderMyPurchases();
-  toast('Talep gönderildi ✓','success');
-}
-
-// ── Init ──────────────────────────────────────────────────────
-async function initPersonnelNew() {
-  // Bildirim butonu
-  var topbar=document.querySelector('.topbar');
-  if(topbar&&!document.getElementById('pNotifBtn')){
-    var wrap=document.createElement('div');
-    wrap.style.cssText='position:relative;display:inline-block;margin-left:.5rem';
-    wrap.innerHTML='<button type="button" id="pNotifBtn" class="btn btn-ghost btn-sm" onclick="togglePNotifPanel()" style="padding:.4rem .55rem" title="Bildirimler">'+
-      '🔔<span id="pNotifBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;border-radius:10px;padding:0 5px;font-size:.58rem;font-family:var(--mono);min-width:16px;line-height:16px;text-align:center"></span>'+
-      '</button>'+
-      '<div id="pNotifPanel" style="display:none;position:absolute;right:0;top:calc(100% + 6px);width:310px;max-height:380px;overflow-y:auto;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.45);z-index:500">'+
-        '<div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface)">'+
-          '<span style="font-weight:700;font-size:.85rem">🔔 Bildirimler</span>'+
-          '<button class="btn btn-ghost btn-sm" onclick="markAllPRead()" style="font-size:.7rem">Tümünü Oku</button>'+
-        '</div>'+
-        '<div id="pNotifList"></div>'+
+// Ana init fonksiyonu
+function initPersonnelExtras() {
+  // Bildirim butonu ekle
+  var topbar = document.querySelector('.topbar');
+  if (topbar && !document.getElementById('pNotifBtn')) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-block;margin-left:.5rem';
+    wrap.innerHTML =
+      '<button type="button" id="pNotifBtn" class="btn btn-ghost btn-sm" style="padding:.4rem .55rem" title="Bildirimler">' +
+        '🔔<span id="pNotifBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;border-radius:10px;padding:0 5px;font-size:.58rem;font-family:var(--mono);min-width:16px;line-height:16px;text-align:center"></span>' +
+      '</button>' +
+      '<div id="pNotifPanel" style="display:none;position:absolute;right:0;top:calc(100% + 6px);width:310px;max-height:380px;overflow-y:auto;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.45);z-index:500">' +
+        '<div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface)">' +
+          '<span style="font-weight:700;font-size:.85rem">🔔 Bildirimler</span>' +
+          '<button class="btn btn-ghost btn-sm" style="font-size:.7rem" id="pMarkAllBtn">Tümünü Oku</button>' +
+        '</div>' +
+        '<div id="pNotifList"></div>' +
       '</div>';
     topbar.appendChild(wrap);
-    document.addEventListener('click',function(e){
-      if(!wrap.contains(e.target)&&_pNotifOpen){_pNotifOpen=false;var p=document.getElementById('pNotifPanel');if(p)p.style.display='none';}
+    document.getElementById('pNotifBtn').onclick = togglePNotifPanel;
+    document.getElementById('pMarkAllBtn').onclick = markAllPRead;
+    document.addEventListener('click', function(e){
+      if (!wrap.contains(e.target) && _pNotifOpen) {
+        _pNotifOpen = false;
+        var p = document.getElementById('pNotifPanel');
+        if (p) p.style.display = 'none';
+      }
     });
   }
-  await loadPNotifs();
-  await loadMyPurchases();
-  setTimeout(pAutoSortable,300);
-  setInterval(pAutoSortable,2000);
-}
 
-
-initPersonnelNew();
-// ══════════════════════════════════════════════════════════════
-// EK ÖZELLİKLER — Şifre değiştir, çeşitli UX iyileştirmeleri
-// ══════════════════════════════════════════════════════════════
-
-// ── Şifre değiştir (admin için de geçerli, kendi şifresini) ──
-function openChangePassword() {
-  var html = '<div class="modal-overlay open" id="pwModal" style="z-index:9999">' +
-    '<div class="modal" style="max-width:360px">' +
-      '<div class="modal-header"><h3>🔑 Şifre Değiştir</h3>' +
-        '<button class="modal-close" onclick="document.getElementById(\'pwModal\').remove()">×</button></div>' +
-      '<div class="modal-body">' +
-        '<div class="form-group"><label>Mevcut Şifre</label><input type="password" id="pwCurrent" placeholder="••••••••"></div>' +
-        '<div class="form-group"><label>Yeni Şifre</label><input type="password" id="pwNew" placeholder="••••••••"></div>' +
-        '<div class="form-group"><label>Yeni Şifre (tekrar)</label><input type="password" id="pwNew2" placeholder="••••••••"></div>' +
-      '</div>' +
-      '<div class="modal-footer">' +
-        '<button class="btn btn-ghost" onclick="document.getElementById(\'pwModal\').remove()">İptal</button>' +
-        '<button class="btn btn-primary" onclick="doChangePassword()">Değiştir</button>' +
-      '</div>' +
-    '</div></div>';
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-
-async function doChangePassword() {
-  var cur  = document.getElementById('pwCurrent').value;
-  var nw   = document.getElementById('pwNew').value;
-  var nw2  = document.getElementById('pwNew2').value;
-  if (!cur)       { toast('Mevcut şifreyi girin','error'); return; }
-  if (!nw)        { toast('Yeni şifreyi girin','error'); return; }
-  if (nw !== nw2) { toast('Şifreler eşleşmiyor','error'); return; }
-  var r = await api('/api/users/change-password','PUT',{current_password:cur,new_password:nw});
-  if (!r) return;
-  document.getElementById('pwModal').remove();
-  toast('Şifre değiştirildi ✓','success');
-}
-
-// ── Sidebar footer'a şifre değiştir butonu ekle ───────────────
-function addPasswordChangeBtn() {
+  // Şifre değiştir butonu
   var footer = document.querySelector('.sidebar-footer');
-  if (!footer || footer.querySelector('.pw-change-btn')) return;
-  var btn = document.createElement('button');
-  btn.className = 'logout-btn pw-change-btn';
-  btn.style.cssText = 'margin-bottom:.5rem;border-color:var(--border2)';
-  btn.textContent = '🔑 Şifre Değiştir';
-  btn.onclick = openChangePassword;
-  footer.insertBefore(btn, footer.querySelector('.logout-btn'));
-}
-
-// ── Dashboard'da son bildirimleri göster ──────────────────────
-function renderDashboardNotifs() {
-  var el = document.getElementById('dashNotifList');
-  if (!el) return;
-  var recent = (typeof _notifs !== 'undefined' ? _notifs : []).slice(0, 5);
-  if (!recent.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Bildirim yok</div>'; return; }
-  var icons = {task:'⚡',transfer:'🔄',comment:'💬',purchase:'📦',warning:'⚠️',info:'ℹ️'};
-  el.innerHTML = recent.map(function(n){
-    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);' +
-      (n.is_read?'':'background:rgba(232,184,75,.04);') + '">' +
-      '<span style="font-size:.9rem">' + (icons[n.type]||'ℹ️') + '</span>' +
-      '<div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:' + (n.is_read?400:700) + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.title) + '</div>' +
-      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
-      (!n.is_read ? '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>' : '') +
-    '</div>';
-  }).join('');
-}
-
-// ── Topbar'da son güncelleme zamanı ──────────────────────────
-function updateTopbarTime() {
-  var el = document.getElementById('pageTime');
-  if (el) el.textContent = new Date().toLocaleString('tr-TR');
-}
-
-// ── Enter tuşu ile form gönderme (modal'larda) ────────────────
-document.addEventListener('keydown', function(e) {
-  if (e.key !== 'Enter') return;
-  var active = document.querySelector('.modal-overlay.open');
-  if (!active) return;
-  var primaryBtn = active.querySelector('.modal-footer .btn-primary');
-  if (primaryBtn && document.activeElement && document.activeElement.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-    primaryBtn.click();
+  if (footer && !footer.querySelector('.pw-change-btn')) {
+    var btn = document.createElement('button');
+    btn.className = 'logout-btn pw-change-btn';
+    btn.style.cssText = 'margin-bottom:.5rem;border-color:var(--border2)';
+    btn.textContent = '🔑 Şifre Değiştir';
+    btn.onclick = openChangePassword;
+    footer.insertBefore(btn, footer.firstChild);
   }
-});
 
-// Init çağrısı
-setTimeout(function() {
-  addPasswordChangeBtn();
-}, 500);
+  // Bildirimleri yükle
+  loadPNotifs();
+
+  // Sütun sıralama
+  setTimeout(pAutoSortable, 400);
+  setInterval(pAutoSortable, 3000);
+
+  // Enter key modal desteği
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter') return;
+    var active = document.querySelector('.modal-overlay.open');
+    if (!active) return;
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
+    var btn = active.querySelector('.modal-footer .btn-primary');
+    if (btn) { e.preventDefault(); btn.click(); }
+  });
+}
 
 
 init();
