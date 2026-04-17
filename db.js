@@ -91,13 +91,13 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
+  await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
 
   await query(`CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL, body TEXT DEFAULT '', type TEXT DEFAULT 'info',
-    is_read BOOLEAN DEFAULT FALSE, link TEXT DEFAULT '',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    is_read BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
   await query(`CREATE TABLE IF NOT EXISTS stage_comments (
     id SERIAL PRIMARY KEY,
