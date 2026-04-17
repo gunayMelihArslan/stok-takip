@@ -10,6 +10,13 @@ const JWT_SECRET = process.env.SESSION_SECRET || 'stok-jwt-2024';
 const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
 app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -259,18 +266,8 @@ app.post('/api/transactions', auth, async (req, res) => {
   const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
     [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
   const numCol = await getNumCol();
-  let hasLots = false;
-  try {
-    const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [product_id])).rows[0];
-    hasLots = parseInt(lc.c) > 0;
-  } catch(e) { hasLots = false; }
-  if (type === 'out') {
-    if (hasLots) await deductFromLots(product_id, Number(quantity));
-    else await deductStock(product_id, Number(quantity), numCol);
-  } else if (type === 'return') {
-    if (hasLots) await restoreToLots(product_id, Number(quantity));
-    else await restoreStock(product_id, Number(quantity), numCol);
-  }
+  if (type === 'out') await deductStock(product_id, Number(quantity), numCol);
+  else if (type === 'return') await restoreStock(product_id, Number(quantity), numCol);
   broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
   res.json({ id: r.rows[0].id });
 });
@@ -345,6 +342,10 @@ app.post('/api/task-stages/:id/assign', auth, admin, async (req, res) => {
   if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
   if (user_id) {
     await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [user_id, req.params.id]);
+    try {
+      const _stg = (await query("SELECT ts.stage_name, t.title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1",[req.params.id])).rows[0];
+      if (_stg) await createNotif(user_id, '⚡ Aşama Atandı: '+_stg.stage_name, _stg.title, 'task');
+    } catch(e) {}
   } else {
     await query("UPDATE task_stages SET assigned_to=NULL,status='open',started_at=NULL WHERE id=$1", [req.params.id]);
   }
@@ -482,102 +483,159 @@ app.get('/api/export/transactions', auth, async (req, res) => {
 });
 
 
-// ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
-app.get('/api/products/:id/lots', auth, async (req, res) => {
+// ── Bildirim helper ───────────────────────────────────────────
+async function createNotif(user_id, title, body, type) {
   try {
-    const rows = (await query('SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year ASC', [req.params.id])).rows;
-    res.json(rows);
-  } catch(e) { res.status(500).json({error: e.message}); }
+    await query("INSERT INTO notifications(user_id,title,body,type) VALUES($1,$2,$3,$4)",
+      [user_id, title, body||'', type||'info']);
+    broadcast('notif_new', { user_id });
+  } catch(e) { console.error('createNotif:', e.message); }
+}
+
+// ── Bildirimler ───────────────────────────────────────────────
+app.get('/api/notifications', auth, async (req, res) => {
+  try {
+    res.json((await query("SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50", [req.user.id])).rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/notifications/:id/read', auth, async (req, res) => {
+  try {
+    await query("UPDATE notifications SET is_read=TRUE WHERE id=$1 AND user_id=$2", [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/notifications/read-all', auth, async (req, res) => {
+  try {
+    await query("UPDATE notifications SET is_read=TRUE WHERE user_id=$1", [req.user.id]);
+    broadcast('notif_read', { user_id: req.user.id });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/lots/counts', auth, async (req, res) => {
+// ── Aşama Yorumları ───────────────────────────────────────────
+app.get('/api/task-stages/:id/comments', auth, async (req, res) => {
   try {
-    const rows = (await query('SELECT product_id, COUNT(*) as cnt FROM product_lots WHERE quantity>0 GROUP BY product_id')).rows;
-    const m = {};
-    rows.forEach(r => { m[r.product_id] = parseInt(r.cnt); });
-    res.json(m);
-  } catch(e) { res.status(500).json({error: e.message}); }
+    res.json((await query(
+      `SELECT sc.*, u.display_name, u.username, u.role
+       FROM stage_comments sc JOIN users u ON u.id=sc.user_id
+       WHERE sc.stage_id=$1 ORDER BY sc.created_at ASC`, [req.params.id]
+    )).rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
-app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
+app.post('/api/task-stages/:id/comments', auth, async (req, res) => {
   try {
-    const { production_year, quantity, notes } = req.body;
-    if (!production_year) return res.status(400).json({error: 'Yıl zorunlu'});
-    const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty < 0) return res.status(400).json({error: 'Geçersiz adet'});
-
-    // Varsa güncelle, yoksa ekle
-    const existing = (await query(
-      'SELECT id FROM product_lots WHERE product_id=$1 AND production_year=$2',
-      [req.params.id, parseInt(production_year)]
+    const { body } = req.body;
+    if (!body || !body.trim()) return res.status(400).json({ error: 'Not boş olamaz' });
+    const r = (await query(
+      "INSERT INTO stage_comments(stage_id,user_id,body) VALUES($1,$2,$3) RETURNING *",
+      [req.params.id, req.user.id, body.trim()]
     )).rows[0];
-    if (existing) {
-      await query('UPDATE product_lots SET quantity=$1, notes=$2 WHERE id=$3',
-        [qty, notes || '', existing.id]);
-    } else {
-      await query('INSERT INTO product_lots(product_id, production_year, quantity, notes) VALUES($1,$2,$3,$4)',
-        [req.params.id, parseInt(production_year), qty, notes || '']);
+    const stage = (await query(
+      `SELECT ts.stage_name, ts.assigned_to, t.title as task_title
+       FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1`, [req.params.id]
+    )).rows[0];
+    if (stage && stage.assigned_to && stage.assigned_to !== req.user.id) {
+      await createNotif(stage.assigned_to, '💬 Yeni not: ' + (stage.task_title||''),
+        (req.user.display_name||req.user.username) + ': ' + body.trim().slice(0,80), 'comment');
     }
+    broadcast('comment_new', { stage_id: req.params.id });
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
-    await syncLotTotal(req.params.id);
-    broadcast('stock_update', {});
-    res.json({ok: true});
+// ── Satın Alma Talepleri ──────────────────────────────────────
+app.get('/api/purchase-requests', auth, async (req, res) => {
+  try {
+    const isAdmin = req.user.role === 'admin';
+    const rows = (await query(
+      isAdmin
+        ? `SELECT pr.*, u.display_name as requester_name, t.title as task_title
+           FROM purchase_requests pr
+           JOIN users u ON u.id = pr.requested_by
+           LEFT JOIN tasks t ON t.id = pr.task_id
+           ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END, pr.created_at DESC`
+        : `SELECT pr.*, u.display_name as requester_name, t.title as task_title
+           FROM purchase_requests pr
+           JOIN users u ON u.id = pr.requested_by
+           LEFT JOIN tasks t ON t.id = pr.task_id
+           WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`,
+      isAdmin ? [] : [req.user.id]
+    )).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/purchase-requests', auth, async (req, res) => {
+  try {
+    const { product_name, quantity, unit, reason, task_id } = req.body;
+    if (!product_name || !product_name.trim())
+      return res.status(400).json({ error: 'Ürün adı zorunlu' });
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty <= 0)
+      return res.status(400).json({ error: 'Geçerli miktar girin' });
+    const r = (await query(
+      `INSERT INTO purchase_requests(requested_by, product_name, quantity, unit, reason, task_id)
+       VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [req.user.id, product_name.trim(), qty, unit||'adet', reason||'', task_id||null]
+    )).rows[0];
+    const admins = (await query("SELECT id FROM users WHERE role='admin'")).rows;
+    for (const a of admins) {
+      await createNotif(a.id, '📦 Satın Alma Talebi: ' + product_name.trim(),
+        (req.user.display_name||req.user.username) + ' — ' + qty + ' ' + (unit||'adet'), 'purchase');
+    }
+    broadcast('purchase_new', {});
+    res.json(r);
   } catch(e) {
-    console.error('lot POST error:', e.message);
-    res.status(500).json({error: e.message});
+    console.error('purchase POST error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
-app.delete('/api/lots/:id', auth, admin, async (req, res) => {
+app.put('/api/purchase-requests/:id/status', auth, admin, async (req, res) => {
   try {
-    const lot = (await query('SELECT product_id FROM product_lots WHERE id=$1', [req.params.id])).rows[0];
-    if (!lot) return res.status(404).json({error: 'Bulunamadı'});
-    await query('DELETE FROM product_lots WHERE id=$1', [req.params.id]);
-    await syncLotTotal(lot.product_id);
-    broadcast('stock_update', {});
-    res.json({ok: true});
-  } catch(e) { res.status(500).json({error: e.message}); }
+    const { status, admin_note } = req.body;
+    const valid = ['pending','approved','rejected','ordered','received'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'Geçersiz durum' });
+    const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
+    if (!pr) return res.status(404).json({ error: 'Bulunamadı' });
+    await query("UPDATE purchase_requests SET status=$1, admin_note=$2, updated_at=NOW() WHERE id=$3",
+      [status, admin_note||'', req.params.id]);
+    const labels = { approved:'✅ Onaylandı', rejected:'❌ Reddedildi',
+                     ordered:'🚚 Sipariş Verildi', received:'📦 Teslim Alındı' };
+    if (labels[status]) {
+      await createNotif(pr.requested_by, 'Satın Alma: ' + labels[status],
+        pr.product_name + (admin_note ? ' — '+admin_note : ''), 'purchase');
+    }
+    broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-async function syncLotTotal(pid) {
+app.delete('/api/purchase-requests/:id', auth, admin, async (req, res) => {
   try {
-    const numCol = await getNumCol();
-    if (!numCol) return; // sayısal sütun yoksa stok güncellemesi yapma
-    const total = parseFloat(
-      (await query('SELECT COALESCE(SUM(quantity), 0) as t FROM product_lots WHERE product_id=$1', [pid])).rows[0].t
-    );
-    const prod = (await query('SELECT values FROM products WHERE id=$1', [pid])).rows[0];
-    if (!prod) return;
-    const vals = { ...(prod.values || {}), [numCol.id]: String(total) };
-    await query('UPDATE products SET values=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), pid]);
-  } catch(e) {
-    console.error('syncLotTotal error:', e.message);
-  }
-}
+    await query("DELETE FROM purchase_requests WHERE id=$1", [req.params.id]);
+    broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
-async function deductFromLots(pid, qty) {
-  const lots = (await query(
-    'SELECT * FROM product_lots WHERE product_id=$1 AND quantity>0 ORDER BY production_year ASC', [pid]
-  )).rows;
-  let rem = qty;
-  for (const l of lots) {
-    if (rem <= 0) break;
-    const take = Math.min(parseFloat(l.quantity), rem);
-    await query('UPDATE product_lots SET quantity = quantity - $1 WHERE id=$2', [take, l.id]);
-    rem -= take;
-  }
-  await syncLotTotal(pid);
-}
+// ── Şifre Değiştir ────────────────────────────────────────────
+app.put('/api/users/change-password', auth, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password)
+      return res.status(400).json({ error: 'Mevcut ve yeni şifre gerekli' });
+    if (new_password.length < 4)
+      return res.status(400).json({ error: 'Şifre en az 4 karakter olmalı' });
+    const user = (await query("SELECT * FROM users WHERE id=$1", [req.user.id])).rows[0];
+    if (!user || !bcrypt.compareSync(current_password, user.password_hash))
+      return res.status(401).json({ error: 'Mevcut şifre yanlış' });
+    await query("UPDATE users SET password_hash=$1 WHERE id=$2",
+      [bcrypt.hashSync(new_password, 10), req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
-async function restoreToLots(pid, qty) {
-  const l = (await query(
-    'SELECT * FROM product_lots WHERE product_id=$1 ORDER BY production_year DESC LIMIT 1', [pid]
-  )).rows[0];
-  if (l) {
-    await query('UPDATE product_lots SET quantity = quantity + $1 WHERE id=$2', [qty, l.id]);
-    await syncLotTotal(pid);
-  }
-}
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── START ─────────────────────────────────────────────────────────────────
@@ -598,103 +656,3 @@ async function start() {
   app.listen(PORT, '0.0.0.0', () => console.log(`🏭 Stok Takip → http://localhost:${PORT}`));
 }
 start().catch(err => { console.error('Hata:', err); process.exit(1); });
-
-// ══ BİLDİRİM ══════════════════════════════════════════════════
-async function createNotif(user_id, title, body, type) {
-  try { await query("INSERT INTO notifications(user_id,title,body,type) VALUES($1,$2,$3,$4)",[user_id,title,body||'',type||'info']); broadcast('notif_new',{user_id}); } catch(e) {}
-}
-app.get('/api/notifications', auth, async (req,res) => {
-  res.json((await query("SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50",[req.user.id])).rows);
-});
-app.post('/api/notifications/:id/read', auth, async (req,res) => {
-  await query("UPDATE notifications SET is_read=TRUE WHERE id=$1 AND user_id=$2",[req.params.id,req.user.id]); res.json({ok:true});
-});
-app.post('/api/notifications/read-all', auth, async (req,res) => {
-  await query("UPDATE notifications SET is_read=TRUE WHERE user_id=$1",[req.user.id]);
-  broadcast('notif_read',{user_id:req.user.id}); res.json({ok:true});
-});
-
-// ══ YORUMLAR ══════════════════════════════════════════════════
-app.get('/api/task-stages/:id/comments', auth, async (req,res) => {
-  const rows=(await query(`SELECT sc.*,u.display_name,u.username,u.role FROM stage_comments sc JOIN users u ON u.id=sc.user_id WHERE sc.stage_id=$1 ORDER BY sc.created_at ASC`,[req.params.id])).rows;
-  res.json(rows);
-});
-app.post('/api/task-stages/:id/comments', auth, async (req,res) => {
-  const {body}=req.body;
-  if(!body||!body.trim()) return res.status(400).json({error:'Not boş olamaz'});
-  const r=(await query("INSERT INTO stage_comments(stage_id,user_id,body) VALUES($1,$2,$3) RETURNING *",[req.params.id,req.user.id,body.trim()])).rows[0];
-  const stage=(await query(`SELECT ts.stage_name,t.title as task_title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1`,[req.params.id])).rows[0];
-  if(stage && stage.assigned_to && stage.assigned_to!==req.user.id) {
-    await createNotif(stage.assigned_to,'💬 Yeni not: '+(stage.task_title||''),(req.user.display_name||req.user.username)+': '+body.trim().slice(0,80),'comment');
-  }
-  broadcast('comment_new',{stage_id:req.params.id}); res.json(r);
-});
-app.delete('/api/stage-comments/:id', auth, async (req,res) => {
-  const c=(await query("SELECT user_id FROM stage_comments WHERE id=$1",[req.params.id])).rows[0];
-  if(!c) return res.status(404).json({error:'Bulunamadı'});
-  if(c.user_id!==req.user.id&&req.user.role!=='admin') return res.status(403).json({error:'Yetkisiz'});
-  await query("DELETE FROM stage_comments WHERE id=$1",[req.params.id]); res.json({ok:true});
-});
-
-// ══ SATIN ALMA TALEPLERİ ═══════════════════════════════════════
-app.get('/api/purchase-requests', auth, async (req,res) => {
-  try {
-    const isAdmin=req.user.role==='admin';
-    const sql=isAdmin
-      ? "SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END, pr.created_at DESC"
-      : "SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC";
-    res.json((await query(sql,isAdmin?[]:[req.user.id])).rows);
-  } catch(e) {
-    console.error('purchase GET error:', e.message);
-    res.status(500).json({error: e.message});
-  }
-});
-app.post('/api/purchase-requests', auth, async (req,res) => {
-  try {
-    const{product_name,quantity,unit,reason,task_id}=req.body;
-    if(!product_name||!product_name.trim()) return res.status(400).json({error:'Ürün adı zorunlu'});
-    const r=(await query("INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[req.user.id,product_name.trim(),parseFloat(quantity)||1,unit||'adet',reason||'',task_id||null])).rows[0];
-    const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
-    for(const a of admins) await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
-    broadcast('purchase_new',{});
-    res.json(r);
-  } catch(e) {
-    console.error('purchase POST error:', e.message);
-    res.status(500).json({error: e.message});
-  }
-});
-app.put('/api/purchase-requests/:id/status', auth, admin, async (req,res) => {
-  const{status,admin_note}=req.body;
-  const pr=(await query("SELECT * FROM purchase_requests WHERE id=$1",[req.params.id])).rows[0];
-  if(!pr) return res.status(404).json({error:'Bulunamadı'});
-  await query("UPDATE purchase_requests SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3",[status,admin_note||'',req.params.id]);
-  const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',received:'📦 Teslim Alındı'};
-  if(labels[status]) await createNotif(pr.requested_by,'Satın Alma: '+labels[status],pr.product_name+(admin_note?' — '+admin_note:''),'purchase');
-  broadcast('purchase_new',{}); res.json({ok:true});
-});
-app.delete('/api/purchase-requests/:id', auth, admin, async (req,res) => {
-  await query("DELETE FROM purchase_requests WHERE id=$1",[req.params.id]); broadcast('purchase_new',{}); res.json({ok:true});
-});
-
-// Düşük stok bildirimi için deductStock'u patch et — server başlangıcında bir kez çalışır
-(function patchDeductForNotif(){
-  const _orig = deductStock;
-  // Zaten patchlenmişse tekrar patch etme
-})();
-
-// ══ PERSONEL ŞİFRE DEĞİŞTİRME ══════════════════════════════════
-app.put('/api/users/change-password', auth, async (req, res) => {
-  try {
-    const { current_password, new_password } = req.body;
-    if (!current_password || !new_password) return res.status(400).json({ error: 'Mevcut ve yeni şifre gerekli' });
-    if (new_password.length < 4) return res.status(400).json({ error: 'Şifre en az 4 karakter olmalı' });
-    const user = (await query('SELECT * FROM users WHERE id=$1', [req.user.id])).rows[0];
-    if (!user || !bcrypt.compareSync(current_password, user.password_hash))
-      return res.status(401).json({ error: 'Mevcut şifre yanlış' });
-    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [bcrypt.hashSync(new_password, 10), req.user.id]);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// ══ İŞ TAMAMLAMA BİLDİRİMİ — stage complete hook ══════════════
-// task_stages complete endpoint'e bildirim ekle (zaten var, buraya not)
