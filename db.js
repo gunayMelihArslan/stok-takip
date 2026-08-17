@@ -1,13 +1,17 @@
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
 });
+
 async function query(sql, params = []) {
   const client = await pool.connect();
   try { return await client.query(sql, params); }
   finally { client.release(); }
 }
+
 async function init() {
   // ── Migrate: drop old task tables if they have wrong schema ──────────────
   await query(`
@@ -93,6 +97,7 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
+  
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
 
   await query(`CREATE TABLE IF NOT EXISTS notifications (
@@ -116,7 +121,6 @@ async function init() {
     status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  // Aktivite log — denetim izi (audit trail)
   await query(`CREATE TABLE IF NOT EXISTS activity_log (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -127,7 +131,6 @@ async function init() {
     ip_address TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  // BOM sütun ayarları — vinç reçetesi indirme formatı
   await query(`CREATE TABLE IF NOT EXISTS bom_columns (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -135,19 +138,30 @@ async function init() {
     is_default BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  // BOM Kategorileri — vinç reçetesi malzeme grupları (Kanca Cihazı, Kedi Cihazı vb.)
   await query(`CREATE TABLE IF NOT EXISTS bom_categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     display_order INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  // Transactions tablosuna bom_category alanı ekle (kategori bazlı takip)
   await query("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL");
-  // Varsayılan BOM sütunlarını ekle (yoksa)
+
+  // Varsayılan BOM sütunları
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
     await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
   }
+
+  // Neon üzerinde veritabanı sıfır açıldığında ilk giriş için varsayılan yöneticiyi ekler
+  const userCheck = (await query("SELECT COUNT(*) as c FROM users")).rows[0];
+  if (parseInt(userCheck.c) === 0) {
+    const defaultPassHash = bcrypt.hashSync('admin123', 10);
+    await query(
+      "INSERT INTO users (username, password_hash, role, display_name) VALUES ($1, $2, $3, $4)",
+      ['admin', defaultPassHash, 'admin', 'Yönetici']
+    );
+    console.log('[DB] İlk kurulum: admin / admin123 kullanıcısı oluşturuldu.');
+  }
 }
+
 module.exports = { query, init, pool };
