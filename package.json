@@ -1,7 +1,7 @@
 {
   "name": "stok-ve-is-takip-sistemi",
-  "version": "2.1.0",
-  "description": "Stok, Depo ve İş Emri Takip Sistemi",
+  "version": "2.2.0",
+  "description": "Stok, Depo, Envanter ve İş Emri Takip Portalı",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
