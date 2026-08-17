@@ -176,7 +176,9 @@ async function init() {
   if (adminCheck.length === 0) {
     const defaultPassHash = bcrypt.hashSync('admin123', 10);
     await query(
-      "INSERT INTO users (username, password_hash, role, display_name) VALUES ($1, $2, $3, $4)",
+     INSERT INTO users (username, password, role) 
+      VALUES ('admin', '...', 'admin') 
+      ON CONFLICT (username) DO NOTHING;,
       ['admin', defaultPassHash, 'admin', 'Yönetici']
     );
     console.log('[DB] İlk kurulum: admin / admin123 kullanıcısı oluşturuldu.');
