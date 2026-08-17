@@ -3,37 +3,45 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stok Takip Sistemi - Giriş</title>
+  <title>Giriş - Stok ve İş Takip Portalı</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    .login-wrapper {
+    .login-container {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+      padding: 1rem;
     }
     .login-card {
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
+      background: #ffffff;
+      padding: 2.5rem 2rem;
+      border-radius: 12px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="login-wrapper">
-    <div class="card login-card">
-      <div class="card-header" style="justify-content: center;">
-        <h2>Envanter Girişi</h2>
-      </div>
-      <form id="loginForm">
+  <div class="login-container">
+    <div class="login-card">
+      <img src="logo.png" alt="Logo" class="brand-logo" style="height: 60px; margin-bottom: 1rem;" onerror="this.style.display='none'">
+      <h2 style="color: var(--primary); margin-bottom: 0.5rem;">Stok & İş Takip Portalı</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Lütfen kullanıcı bilgilerinizle oturum açın</p>
+      
+      <form id="loginForm" style="text-align: left;">
         <div class="form-group">
-          <label for="username">Kullanıcı Adı</label>
-          <input type="text" id="username" required autocomplete="username">
+          <label>Kullanıcı Adı</label>
+          <input type="text" id="username" placeholder="admin veya personel" required autocomplete="username">
         </div>
         <div class="form-group">
-          <label for="password">Şifre</label>
-          <input type="password" id="password" required autocomplete="current-password">
+          <label>Şifre</label>
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;" id="loginBtn">Giriş Yap</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem;" id="loginBtn">Oturum Aç</button>
       </form>
     </div>
   </div>
@@ -66,12 +74,12 @@
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Giriş başarısız');
+        if (!res.ok) throw new Error(data.error || 'Giriş başarısız.');
 
-        showToast('Giriş başarılı, yönlendiriliyorsunuz...', 'success');
+        showToast('Giriş başarılı, yönlendiriliyorsunuz...');
         setTimeout(() => {
           window.location.href = data.user.role === 'admin' ? '/admin.html' : '/personnel.html';
-        }, 800);
+        }, 600);
       } catch (err) {
         showToast(err.message, 'error');
         btn.disabled = false;
