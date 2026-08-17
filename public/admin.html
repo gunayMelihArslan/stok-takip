@@ -3,99 +3,252 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Yönetim Paneli - Stok Takip</title>
+  <title>Yönetici Paneli - Stok & İş Takibi</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="navbar">
-    <div class="nav-brand">Stok Yönetim Paneli</div>
-    <div>
-      <span id="userGreeting" style="margin-right: 1rem; font-weight: 600;"></span>
+    <div class="brand-container">
+      <img src="logo.png" alt="Logo" class="brand-logo" onerror="this.style.display='none'">
+      <div class="brand-title">Stok & İş Takip Yönetimi</div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab-btn active" onclick="switchTab('tab-stock')">📦 Stok & Malzemeler</button>
+      <button class="nav-tab-btn" onclick="switchTab('tab-jobs')">📋 İş Takibi & Projeler</button>
+      <button class="nav-tab-btn" onclick="switchTab('tab-logs')">📜 Hareket Kayıtları</button>
+      <button class="nav-tab-btn" onclick="switchTab('tab-users')">👥 Kullanıcılar</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <span id="adminGreeting" style="font-weight: 600; font-size: 0.9rem;"></span>
       <button class="btn btn-danger btn-sm" id="logoutBtn">Çıkış Yap</button>
     </div>
   </nav>
 
   <div class="container">
-    <!-- Yeni Ürün Ekleme -->
-    <div class="card">
-      <div class="card-header">
-        <h3>Yeni Malzeme / Ürün Tanımla</h3>
+    <!-- Özet İstatistik Kartları -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="label">TOPLAM ÜRÜN ÇEŞİDİ</div>
+        <div class="val" id="statTotalProducts">0</div>
       </div>
-      <form id="addProductForm" class="grid">
-        <div class="form-group">
-          <label>Ürün Kodu *</label>
-          <input type="text" id="pCode" placeholder="Örn: RLM-6204" required>
-        </div>
-        <div class="form-group">
-          <label>Ürün Adı *</label>
-          <input type="text" id="pName" placeholder="Örn: Rulman 6204 ZZ" required>
-        </div>
-        <div class="form-group">
-          <label>Kategori</label>
-          <input type="text" id="pCategory" placeholder="Mekanik, Elektrik vb.">
-        </div>
-        <div class="form-group">
-          <label>Başlangıç Stoğu *</label>
-          <input type="number" id="pStock" min="0" value="0" required>
-        </div>
-        <div class="form-group">
-          <label>Kritik Eşik *</label>
-          <input type="number" id="pMinStock" min="0" value="5" required>
-        </div>
-        <div class="form-group">
-          <label>Birim</label>
-          <input type="text" id="pUnit" value="Adet">
-        </div>
-        <div style="grid-column: 1 / -1;">
-          <button type="submit" class="btn btn-primary" id="saveProductBtn">Ürünü Kaydet</button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Stok Listesi -->
-    <div class="card">
-      <div class="card-header">
-        <h3>Envanter Durumu</h3>
-        <input type="text" id="searchBox" placeholder="İsim, kod veya kategori ara..." style="max-width: 300px;">
+      <div class="stat-card danger">
+        <div class="label">KRİTİK SEVİYEDEKİ STOKLAR</div>
+        <div class="val" id="statCriticalProducts">0</div>
       </div>
-      <div class="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Kod</th>
-              <th>Ürün Adı</th>
-              <th>Kategori</th>
-              <th>Mevcut Stok</th>
-              <th>Kritik Eşik</th>
-              <th>Durum</th>
-              <th>İşlem</th>
-            </tr>
-          </thead>
-          <tbody id="productTableBody"></tbody>
-        </table>
+      <div class="stat-card warning">
+        <div class="label">AKTİF İŞ EMİRLERİ</div>
+        <div class="val" id="statActiveJobs">0</div>
+      </div>
+      <div class="stat-card success">
+        <div class="label">BUGÜNKÜ HAREKETLER</div>
+        <div class="val" id="statTodayLogs">0</div>
       </div>
     </div>
 
-    <!-- Son Hareketler -->
-    <div class="card">
-      <div class="card-header">
-        <h3>Son Stok Hareketleri (Audit Log)</h3>
+    <!-- 1. SEKME: STOK YÖNETİMİ -->
+    <div id="tab-stock" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <h3>Yeni Malzeme / Ürün Ekle</h3>
+        </div>
+        <form id="addProductForm" class="grid">
+          <div class="form-group">
+            <label>Malzeme Kodu *</label>
+            <input type="text" id="pCode" placeholder="Örn: MLZ-1002" required>
+          </div>
+          <div class="form-group">
+            <label>Malzeme Adı *</label>
+            <input type="text" id="pName" placeholder="Örn: 24V Güç Kaynağı" required>
+          </div>
+          <div class="form-group">
+            <label>Kategori</label>
+            <input type="text" id="pCategory" placeholder="Elektrik, Mekanik vb.">
+          </div>
+          <div class="form-group">
+            <label>Başlangıç Stoğu</label>
+            <input type="number" id="pStock" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Kritik Uyarı Eşiği</label>
+            <input type="number" id="pMinStock" min="0" value="5">
+          </div>
+          <div class="form-group">
+            <label>Birim</label>
+            <input type="text" id="pUnit" value="Adet">
+          </div>
+          <div class="form-group">
+            <label>Raf / Depo Konumu</label>
+            <input type="text" id="pShelf" placeholder="A-12, B-3 vb.">
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary" id="saveProductBtn">Ürünü Kaydet</button>
+          </div>
+        </form>
       </div>
-      <div class="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Tarih</th>
-              <th>Kullanıcı</th>
-              <th>Ürün</th>
-              <th>İşlem</th>
-              <th>Miktar</th>
-              <th>Önce/Sonra</th>
-              <th>Açıklama</th>
-            </tr>
-          </thead>
-          <tbody id="logsTableBody"></tbody>
-        </table>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Envanter Listesi</h3>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="searchStock" placeholder="Ara (Kod, İsim, Raf)..." style="width: 250px;">
+            <button class="btn btn-secondary btn-sm" id="btnFilterCritical">⚠️ Kritik Stoklar</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Kod</th>
+                <th>Ürün Adı</th>
+                <th>Kategori</th>
+                <th>Konum</th>
+                <th>Mevcut Stok</th>
+                <th>Kritik Eşik</th>
+                <th>Durum</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SEKME: İŞ TAKİBİ -->
+    <div id="tab-jobs" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>Yeni İş Emri / Proje Başlat</h3>
+        </div>
+        <form id="addJobForm" class="grid">
+          <div class="form-group">
+            <label>İş Emri No *</label>
+            <input type="text" id="jobNo" placeholder="Örn: IS-2026-001" required>
+          </div>
+          <div class="form-group">
+            <label>İş / Proje Başlığı *</label>
+            <input type="text" id="jobTitle" placeholder="Örn: 10 Tonluk Tavan Vinci Montajı" required>
+          </div>
+          <div class="form-group">
+            <label>Müşteri / Proje Adı</label>
+            <input type="text" id="jobCustomer" placeholder="Örn: ABC Fabrikası">
+          </div>
+          <div class="form-group">
+            <label>Öncelik</label>
+            <select id="jobPriority">
+              <option value="Normal">Normal</option>
+              <option value="Acil">Acil</option>
+              <option value="Düşük">Düşük</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Açıklama ve Detaylar</label>
+            <textarea id="jobDesc" rows="2" placeholder="İş detaylarını buraya giriniz..."></textarea>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary" id="saveJobBtn">İş Emrini Oluştur</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Tüm İş Emirleri & Durumları</h3>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>İş No</th>
+                <th>Başlık & Proje</th>
+                <th>Öncelik</th>
+                <th>Tarih</th>
+                <th>Durum</th>
+                <th>Durum Güncelle</th>
+              </tr>
+            </thead>
+            <tbody id="jobsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. SEKME: STOK HAREKET KAYITLARI -->
+    <div id="tab-logs" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>Detaylı Stok Hareket Geçmişi (Audit Logs)</h3>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>İşlem</th>
+                <th>Ürün</th>
+                <th>Miktar</th>
+                <th>Önce/Sonra</th>
+                <th>İş Emri</th>
+                <th>İşlemi Yapan</th>
+                <th>Açıklama</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. SEKME: KULLANICI YÖNETİMİ -->
+    <div id="tab-users" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>Yeni Personel / Yönetici Tanımla</h3>
+        </div>
+        <form id="addUserForm" class="grid">
+          <div class="form-group">
+            <label>Ad Soyad</label>
+            <input type="text" id="uFullName" placeholder="Ahmet Yılmaz" required>
+          </div>
+          <div class="form-group">
+            <label>Kullanıcı Adı *</label>
+            <input type="text" id="uUsername" placeholder="ahmety" required>
+          </div>
+          <div class="form-group">
+            <label>Şifre *</label>
+            <input type="password" id="uPassword" placeholder="••••••••" required>
+          </div>
+          <div class="form-group">
+            <label>Rol / Yetki *</label>
+            <select id="uRole">
+              <option value="personnel">Saha Personeli</option>
+              <option value="admin">Yönetici (Admin)</option>
+            </select>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary">Kullanıcıyı Kaydet</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Sistem Kullanıcıları</h3>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Ad Soyad</th>
+                <th>Kullanıcı Adı</th>
+                <th>Rol</th>
+                <th>Kayıt Tarihi</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -103,13 +256,22 @@
   <div id="toast-container"></div>
 
   <script>
+    let filterCriticalOnly = false;
+
     function showToast(msg, type = 'success') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = msg;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3500);
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
     }
 
     async function checkAuth() {
@@ -117,28 +279,39 @@
         const res = await fetch('/api/auth/me');
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (data.user.role !== 'admin') {
-          window.location.href = '/personnel.html';
-        }
-        document.getElementById('userGreeting').textContent = `Yönetici: ${data.user.username}`;
+        if (data.user.role !== 'admin') window.location.href = '/personnel.html';
+        document.getElementById('adminGreeting').textContent = `${data.user.full_name || data.user.username} (Yönetici)`;
       } catch {
         window.location.href = '/index.html';
       }
     }
 
-    async function loadProducts(search = '') {
+    async function loadStats() {
       try {
-        const res = await fetch(`/api/products?search=${encodeURIComponent(search)}`);
+        const res = await fetch('/api/stats');
         const data = await res.json();
-        const tbody = document.getElementById('productTableBody');
-        tbody.textContent = ''; // XSS koruması
+        document.getElementById('statTotalProducts').textContent = data.totalProducts;
+        document.getElementById('statCriticalProducts').textContent = data.criticalProducts;
+        document.getElementById('statActiveJobs').textContent = data.activeJobs;
+        document.getElementById('statTodayLogs').textContent = data.todayLogs;
+      } catch {}
+    }
+
+    async function loadStock(search = '') {
+      try {
+        const url = `/api/products?search=${encodeURIComponent(search)}${filterCriticalOnly ? '&critical=true' : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const tbody = document.getElementById('stockTableBody');
+        tbody.textContent = '';
 
         data.products.forEach(p => {
           const tr = document.createElement('tr');
-
+          
           const tdCode = document.createElement('td'); tdCode.textContent = p.code;
           const tdName = document.createElement('td'); tdName.textContent = p.name;
           const tdCat = document.createElement('td'); tdCat.textContent = p.category;
+          const tdShelf = document.createElement('td'); tdShelf.textContent = p.shelf_location || '-';
           const tdStock = document.createElement('td'); tdStock.textContent = `${p.stock} ${p.unit}`;
           const tdMin = document.createElement('td'); tdMin.textContent = `${p.min_stock} ${p.unit}`;
           
@@ -160,12 +333,59 @@
           delBtn.onclick = () => deleteProduct(p.id);
           tdActions.appendChild(delBtn);
 
-          tr.append(tdCode, tdName, tdCat, tdStock, tdMin, tdStatus, tdActions);
+          tr.append(tdCode, tdName, tdCat, tdShelf, tdStock, tdMin, tdStatus, tdActions);
           tbody.appendChild(tr);
         });
-      } catch (err) {
-        showToast('Ürün listesi yüklenemedi.', 'error');
+      } catch {
+        showToast('Stok listesi alınamadı.', 'error');
       }
+    }
+
+    async function loadJobs() {
+      try {
+        const res = await fetch('/api/jobs');
+        const data = await res.json();
+        const tbody = document.getElementById('jobsTableBody');
+        tbody.textContent = '';
+
+        data.jobs.forEach(j => {
+          const tr = document.createElement('tr');
+          
+          const tdNo = document.createElement('td'); tdNo.textContent = j.job_no;
+          const tdTitle = document.createElement('td'); 
+          tdTitle.innerHTML = `<strong>${j.title}</strong><br><small style="color:var(--text-muted)">${j.customer_or_project || ''}</small>`;
+
+          const tdPrio = document.createElement('td');
+          const pBadge = document.createElement('span');
+          pBadge.className = `badge ${j.priority === 'Acil' ? 'badge-danger' : 'badge-info'}`;
+          pBadge.textContent = j.priority;
+          tdPrio.appendChild(pBadge);
+
+          const tdDate = document.createElement('td');
+          tdDate.textContent = new Date(j.created_at).toLocaleDateString('tr-TR');
+
+          const tdStatus = document.createElement('td');
+          const sBadge = document.createElement('span');
+          sBadge.className = `badge ${j.status === 'Tamamlandı' ? 'badge-success' : j.status === 'İptal' ? 'badge-danger' : 'badge-warning'}`;
+          sBadge.textContent = j.status;
+          tdStatus.appendChild(sBadge);
+
+          const tdAction = document.createElement('td');
+          const select = document.createElement('select');
+          select.style.padding = '0.25rem 0.5rem';
+          ['Beklemede', 'Devam Ediyor', 'Tamamlandı', 'İptal'].forEach(st => {
+            const opt = document.createElement('option');
+            opt.value = st; opt.textContent = st;
+            if (j.status === st) opt.selected = true;
+            select.appendChild(opt);
+          });
+          select.onchange = (e) => updateJobStatus(j.id, e.target.value);
+          tdAction.appendChild(select);
+
+          tr.append(tdNo, tdTitle, tdPrio, tdDate, tdStatus, tdAction);
+          tbody.appendChild(tr);
+        });
+      } catch {}
     }
 
     async function loadLogs() {
@@ -177,53 +397,88 @@
 
         data.logs.forEach(l => {
           const tr = document.createElement('tr');
-          
           const tdDate = document.createElement('td'); tdDate.textContent = new Date(l.created_at).toLocaleString('tr-TR');
-          const tdUser = document.createElement('td'); tdUser.textContent = l.username;
-          const tdProd = document.createElement('td'); tdProd.textContent = `${l.product_name} (${l.product_code})`;
           
           const tdAction = document.createElement('td');
-          tdAction.textContent = l.action_type === 'IN' ? 'Giriş' : 'Çıkış';
-          tdAction.style.color = l.action_type === 'IN' ? 'var(--success)' : 'var(--danger)';
-          tdAction.style.fontWeight = 'bold';
+          const badge = document.createElement('span');
+          badge.className = `badge ${l.action_type === 'IN' ? 'badge-success' : 'badge-danger'}`;
+          badge.textContent = l.action_type === 'IN' ? 'Giriş' : 'Çıkış';
+          tdAction.appendChild(badge);
 
-          const tdQty = document.createElement('td'); tdQty.textContent = l.quantity;
-          const tdPrevNext = document.createElement('td'); tdPrevNext.textContent = `${l.previous_stock} -> ${l.new_stock}`;
+          const tdProd = document.createElement('td'); tdProd.textContent = `${l.product_name} (${l.product_code})`;
+          const tdQty = document.createElement('td'); tdQty.textContent = `${l.quantity} ${l.unit}`;
+          const tdPrevNext = document.createElement('td'); tdPrevNext.textContent = `${l.previous_stock} ➔ ${l.new_stock}`;
+          const tdJob = document.createElement('td'); tdJob.textContent = l.job_no ? `${l.job_no}` : '-';
+          const tdUser = document.createElement('td'); tdUser.textContent = l.full_name || l.username;
           const tdNote = document.createElement('td'); tdNote.textContent = l.note || '-';
 
-          tr.append(tdDate, tdUser, tdProd, tdAction, tdQty, tdPrevNext, tdNote);
+          tr.append(tdDate, tdAction, tdProd, tdQty, tdPrevNext, tdJob, tdUser, tdNote);
           tbody.appendChild(tr);
         });
-      } catch (err) {
-        showToast('Loglar alınamadı.', 'error');
-      }
+      } catch {}
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        const tbody = document.getElementById('usersTableBody');
+        tbody.textContent = '';
+
+        data.users.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>#${u.id}</td>
+            <td><strong>${u.full_name || '-'}</strong></td>
+            <td>${u.username}</td>
+            <td><span class="badge ${u.role === 'admin' ? 'badge-danger' : 'badge-info'}">${u.role === 'admin' ? 'Yönetici' : 'Personel'}</span></td>
+            <td>${new Date(u.created_at).toLocaleDateString('tr-TR')}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch {}
     }
 
     async function deleteProduct(id) {
-      if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
+      if (!confirm('Bu malzemeyi silmek istediğinize emin misiniz?')) return;
       try {
         const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        showToast(data.message);
-        loadProducts();
+        showToast('Ürün silindi.');
+        loadStock();
+        loadStats();
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
+    async function updateJobStatus(id, status) {
+      try {
+        const res = await fetch(`/api/jobs/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error();
+        showToast('İş emri güncellendi.');
+        loadJobs();
+        loadStats();
+      } catch {
+        showToast('Durum güncellenemedi.', 'error');
+      }
+    }
+
     document.getElementById('addProductForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = document.getElementById('saveProductBtn');
-      btn.disabled = true;
-
       const payload = {
         code: document.getElementById('pCode').value,
         name: document.getElementById('pName').value,
         category: document.getElementById('pCategory').value,
         stock: document.getElementById('pStock').value,
         min_stock: document.getElementById('pMinStock').value,
-        unit: document.getElementById('pUnit').value
+        unit: document.getElementById('pUnit').value,
+        shelf_location: document.getElementById('pShelf').value
       };
 
       try {
@@ -234,20 +489,74 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-
         showToast('Ürün başarıyla eklendi.');
         document.getElementById('addProductForm').reset();
-        loadProducts();
+        loadStock();
         loadLogs();
+        loadStats();
       } catch (err) {
         showToast(err.message, 'error');
-      } finally {
-        btn.disabled = false;
       }
     });
 
-    document.getElementById('searchBox').addEventListener('input', (e) => {
-      loadProducts(e.target.value);
+    document.getElementById('addJobForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        job_no: document.getElementById('jobNo').value,
+        title: document.getElementById('jobTitle').value,
+        customer_or_project: document.getElementById('jobCustomer').value,
+        priority: document.getElementById('jobPriority').value,
+        description: document.getElementById('jobDesc').value
+      };
+
+      try {
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast('İş emri oluşturuldu.');
+        document.getElementById('addJobForm').reset();
+        loadJobs();
+        loadStats();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        full_name: document.getElementById('uFullName').value,
+        username: document.getElementById('uUsername').value,
+        password: document.getElementById('uPassword').value,
+        role: document.getElementById('uRole').value
+      };
+
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast('Kullanıcı oluşturuldu.');
+        document.getElementById('addUserForm').reset();
+        loadUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('searchStock').addEventListener('input', (e) => loadStock(e.target.value));
+    
+    document.getElementById('btnFilterCritical').addEventListener('click', () => {
+      filterCriticalOnly = !filterCriticalOnly;
+      document.getElementById('btnFilterCritical').classList.toggle('btn-primary');
+      loadStock(document.getElementById('searchStock').value);
     });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -256,8 +565,11 @@
     });
 
     checkAuth().then(() => {
-      loadProducts();
+      loadStats();
+      loadStock();
+      loadJobs();
       loadLogs();
+      loadUsers();
     });
   </script>
 </body>
