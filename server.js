@@ -10,22 +10,19 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
+const JWT_SECRET = process.env.JWT_SECRET || 'secret_jwt_key_env_fallback';
 
-// Güvenlik Middleware'leri
-app.use(helmet({
-  contentSecurityPolicy: false // Statik paneller için basitlik sağlar
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rate Limiting (Kaba kuvvet saldırılarını engelleme)
+// Rate Limiter
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { error: 'Çok fazla giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.' }
+  max: 25,
+  message: { error: 'Çok fazla giriş denemesi yapıldı. Lütfen daha sonra tekrar deneyin.' }
 });
 
 // Kimlik Doğrulama Middleware'i
@@ -54,36 +51,41 @@ const authenticateToken = (requiredRole = null) => {
 
 // ====================== AUTH API ======================
 
-app.post('/api/auth/login', authLimiter, (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Kullanıcı adı ve şifre zorunludur.' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim());
+  try {
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [username.trim()]);
+    const user = result.rows[0];
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı.' });
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı.' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 8 * 60 * 60 * 1000,
+      sameSite: 'lax'
+    });
+
+    res.json({
+      message: 'Giriş başarılı',
+      user: { id: user.id, username: user.username, role: user.role }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Giriş yapılırken sunucu hatası oluştu.' });
   }
-
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '8h' }
-  );
-
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 8 * 60 * 60 * 1000,
-    sameSite: 'strict'
-  });
-
-  res.json({
-    message: 'Giriş başarılı',
-    user: { id: user.id, username: user.username, role: user.role }
-  });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -97,37 +99,37 @@ app.get('/api/auth/me', authenticateToken(), (req, res) => {
 
 // ====================== ÜRÜN & STOK API ======================
 
-// Ürün Listesi (Sayfalama ve Arama Destekli)
-app.get('/api/products', authenticateToken(), (req, res) => {
+// Ürün Listesi
+app.get('/api/products', authenticateToken(), async (req, res) => {
   const search = req.query.search ? `%${req.query.search.trim()}%` : '%';
   const onlyCritical = req.query.critical === 'true';
 
-  let query = `
+  let queryText = `
     SELECT id, code, name, category, stock, min_stock, unit, updated_at 
     FROM products 
-    WHERE is_deleted = 0 AND (name LIKE ? OR code LIKE ? OR category LIKE ?)
+    WHERE is_deleted = 0 AND (name ILIKE $1 OR code ILIKE $1 OR category ILIKE $1)
   `;
 
   if (onlyCritical) {
-    query += ' AND stock <= min_stock';
+    queryText += ' AND stock <= min_stock';
   }
 
-  query += ' ORDER BY name ASC';
+  queryText += ' ORDER BY name ASC';
 
   try {
-    const products = db.prepare(query).all(search, search, search);
-    res.json({ products });
+    const result = await db.query(queryText, [search]);
+    res.json({ products: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Ürünler getirilirken hata oluştu.' });
+    res.status(500).json({ error: 'Ürünler yüklenirken hata oluştu.' });
   }
 });
 
-// Yeni Ürün Ekleme (Sadece Admin)
-app.post('/api/products', authenticateToken('admin'), (req, res) => {
+// Yeni Ürün Ekle (Sadece Admin)
+app.post('/api/products', authenticateToken('admin'), async (req, res) => {
   const { code, name, category, stock, min_stock, unit } = req.body;
 
   if (!code || !name || stock === undefined || stock === null) {
-    return res.status(400).json({ error: 'Ürün kodu, ürün adı ve stok miktarı zorunludur.' });
+    return res.status(400).json({ error: 'Ürün kodu, ürün adı ve başlangıç stoğu zorunludur.' });
   }
 
   const initialStock = parseInt(stock, 10);
@@ -137,66 +139,56 @@ app.post('/api/products', authenticateToken('admin'), (req, res) => {
     return res.status(400).json({ error: 'Stok değerleri negatif olamaz.' });
   }
 
-  const insertTx = db.transaction(() => {
-    const stmt = db.prepare(`
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const insertProductQuery = `
       INSERT INTO products (code, name, category, stock, min_stock, unit)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(code.trim(), name.trim(), category ? category.trim() : 'Genel', initialStock, minStockVal, unit || 'Adet');
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
+    `;
+    const prodRes = await client.query(insertProductQuery, [
+      code.trim(),
+      name.trim(),
+      category ? category.trim() : 'Genel',
+      initialStock,
+      minStockVal,
+      unit || 'Adet'
+    ]);
+
+    const newProductId = prodRes.rows[0].id;
 
     if (initialStock > 0) {
-      db.prepare(`
-        INSERT INTO stock_logs (product_id, user_id, action_type, quantity, previous_stock, new_stock, note)
-        VALUES (?, ?, 'IN', ?, 0, ?, 'İlk Giriş / Başlangıç Stoğu')
-      `).run(info.lastInsertRowid, req.user.id, initialStock, initialStock);
+      await client.query(
+        `INSERT INTO stock_logs (product_id, user_id, action_type, quantity, previous_stock, new_stock, note)
+         VALUES ($1, $2, 'IN', $3, 0, $3, 'İlk Giriş / Başlangıç Stoğu')`,
+        [newProductId, req.user.id, initialStock]
+      );
     }
 
-    return info.lastInsertRowid;
-  });
-
-  try {
-    const newId = insertTx();
-    res.status(201).json({ message: 'Ürün başarıyla eklendi.', productId: newId });
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Ürün başarıyla eklendi.', productId: newProductId });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) {
-      return res.status(400).json({ error: 'Bu ürün kodu zaten mevcut.' });
+    await client.query('ROLLBACK');
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Bu ürün kodu zaten kayıtlı.' });
     }
     res.status(500).json({ error: 'Ürün eklenirken veritabanı hatası oluştu.' });
+  } finally {
+    client.release();
   }
 });
 
-// Ürün Güncelleme (Sadece Admin)
-app.put('/api/products/:id', authenticateToken('admin'), (req, res) => {
-  const { name, category, min_stock, unit } = req.body;
-  const productId = req.params.id;
-
+// Ürün Sil (Soft Delete - Sadece Admin)
+app.delete('/api/products/:id', authenticateToken('admin'), async (req, res) => {
   try {
-    const stmt = db.prepare(`
-      UPDATE products 
-      SET name = ?, category = ?, min_stock = ?, unit = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND is_deleted = 0
-    `);
-    const result = stmt.run(name.trim(), category.trim(), parseInt(min_stock, 10), unit.trim(), productId);
+    const result = await db.query(
+      'UPDATE products SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND is_deleted = 0',
+      [req.params.id]
+    );
 
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Ürün bulunamadı.' });
-    }
-
-    res.json({ message: 'Ürün başarıyla güncellendi.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Güncelleme hatası.' });
-  }
-});
-
-// Ürün Silme (Soft Delete - Sadece Admin)
-app.delete('/api/products/:id', authenticateToken('admin'), (req, res) => {
-  const productId = req.params.id;
-
-  try {
-    const stmt = db.prepare(`UPDATE products SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
-    const result = stmt.run(productId);
-
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Ürün bulunamadı.' });
     }
 
@@ -206,8 +198,8 @@ app.delete('/api/products/:id', authenticateToken('admin'), (req, res) => {
   }
 });
 
-// Atomik Stok Hareketi (Giriş / Çıkış)
-app.post('/api/stock/transaction', authenticateToken(), (req, res) => {
+// Atomik Stok Giriş / Çıkış Hareketi
+app.post('/api/stock/transaction', authenticateToken(), async (req, res) => {
   const { product_id, action_type, quantity, note } = req.body;
   const qty = parseInt(quantity, 10);
 
@@ -216,64 +208,58 @@ app.post('/api/stock/transaction', authenticateToken(), (req, res) => {
   }
 
   if (!['IN', 'OUT'].includes(action_type)) {
-    return res.status(400).json({ error: 'İşlem tipi IN veya OUT olmalıdır.' });
+    return res.status(400).json({ error: 'İşlem türü IN veya OUT olmalıdır.' });
   }
 
-  // Atomik Transaction: Eşzamanlı yarış durumlarını (Race Condition) önler
-  const executeStockChange = db.transaction(() => {
-    const product = db.prepare('SELECT id, stock FROM products WHERE id = ? AND is_deleted = 0').get(product_id);
-
-    if (!product) {
-      throw new Error('NOT_FOUND');
-    }
-
-    if (action_type === 'OUT' && product.stock < qty) {
-      throw new Error('INSUFFICIENT_STOCK');
-    }
-
-    const newStock = action_type === 'IN' ? product.stock + qty : product.stock - qty;
-
-    // Koşullu atomik update
-    const updateStmt = db.prepare(`
-      UPDATE products 
-      SET stock = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ? AND stock = ?
-    `);
-
-    const updateRes = updateStmt.run(newStock, product.id, product.stock);
-    if (updateRes.changes === 0) {
-      throw new Error('RACE_CONDITION_RETRY');
-    }
-
-    db.prepare(`
-      INSERT INTO stock_logs (product_id, user_id, action_type, quantity, previous_stock, new_stock, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(product.id, req.user.id, action_type, qty, product.stock, newStock, note ? note.trim() : null);
-
-    return { previous_stock: product.stock, new_stock: newStock };
-  });
-
+  const client = await db.pool.connect();
   try {
-    const result = executeStockChange();
-    res.json({ message: 'Stok hareketi başarıyla işlendi.', result });
-  } catch (err) {
-    if (err.message === 'NOT_FOUND') {
+    await client.query('BEGIN');
+
+    // Satır kilitleme (Row-level Locking) ile eşzamanlı çakışmaları önleme
+    const productRes = await client.query(
+      'SELECT id, stock FROM products WHERE id = $1 AND is_deleted = 0 FOR UPDATE',
+      [product_id]
+    );
+
+    if (productRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Ürün bulunamadı.' });
     }
-    if (err.message === 'INSUFFICIENT_STOCK') {
-      return res.status(400).json({ error: 'Yetersiz stok! Mevcut stoktan fazla çıkış yapılamaz.' });
+
+    const currentStock = productRes.rows[0].stock;
+
+    if (action_type === 'OUT' && currentStock < qty) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Yetersiz stok! Mevcut stok miktarından fazla çıkış yapılamaz.' });
     }
-    if (err.message === 'RACE_CONDITION_RETRY') {
-      return res.status(409).json({ error: 'Aynı anda başka bir işlem yapıldı, lütfen tekrar deneyin.' });
-    }
-    res.status(500).json({ error: 'İşlem sırasında sunucu hatası oluştu.' });
+
+    const newStock = action_type === 'IN' ? currentStock + qty : currentStock - qty;
+
+    await client.query(
+      'UPDATE products SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newStock, product_id]
+    );
+
+    await client.query(
+      `INSERT INTO stock_logs (product_id, user_id, action_type, quantity, previous_stock, new_stock, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [product_id, req.user.id, action_type, qty, currentStock, newStock, note ? note.trim() : null]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Stok hareketi başarıyla işlendi.', previous_stock: currentStock, new_stock: newStock });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'İşlem gerçekleştirilemedi.' });
+  } finally {
+    client.release();
   }
 });
 
-// Stok Hareket Kayıtları (Audit Logs - Sadece Admin)
-app.get('/api/logs', authenticateToken('admin'), (req, res) => {
+// Log Geçmişi (Sadece Admin)
+app.get('/api/logs', authenticateToken('admin'), async (req, res) => {
   try {
-    const logs = db.prepare(`
+    const result = await db.query(`
       SELECT l.id, p.name as product_name, p.code as product_code, u.username, 
              l.action_type, l.quantity, l.previous_stock, l.new_stock, l.note, l.created_at
       FROM stock_logs l
@@ -281,21 +267,13 @@ app.get('/api/logs', authenticateToken('admin'), (req, res) => {
       JOIN users u ON l.user_id = u.id
       ORDER BY l.created_at DESC
       LIMIT 100
-    `).all();
-    res.json({ logs });
+    `);
+    res.json({ logs: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Hareket geçmişi alınamadı.' });
   }
 });
 
-// Global Hata Yakalama Middleware'i
-app.use((err, req, res, next) => {
-  console.error('[Error]:', err.stack);
-  res.status(500).json({ error: 'Beklenmeyen bir sunucu hatası oluştu.' });
-});
-
 app.listen(PORT, () => {
-  console.log(`=========================================`);
-  console.log(` Sunucu http://localhost:${PORT} üzerinde aktif`);
-  console.log(`=========================================`);
+  console.log(`Sunucu http://localhost:${PORT} portunda aktif`);
 });
