@@ -10,7 +10,7 @@
   <nav class="navbar">
     <div class="brand-container">
       <img src="logo.png" alt="Logo" class="brand-logo" onerror="this.style.display='none'">
-      <div class="brand-title">Personel Saha İstasyonu</div>
+      <div class="brand-title">Saha Personel Terminali</div>
     </div>
     <div style="display: flex; align-items: center; gap: 1rem;">
       <span id="userGreeting" style="font-weight: 600; font-size: 0.9rem;"></span>
@@ -19,10 +19,10 @@
   </nav>
 
   <div class="container" style="max-width: 900px;">
-    <!-- Hızlı Stok Giriş/Çıkış -->
+    <!-- Stok Çıkış / Giriş Formu -->
     <div class="card">
       <div class="card-header">
-        <h3>Hızlı Malzeme Alımı / Çıkışı</h3>
+        <h3>Hızlı Malzeme Alımı / Girişi</h3>
       </div>
       <form id="stockActionForm">
         <div class="form-group">
@@ -37,7 +37,7 @@
             <label>İşlem Türü *</label>
             <select id="actionType" required>
               <option value="OUT">Stok Çıkışı (Depodan Al)</option>
-              <option value="IN">Stok Girişi (İade / Yeni Malzeme)</option>
+              <option value="IN">Stok Girişi (İade / İkmal)</option>
             </select>
           </div>
           <div class="form-group">
@@ -55,17 +55,17 @@
 
         <div class="form-group">
           <label>Açıklama / Montaj Notu</label>
-          <input type="text" id="actionNote" placeholder="Örn: 2. Hat Vinç Panosu için alındı">
+          <input type="text" id="actionNote" placeholder="Örn: 2026/04 Nolu Vinç Montaj Hattı">
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;" id="submitBtn">İşlemi Onayla ve Kaydet</button>
       </form>
     </div>
 
-    <!-- Aktif İş Emirleri Görüntüleme -->
+    <!-- Aktif İş Emirleri -->
     <div class="card">
       <div class="card-header">
-        <h3>Açık İş Emirleri & Projeler</h3>
+        <h3>Açık İş Emirleri ve Projeler</h3>
       </div>
       <div class="table-responsive">
         <table>
@@ -87,14 +87,14 @@
   <div id="toast-container"></div>
 
   <script>
-    function showToast(msg, type = 'success') {
+    window.showToast = function(msg, type = 'success') {
       const c = document.getElementById('toast-container');
       const t = document.createElement('div');
       t.className = `toast toast-${type}`;
       t.textContent = msg;
       c.appendChild(t);
       setTimeout(() => t.remove(), 3500);
-    }
+    };
 
     async function checkAuth() {
       try {
@@ -124,7 +124,9 @@
           opt.textContent = `[${p.code}] ${p.name} (Stok: ${p.stock} ${p.unit} | Konum: ${p.shelf_location || '-'})`;
           select.appendChild(opt);
         });
-      } catch {}
+      } catch {
+        showToast('Malzemeler alınamadı.', 'error');
+      }
     }
 
     async function loadJobs() {
@@ -181,7 +183,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        showToast('Stok işlemi kaydedildi.');
+        showToast('Stok işlemi başarıyla gerçekleşti.');
         document.getElementById('actionNote').value = '';
         document.getElementById('actionQty').value = '1';
         loadProducts();
