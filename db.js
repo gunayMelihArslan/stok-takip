@@ -8,16 +8,19 @@ const pool = new Pool({
 
 async function query(sql, params = []) {
   const client = await pool.connect();
-  try { return await client.query(sql, params); }
-  finally { client.release(); }
+  try {
+    return await client.query(sql, params);
+  } finally {
+    client.release();
+  }
 }
 
 async function init() {
-  // ── Otomatik Migrasyon & Şema Düzeltme ──────────────
+  // ── 1. Şema ve Sütun Uyumlaması ──
   await query(`
     DO $$
     BEGIN
-      -- Eğer users tablosunda 'password' sütunu kalmışsa 'password_hash' olarak yeniden adlandır
+      -- users tablosunda 'password' kalmışsa 'password_hash' olarak adlandır
       IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name='users' AND column_name='password'
@@ -28,7 +31,7 @@ async function init() {
         ALTER TABLE users RENAME COLUMN password TO password_hash;
       END IF;
 
-      -- display_name sütunu eksikse ekle
+      -- display_name yoksa ekle
       IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name='users' AND column_name='display_name'
@@ -52,6 +55,7 @@ async function init() {
     END $$;
   `);
 
+  // ── 2. Orijinal Tablo Tanımları ──
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -125,12 +129,14 @@ async function init() {
     title TEXT NOT NULL, body TEXT DEFAULT '', type TEXT DEFAULT 'info',
     is_read BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query(`CREATE TABLE IF NOT EXISTS stage_comments (
     id SERIAL PRIMARY KEY,
     stage_id INT NOT NULL REFERENCES task_stages(id) ON DELETE CASCADE,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query(`CREATE TABLE IF NOT EXISTS purchase_requests (
     id SERIAL PRIMARY KEY,
     requested_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -140,6 +146,7 @@ async function init() {
     status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query(`CREATE TABLE IF NOT EXISTS activity_log (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -150,6 +157,7 @@ async function init() {
     ip_address TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query(`CREATE TABLE IF NOT EXISTS bom_columns (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -157,12 +165,14 @@ async function init() {
     is_default BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query(`CREATE TABLE IF NOT EXISTS bom_categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     display_order INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
+  
   await query("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL");
 
   // Varsayılan BOM sütunları
@@ -171,18 +181,13 @@ async function init() {
     await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
   }
 
-  // İlk kurulum: Varsayılan admin kullanıcısını ekle
-  const adminCheck = (await query("SELECT id FROM users WHERE username = 'admin'")).rows;
-  if (adminCheck.length === 0) {
-    const defaultPassHash = bcrypt.hashSync('admin123', 10);
-    await query(
-     INSERT INTO users (username, password, role) 
-      VALUES ('admin', '...', 'admin') 
-      ON CONFLICT (username) DO NOTHING;,
-      ['admin', defaultPassHash, 'admin', 'Yönetici']
-    );
-    console.log('[DB] İlk kurulum: admin / admin123 kullanıcısı oluşturuldu.');
-  }
+  // Varsayılan admin kullanıcısı (Çakışma durumunda hata fırlatmadan geçer)
+  const defaultPassHash = bcrypt.hashSync('admin123', 10);
+  await query(`
+    INSERT INTO users (username, password_hash, role, display_name)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (username) DO NOTHING
+  `, ['admin', defaultPassHash, 'admin', 'Yönetici']);
 }
 
 module.exports = { query, init, pool };
