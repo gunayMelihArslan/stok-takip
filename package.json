@@ -1,14 +1,11 @@
 {
-  "name": "stok-takip-sistemi",
-  "version": "2.0.0",
-  "description": "Güvenli ve Atomik Stok Takip & Envanter Yönetim Sistemi",
+  "name": "stok-ve-is-takip-sistemi",
+  "version": "2.1.0",
+  "description": "Stok, Depo ve İş Emri Takip Sistemi",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
-  },
-  "engines": {
-    "node": ">=18.0.0 <=22.x"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
