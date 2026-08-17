@@ -1,11 +1,5 @@
-const Database = require('better-sqlite3');
-const bcrypt = require('bcryptjs');
-const path = require('path');
-require('dotenv').config();
-
-const dbPath = process.env.DB_FILE || path.join(__dirname, 'database.sqlite');
-const db = new Database(dbPath);
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const pool = new Pool({
@@ -15,71 +9,68 @@ const pool = new Pool({
   }
 });
 
+// Veritabanı tablolarını ve varsayılan kullanıcıları otomatik oluşturma
+const initDB = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(20) NOT NULL CHECK(role IN ('admin', 'personnel')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        category VARCHAR(50) DEFAULT 'Genel',
+        stock INTEGER NOT NULL DEFAULT 0 CHECK(stock >= 0),
+        min_stock INTEGER NOT NULL DEFAULT 5 CHECK(min_stock >= 0),
+        unit VARCHAR(20) DEFAULT 'Adet',
+        is_deleted INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS stock_logs (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        action_type VARCHAR(20) NOT NULL CHECK(action_type IN ('IN', 'OUT', 'ADJUSTMENT')),
+        quantity INTEGER NOT NULL CHECK(quantity > 0),
+        previous_stock INTEGER NOT NULL,
+        new_stock INTEGER NOT NULL,
+        note TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Varsayılan yönetici ve personel hesaplarını denetle
+    const adminCheck = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    if (adminCheck.rows.length === 0) {
+      const adminHash = bcrypt.hashSync('admin123', 10);
+      await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', ['admin', adminHash, 'admin']);
+      console.log('[DB] Varsayılan yönetici oluşturuldu -> admin / admin123');
+    }
+
+    const persCheck = await pool.query('SELECT id FROM users WHERE username = $1', ['personel']);
+    if (persCheck.rows.length === 0) {
+      const persHash = bcrypt.hashSync('personel123', 10);
+      await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', ['personel', persHash, 'personnel']);
+      console.log('[DB] Varsayılan personel oluşturuldu -> personel / personel123');
+    }
+
+    console.log('[DB] Neon PostgreSQL bağlantısı ve şemaları hazır.');
+  } catch (err) {
+    console.error('[DB Başlatma Hatası]:', err.message);
+  }
+};
+
+initDB();
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool
 };
-
-// 1. Foreign Key kısıtlamalarını ve WAL modunu aktif et
-db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
-
-// 2. Tablo Şemalarını Oluştur
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('admin', 'personnel')),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    category TEXT DEFAULT 'Genel',
-    stock INTEGER NOT NULL DEFAULT 0 CHECK(stock >= 0),
-    min_stock INTEGER NOT NULL DEFAULT 5 CHECK(min_stock >= 0),
-    unit TEXT DEFAULT 'Adet',
-    is_deleted INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS stock_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    action_type TEXT NOT NULL CHECK(action_type IN ('IN', 'OUT', 'ADJUSTMENT')),
-    quantity INTEGER NOT NULL CHECK(quantity > 0),
-    previous_stock INTEGER NOT NULL,
-    new_stock INTEGER NOT NULL,
-    note TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(product_id) REFERENCES products(id),
-    FOREIGN KEY(user_id) REFERENCES users(id)
-  );
-`);
-
-// 3. Varsayılan Kullanıcıları Oluştur (İlk kurulumda şifreleri hash'le)
-const initDefaultUsers = () => {
-  const checkUserStmt = db.prepare('SELECT id FROM users WHERE username = ?');
-  const insertUserStmt = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)');
-
-  if (!checkUserStmt.get('admin')) {
-    const adminHash = bcrypt.hashSync('admin123', 10);
-    insertUserStmt.run('admin', adminHash, 'admin');
-    console.log('[DB] Varsayılan yönetici oluşturuldu -> Kullanıcı: admin | Şifre: admin123');
-  }
-
-  if (!checkUserStmt.get('personel')) {
-    const persHash = bcrypt.hashSync('personel123', 10);
-    insertUserStmt.run('personel', persHash, 'personnel');
-    console.log('[DB] Varsayılan personel oluşturuldu -> Kullanıcı: personel | Şifre: personel123');
-  }
-};
-
-initDefaultUsers();
-
-module.exports = db;
