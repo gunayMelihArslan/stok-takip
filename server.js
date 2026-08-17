@@ -10,7 +10,7 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_stok_takip_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'stok_takip_jwt_super_secret_key_2026';
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
@@ -18,14 +18,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rate Limiter
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  message: { error: 'Çok fazla deneme yapıldı. Lütfen 15 dakika sonra tekrar deneyin.' }
+  message: { error: 'Çok fazla giriş denemesi yapıldı. Lütfen 15 dakika sonra tekrar deneyin.' }
 });
 
-// Auth Middleware
 const authenticateToken = (requiredRole = null) => {
   return (req, res, next) => {
     const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
@@ -40,7 +38,7 @@ const authenticateToken = (requiredRole = null) => {
       }
 
       if (requiredRole && decoded.role !== requiredRole) {
-        return res.status(403).json({ error: 'Bu işlem için yönetici yetkisi gereklidir.' });
+        return res.status(403).json({ error: 'Bu işlem için yetkiniz bulunmuyor.' });
       }
 
       req.user = decoded;
@@ -61,7 +59,22 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const result = await db.query('SELECT * FROM users WHERE username = $1', [username.trim()]);
     const user = result.rows[0];
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    if (!user) {
+      return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı.' });
+    }
+
+    let isMatch = false;
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+      isMatch = bcrypt.compareSync(password, user.password);
+    } else {
+      isMatch = (user.password === password);
+      if (isMatch) {
+        const newHash = bcrypt.hashSync(password, 10);
+        await db.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+      }
+    }
+
+    if (!isMatch) {
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı.' });
     }
 
@@ -83,7 +96,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name }
     });
   } catch (err) {
-    res.status(500).json({ error: 'Giriş sırasında hata oluştu.' });
+    res.status(500).json({ error: 'Giriş sırasında sunucu hatası oluştu.' });
   }
 });
 
@@ -96,7 +109,7 @@ app.get('/api/auth/me', authenticateToken(), (req, res) => {
   res.json({ user: req.user });
 });
 
-// ====================== DASHBOARD & İSTATİSTİKLER ======================
+// ====================== İSTATİSTİKLER ======================
 
 app.get('/api/stats', authenticateToken('admin'), async (req, res) => {
   try {
@@ -116,7 +129,7 @@ app.get('/api/stats', authenticateToken('admin'), async (req, res) => {
   }
 });
 
-// ====================== ÜRÜN & STOK İŞLEMLERİ ======================
+// ====================== ÜRÜNLER / MALZEMELER ======================
 
 app.get('/api/products', authenticateToken(), async (req, res) => {
   const search = req.query.search ? `%${req.query.search.trim()}%` : '%';
@@ -145,7 +158,7 @@ app.get('/api/products', authenticateToken(), async (req, res) => {
     const result = await db.query(queryText, params);
     res.json({ products: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Ürünler yüklenirken hata oluştu.' });
+    res.status(500).json({ error: 'Ürün listesi yüklenemedi.' });
   }
 });
 
@@ -172,7 +185,7 @@ app.post('/api/products', authenticateToken('admin'), async (req, res) => {
     if (initialStock > 0) {
       await client.query(
         `INSERT INTO stock_logs (product_id, user_id, action_type, quantity, previous_stock, new_stock, note)
-         VALUES ($1, $2, 'IN', $3, 0, $3, 'İlk Giriş / Açılış Stoğu')`,
+         VALUES ($1, $2, 'IN', $3, 0, $3, 'İlk Giriş / Başlangıç Stoğu')`,
         [newId, req.user.id, initialStock]
       );
     }
@@ -195,13 +208,13 @@ app.put('/api/products/:id', authenticateToken('admin'), async (req, res) => {
       `UPDATE products 
        SET name = $1, category = $2, min_stock = $3, unit = $4, shelf_location = $5, updated_at = CURRENT_TIMESTAMP
        WHERE id = $6 AND is_deleted = 0`,
-      [name.trim(), category.trim(), parseInt(min_stock, 10), unit.trim(), shelf_location.trim(), req.params.id]
+      [name.trim(), category.trim(), parseInt(min_stock, 10) || 5, unit.trim(), (shelf_location || '-').trim(), req.params.id]
     );
 
     if (result.rowCount === 0) return res.status(404).json({ error: 'Ürün bulunamadı.' });
-    res.json({ message: 'Ürün güncellendi.' });
+    res.json({ message: 'Ürün başarıyla güncellendi.' });
   } catch (err) {
-    res.status(500).json({ error: 'Güncelleme başarısız.' });
+    res.status(500).json({ error: 'Güncelleme işlemi başarısız.' });
   }
 });
 
@@ -215,7 +228,7 @@ app.delete('/api/products/:id', authenticateToken('admin'), async (req, res) => 
   }
 });
 
-// ====================== İŞ TAKİBİ & İŞ EMİRLERİ ======================
+// ====================== İŞ EMİRLERİ ======================
 
 app.get('/api/jobs', authenticateToken(), async (req, res) => {
   try {
@@ -234,7 +247,7 @@ app.get('/api/jobs', authenticateToken(), async (req, res) => {
 app.post('/api/jobs', authenticateToken('admin'), async (req, res) => {
   const { job_no, title, description, customer_or_project, assigned_to, priority } = req.body;
   if (!job_no || !title) {
-    return res.status(400).json({ error: 'İş emri no ve iş başlığı zorunludur.' });
+    return res.status(400).json({ error: 'İş emri numarası ve başlığı zorunludur.' });
   }
 
   try {
@@ -264,7 +277,7 @@ app.patch('/api/jobs/:id/status', authenticateToken(), async (req, res) => {
   }
 });
 
-// ====================== STOK GİRİŞ / ÇIKIŞ HAREKETLERİ ======================
+// ====================== STOK HAREKETLERİ ======================
 
 app.post('/api/stock/transaction', authenticateToken(), async (req, res) => {
   const { product_id, action_type, quantity, job_order_id, note } = req.body;
@@ -278,7 +291,11 @@ app.post('/api/stock/transaction', authenticateToken(), async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const prodRes = await client.query('SELECT id, stock, name FROM products WHERE id = $1 AND is_deleted = 0 FOR UPDATE', [product_id]);
+    const prodRes = await client.query(
+      'SELECT id, stock, name FROM products WHERE id = $1 AND is_deleted = 0 FOR UPDATE',
+      [product_id]
+    );
+
     if (prodRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Ürün bulunamadı.' });
@@ -288,12 +305,15 @@ app.post('/api/stock/transaction', authenticateToken(), async (req, res) => {
 
     if (action_type === 'OUT' && currentStock < qty) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Yetersiz stok! Mevcut: ${currentStock}` });
+      return res.status(400).json({ error: `Yetersiz stok! Mevcut stok: ${currentStock}` });
     }
 
     const newStock = action_type === 'IN' ? currentStock + qty : currentStock - qty;
 
-    await client.query('UPDATE products SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [newStock, product_id]);
+    await client.query(
+      'UPDATE products SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newStock, product_id]
+    );
 
     await client.query(
       `INSERT INTO stock_logs (product_id, user_id, job_order_id, action_type, quantity, previous_stock, new_stock, note)
@@ -305,7 +325,7 @@ app.post('/api/stock/transaction', authenticateToken(), async (req, res) => {
     res.json({ message: 'Stok hareketi başarıyla işlendi.', previous_stock: currentStock, new_stock: newStock });
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Stok hareketi işlenemedi.' });
+    res.status(500).json({ error: 'Stok hareketi işlenirken hata oluştu.' });
   } finally {
     client.release();
   }
@@ -321,22 +341,22 @@ app.get('/api/logs', authenticateToken('admin'), async (req, res) => {
       JOIN users u ON l.user_id = u.id
       LEFT JOIN job_orders j ON l.job_order_id = j.id
       ORDER BY l.created_at DESC
-      LIMIT 200
+      LIMIT 250
     `);
     res.json({ logs: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Loglar alınamadı.' });
+    res.status(500).json({ error: 'Log kayıtları alınamadı.' });
   }
 });
 
-// ====================== KULLANICI YÖNETİMİ ======================
+// ====================== KULLANICILAR ======================
 
 app.get('/api/users', authenticateToken('admin'), async (req, res) => {
   try {
     const result = await db.query('SELECT id, username, role, full_name, created_at FROM users ORDER BY id ASC');
     res.json({ users: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Kullanıcılar alınamadı.' });
+    res.status(500).json({ error: 'Kullanıcılar listelenemedi.' });
   }
 });
 
@@ -354,11 +374,11 @@ app.post('/api/users', authenticateToken('admin'), async (req, res) => {
     );
     res.status(201).json({ message: 'Kullanıcı başarıyla oluşturuldu.' });
   } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Bu kullanıcı adı zaten mevcut.' });
+    if (err.code === '23505') return res.status(400).json({ error: 'Bu kullanıcı adı zaten kullanılıyor.' });
     res.status(500).json({ error: 'Kullanıcı eklenemedi.' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Sunucu http://localhost:${PORT} portunda çalışıyor.`);
+  console.log(`Sunucu http://localhost:${PORT} portunda aktif`);
 });
