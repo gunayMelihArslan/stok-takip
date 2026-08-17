@@ -5,6 +5,20 @@ require('dotenv').config();
 
 const dbPath = process.env.DB_FILE || path.join(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  pool
+};
 
 // 1. Foreign Key kısıtlamalarını ve WAL modunu aktif et
 db.pragma('foreign_keys = ON');
