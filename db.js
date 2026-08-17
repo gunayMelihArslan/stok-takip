@@ -13,10 +13,29 @@ async function query(sql, params = []) {
 }
 
 async function init() {
-  // ── Migrate: drop old task tables if they have wrong schema ──────────────
+  // ── Otomatik Migrasyon & Şema Düzeltme ──────────────
   await query(`
     DO $$
     BEGIN
+      -- Eğer users tablosunda 'password' sütunu kalmışsa 'password_hash' olarak yeniden adlandır
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='password'
+      ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='password_hash'
+      ) THEN
+        ALTER TABLE users RENAME COLUMN password TO password_hash;
+      END IF;
+
+      -- display_name sütunu eksikse ekle
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='display_name'
+      ) THEN
+        ALTER TABLE users ADD COLUMN display_name TEXT;
+      END IF;
+
       IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name='task_transfers' AND column_name='task_id'
@@ -152,9 +171,9 @@ async function init() {
     await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
   }
 
-  // Neon üzerinde veritabanı sıfır açıldığında ilk giriş için varsayılan yöneticiyi ekler
-  const userCheck = (await query("SELECT COUNT(*) as c FROM users")).rows[0];
-  if (parseInt(userCheck.c) === 0) {
+  // İlk kurulum: Varsayılan admin kullanıcısını ekle
+  const adminCheck = (await query("SELECT id FROM users WHERE username = 'admin'")).rows;
+  if (adminCheck.length === 0) {
     const defaultPassHash = bcrypt.hashSync('admin123', 10);
     await query(
       "INSERT INTO users (username, password_hash, role, display_name) VALUES ($1, $2, $3, $4)",
