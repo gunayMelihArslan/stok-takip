@@ -3,22 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Personel Malzeme Çıkış Ekranı</title>
+  <title>Personel Terminali - Malzeme ve İş Takip</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="navbar">
-    <div class="nav-brand">Personel Terminali</div>
-    <div>
-      <span id="userGreeting" style="margin-right: 1rem; font-weight: 600;"></span>
+    <div class="brand-container">
+      <img src="logo.png" alt="Logo" class="brand-logo" onerror="this.style.display='none'">
+      <div class="brand-title">Personel Saha İstasyonu</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <span id="userGreeting" style="font-weight: 600; font-size: 0.9rem;"></span>
       <button class="btn btn-danger btn-sm" id="logoutBtn">Çıkış Yap</button>
     </div>
   </nav>
 
-  <div class="container" style="max-width: 800px;">
+  <div class="container" style="max-width: 900px;">
+    <!-- Hızlı Stok Giriş/Çıkış -->
     <div class="card">
       <div class="card-header">
-        <h3>Hızlı Stok Giriş / Çıkış</h3>
+        <h3>Hızlı Malzeme Alımı / Çıkışı</h3>
       </div>
       <form id="stockActionForm">
         <div class="form-group">
@@ -32,8 +36,8 @@
           <div class="form-group">
             <label>İşlem Türü *</label>
             <select id="actionType" required>
-              <option value="OUT">Stok Çıkışı (Malzeme Al)</option>
-              <option value="IN">Stok Girişi (İade / İkmal)</option>
+              <option value="OUT">Stok Çıkışı (Depodan Al)</option>
+              <option value="IN">Stok Girişi (İade / Yeni Malzeme)</option>
             </select>
           </div>
           <div class="form-group">
@@ -43,12 +47,40 @@
         </div>
 
         <div class="form-group">
-          <label>İş Emri / Talep / Açıklama Notu</label>
-          <input type="text" id="actionNote" placeholder="Örn: 2026/04 Nolu Vinç Montaj Hattı">
+          <label>Bağlı İş Emri / Proje</label>
+          <select id="jobSelect">
+            <option value="">-- Genel / Bağımsız İş --</option>
+          </select>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%;" id="submitActionBtn">İşlemi Onayla ve Kaydet</button>
+        <div class="form-group">
+          <label>Açıklama / Montaj Notu</label>
+          <input type="text" id="actionNote" placeholder="Örn: 2. Hat Vinç Panosu için alındı">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;" id="submitBtn">İşlemi Onayla ve Kaydet</button>
       </form>
+    </div>
+
+    <!-- Aktif İş Emirleri Görüntüleme -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Açık İş Emirleri & Projeler</h3>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>İş No</th>
+              <th>Başlık</th>
+              <th>Proje</th>
+              <th>Öncelik</th>
+              <th>Durum</th>
+            </tr>
+          </thead>
+          <tbody id="personnelJobsBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -56,12 +88,12 @@
 
   <script>
     function showToast(msg, type = 'success') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = msg;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3500);
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
     }
 
     async function checkAuth() {
@@ -69,44 +101,74 @@
         const res = await fetch('/api/auth/me');
         if (!res.ok) throw new Error();
         const data = await res.json();
-        document.getElementById('userGreeting').textContent = `Personel: ${data.user.username}`;
+        document.getElementById('userGreeting').textContent = `Personel: ${data.user.full_name || data.user.username}`;
       } catch {
         window.location.href = '/index.html';
       }
     }
 
-    async function loadSelectProducts() {
+    async function loadProducts() {
       try {
         const res = await fetch('/api/products');
         const data = await res.json();
         const select = document.getElementById('productSelect');
         select.textContent = '';
 
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = '-- Bir Malzeme Seçin --';
-        select.appendChild(defaultOpt);
+        const def = document.createElement('option');
+        def.value = ''; def.textContent = '-- Bir Malzeme Seçin --';
+        select.appendChild(def);
 
         data.products.forEach(p => {
           const opt = document.createElement('option');
           opt.value = p.id;
-          opt.textContent = `[${p.code}] ${p.name} - (Mevcut: ${p.stock} ${p.unit})`;
+          opt.textContent = `[${p.code}] ${p.name} (Stok: ${p.stock} ${p.unit} | Konum: ${p.shelf_location || '-'})`;
           select.appendChild(opt);
         });
-      } catch {
-        showToast('Ürün listesi yüklenemedi.', 'error');
-      }
+      } catch {}
+    }
+
+    async function loadJobs() {
+      try {
+        const res = await fetch('/api/jobs');
+        const data = await res.json();
+        
+        const jobSelect = document.getElementById('jobSelect');
+        jobSelect.innerHTML = '<option value="">-- Genel / Bağımsız İş --</option>';
+
+        const tbody = document.getElementById('personnelJobsBody');
+        tbody.textContent = '';
+
+        data.jobs.forEach(j => {
+          if (j.status !== 'Tamamlandı' && j.status !== 'İptal') {
+            const opt = document.createElement('option');
+            opt.value = j.id;
+            opt.textContent = `${j.job_no} - ${j.title}`;
+            jobSelect.appendChild(opt);
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${j.job_no}</strong></td>
+            <td>${j.title}</td>
+            <td>${j.customer_or_project || '-'}</td>
+            <td><span class="badge ${j.priority === 'Acil' ? 'badge-danger' : 'badge-info'}">${j.priority}</span></td>
+            <td><span class="badge badge-warning">${j.status}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch {}
     }
 
     document.getElementById('stockActionForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = document.getElementById('submitActionBtn');
+      const btn = document.getElementById('submitBtn');
       btn.disabled = true;
 
       const payload = {
         product_id: parseInt(document.getElementById('productSelect').value, 10),
         action_type: document.getElementById('actionType').value,
         quantity: parseInt(document.getElementById('actionQty').value, 10),
+        job_order_id: document.getElementById('jobSelect').value ? parseInt(document.getElementById('jobSelect').value, 10) : null,
         note: document.getElementById('actionNote').value
       };
 
@@ -116,14 +178,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        showToast('İşlem başarıyla gerçekleşti.');
+        showToast('Stok işlemi kaydedildi.');
         document.getElementById('actionNote').value = '';
         document.getElementById('actionQty').value = '1';
-        loadSelectProducts();
+        loadProducts();
       } catch (err) {
         showToast(err.message, 'error');
       } finally {
@@ -136,7 +197,10 @@
       window.location.href = '/index.html';
     });
 
-    checkAuth().then(loadSelectProducts);
+    checkAuth().then(() => {
+      loadProducts();
+      loadJobs();
+    });
   </script>
 </body>
 </html>
