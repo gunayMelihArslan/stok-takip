@@ -11,7 +11,7 @@ const pool = new Pool({
 
 const initDB = async () => {
   try {
-    // 1. Tabloları Oluştur
+    // Tabloları oluştur
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -30,7 +30,7 @@ const initDB = async () => {
         stock INTEGER NOT NULL DEFAULT 0 CHECK(stock >= 0),
         min_stock INTEGER NOT NULL DEFAULT 5 CHECK(min_stock >= 0),
         unit VARCHAR(20) DEFAULT 'Adet',
-        shelf_location VARCHAR(50),
+        shelf_location VARCHAR(50) DEFAULT '-',
         is_deleted INTEGER DEFAULT 0,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -63,26 +63,30 @@ const initDB = async () => {
       );
     `);
 
-    // 2. Varsayılan Kullanıcılar (admin: admin123 | personel: personel123)
+    // Varsayılan Kullanıcılar
     const adminCheck = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
     if (adminCheck.rows.length === 0) {
       const adminHash = bcrypt.hashSync('admin123', 10);
-      await pool.query('INSERT INTO users (username, password, role, full_name) VALUES ($1, $2, $3, $4)', 
-        ['admin', adminHash, 'admin', 'Sistem Yöneticisi']);
-      console.log('[DB] Yönetici hesabı hazır: admin / admin123');
+      await pool.query(
+        'INSERT INTO users (username, password, role, full_name) VALUES ($1, $2, $3, $4)',
+        ['admin', adminHash, 'admin', 'Sistem Yöneticisi']
+      );
+      console.log('[DB] Yönetici tanımlandı: admin / admin123');
     }
 
     const persCheck = await pool.query('SELECT id FROM users WHERE username = $1', ['personel']);
     if (persCheck.rows.length === 0) {
       const persHash = bcrypt.hashSync('personel123', 10);
-      await pool.query('INSERT INTO users (username, password, role, full_name) VALUES ($1, $2, $3, $4)', 
-        ['personel', persHash, 'personnel', 'Saha Personeli']);
-      console.log('[DB] Personel hesabı hazır: personel / personel123');
+      await pool.query(
+        'INSERT INTO users (username, password, role, full_name) VALUES ($1, $2, $3, $4)',
+        ['personel', persHash, 'personnel', 'Saha Personeli']
+      );
+      console.log('[DB] Personel tanımlandı: personel / personel123');
     }
 
-    console.log('[DB] Veritabanı tabloları ve şemaları başarıyla yüklendi.');
+    console.log('[DB] Neon PostgreSQL bağlantısı ve şemalar hazır.');
   } catch (err) {
-    console.error('[DB Başlatma Hatası]:', err.message);
+    console.error('[DB Hata]:', err.message);
   }
 };
 
