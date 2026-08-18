@@ -25,10 +25,11 @@
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .perf-bar{height:5px;background:var(--border2);border-radius:3px;overflow:hidden;margin-top:.3rem;}
 .perf-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .5s;}
-.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;}
-.firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;}
+.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;cursor:pointer;user-select:none;padding:.3rem 0;}
+.firm-divider span{font-family:var(--mono);font-size:.72rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;font-weight:700;}
 .firm-divider div{height:1px;flex:1;background:var(--border);}
 .lot-row-item{display:grid;grid-template-columns:110px 100px 1fr 32px;gap:.5rem;align-items:center;margin-bottom:.4rem;}
+.machine-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--surface2);cursor:pointer;}
 </style>
 </head>
 <body>
@@ -114,7 +115,7 @@
           </select>
         </div>
         <button class="btn btn-primary" onclick="openProductModal()">+ Yeni Ürün</button>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/stock')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
@@ -133,19 +134,21 @@
     <div class="page" id="page-firms">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="firmSearch" placeholder="🔍 Firma ara..." style="max-width:260px" oninput="renderFirms()"></div>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/firms'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/firms')">↓ CSV</button>
         <button class="btn btn-primary" onclick="openFirmModal()">+ Yeni Firma</button>
       </div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinçler</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinç Sayısı</th><th>Hızlı İşlem</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
     </div>
 
     <!-- MACHINES -->
     <div class="page" id="page-machines">
       <div class="toolbar">
-        <div class="toolbar-left"><input type="text" id="machineSearchTxt" placeholder="🔍 Vinç ara..." style="max-width:200px" oninput="renderMachines()"></div>
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <input type="text" id="machineSearchTxt" placeholder="🔍 Vinç veya Firma ara..." style="max-width:220px" oninput="renderMachines()">
+          <select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select>
+        </div>
         <button class="btn btn-primary" onclick="openMachineModal()">+ Yeni Vinç</button>
-        <select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/machines'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/machines')">↓ CSV</button>
       </div>
       <div id="machineList" style="display:grid;gap:.75rem"></div>
     </div>
@@ -162,7 +165,7 @@
           <option value="in_progress">Devam Eden</option>
           <option value="completed">Tamamlandı</option>
         </select>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/tasks'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/tasks')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div id="taskBoard"></div>
@@ -179,7 +182,7 @@
       <div class="toolbar">
         <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
         <select id="txTypeFilter" style="max-width:120px" onchange="filterTx()"><option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option></select>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/transactions'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/transactions')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
@@ -197,7 +200,7 @@
           <option value="received">📦 Teslim</option>
           <option value="rejected">❌ Reddedildi</option>
         </select>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/purchases'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderPurchases()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table id="purchaseTable">
@@ -210,7 +213,7 @@
     <div class="page" id="page-users">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." style="max-width:260px" oninput="renderUsers()"></div>
-        <button class="btn btn-ghost" onclick="window.location='/api/export/users'">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
         <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
@@ -219,11 +222,11 @@
     <!-- BOM SETTINGS -->
     <div class="page" id="page-bom">
       <div class="toolbar">
-        <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM indirme şablonundaki sütunları yönetin</span></div>
+        <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM indirme şablonundaki sütunları ve eşleşen ürün alanlarını yönetin</span></div>
         <button class="btn btn-primary" onclick="openBomColModal()">+ Yeni Sütun</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Varsayılan</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Eşleşen Değişken (Ürün Alanı)</th><th>Tür</th><th>İşlem</th></tr></thead>
         <tbody id="bomColsTbody"></tbody>
       </table></div></div>
     </div>
@@ -231,7 +234,7 @@
     <!-- BOM CATEGORIES -->
     <div class="page" id="page-bom_categories">
       <div class="toolbar">
-        <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM Kategorilerini yönetin</span></div>
+        <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM Malzeme Gruplarını (Kategoriler) yönetin</span></div>
         <button class="btn btn-primary" onclick="openBomCatModal()">+ Yeni Kategori</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
@@ -283,12 +286,17 @@
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="bomColModalTitle">Yeni BOM Sütunu</h3>
+      <h3 id="bomColModalTitle">BOM Sütunu</h3>
       <button class="modal-close" onclick="closeModal('bomColModal')">×</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editBomColId">
-      <div class="form-group"><label>Sütun Adı</label><input type="text" id="bomColName"></div>
+      <div class="form-group"><label>Sütun Başlığı</label><input type="text" id="bomColName" placeholder="Örn: Marka"></div>
+      <div class="form-group">
+        <label>BOM Çıktısında Yazılacak Değişken (Eşleşme)</label>
+        <select id="bomColMappedField"></select>
+        <small style="color:var(--muted);font-size:.68rem">Bu sütunun altında ürünün hangi özelliğinin yazılacağını seçin.</small>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button>
@@ -433,7 +441,7 @@
       <input type="hidden" id="lotPid">
       <div id="lotRows" style="margin-bottom:1rem"></div>
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
           <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2024" min="1980" max="2099"></div>
           <div class="form-group" style="margin:0"><label>Adet (Miktar)</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
@@ -443,7 +451,7 @@
         <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
       </div>
       <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">
-        ⚡ <strong>FIFO:</strong> Stok çıkışlarında en eski model yılı otomatik düşülür.
+        ⚡ <strong>FIFO Prensibi:</strong> Çıkış işlemlerinde en eski model yılına ait stoklar otomatik olarak önce düşülür.
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
@@ -483,6 +491,7 @@ window.fetch = function(url, opts) {
 
 let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
+let firmCollapsed = {};
 
 async function init() {
   const me = await api('/api/me');
@@ -599,13 +608,12 @@ async function api(url, method = 'GET', body = null) {
     try {
       data = JSON.parse(text);
     } catch (err) {
-      console.warn('API Response:', res.status, text.slice(0, 100));
       if (res.status === 401) {
         localStorage.removeItem('stok_token');
         window.location.href = '/';
         return null;
       }
-      toast('Sunucu yanıt vermedi (' + res.status + ')', 'error');
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
       return null;
     }
     if (!res.ok) {
@@ -614,10 +622,14 @@ async function api(url, method = 'GET', body = null) {
     }
     return data;
   } catch (e) {
-    console.error('API Error:', e);
-    toast('Bağlantı sorunu, tekrar deneniyor...', 'error');
+    toast('Bağlantı sorunu oluştu', 'error');
     return null;
   }
+}
+
+function downloadCSV(url) {
+  const token = localStorage.getItem('stok_token') || '';
+  window.location.href = url + '?token=' + encodeURIComponent(token);
 }
 
 const pageTitles = { dashboard: 'Gösterge Paneli', products: 'Ürün Yönetimi', columns: 'Sütun Yönetimi', firms: 'Firma Yönetimi', machines: 'Vinç Yönetimi', bom: 'BOM Sütunları', bom_categories: 'BOM Kategorileri', tasks: 'İş Panosu', performance: 'Performans', transactions: 'İşlem Geçmişi', users: 'Kullanıcı Yönetimi', purchases: 'Satın Alma Talepleri' };
@@ -786,7 +798,7 @@ function openProductModal() {
         <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase">⚡ Model Yılı (Lot) Dağılımı (Opsiyonel)</div>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addModalLotRow()" style="font-size:.68rem">+ Model Yılı Ekle</button>
       </div>
-      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına (örn: 2022, 2024, 2025) göre adet girebilirsiniz. Girilen adetlerin toplamı ana stok miktarı olacaktır.</div>
+      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına göre adet girebilirsiniz. Girilen adetlerin toplamı ana stok miktarı olacaktır.</div>
       <div id="modalLotList">
         <div class="lot-row-item">
           <input type="number" class="modal-lot-year" placeholder="Yıl (2024)" min="1980" max="2099">
@@ -1019,12 +1031,21 @@ function renderFirms() {
       <td><strong>${esc(f.name)}</strong></td>
       <td style="color:var(--text2);font-size:.82rem">${esc(f.notes || '')}</td>
       <td><span class="badge badge-admin">${vc} vinç</span></td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="filterFirmMachines(${f.id})" style="font-size:.72rem">🏗️ Vinçlerini Gör</button>
+      </td>
       <td style="display:flex;gap:.4rem">
         <button class="btn btn-ghost btn-sm" onclick="editFirm(${f.id})">Düzenle</button>
         <button class="btn btn-danger btn-sm" onclick="deleteFirm(${f.id})">Sil</button>
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="4" class="empty">Firma yok</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">Firma yok</td></tr>';
+}
+
+function filterFirmMachines(firmId) {
+  showPage('machines');
+  const sel = document.getElementById('machineFilter');
+  if (sel) { sel.value = String(firmId); renderMachines(); }
 }
 
 function openFirmModal() {
@@ -1068,7 +1089,17 @@ async function deleteFirm(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── MACHINES ─────────────────────────────────────────────────────────────
+// ── MACHINES (Ölçeklenebilir & Katlanabilir Akordiyon Görünüm) ───────────
+function toggleFirmAccordion(fn) {
+  firmCollapsed[fn] = !firmCollapsed[fn];
+  renderMachines();
+}
+
+function toggleMachineItems(mid) {
+  const el = document.getElementById('machine-items-' + mid);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 function renderMachines() {
   const sel = document.getElementById('machineFilter');
   if (sel) {
@@ -1082,27 +1113,55 @@ function renderMachines() {
   const cur = sel?.value || '';
   let filtered = machines;
   if (cur) filtered = filtered.filter(m => String(m.firm_id) === cur);
-  if (q) filtered = filtered.filter(m => (m.machine_name || '').toLowerCase().includes(q));
-  if (!filtered.length) { list.innerHTML = '<div class="card empty"><div class="icon">🏗️</div>Vinç yok</div>'; return; }
+  if (q) filtered = filtered.filter(m => (m.machine_name || '').toLowerCase().includes(q) || (m.firm_name || '').toLowerCase().includes(q));
+  if (!filtered.length) { list.innerHTML = '<div class="card empty"><div class="icon">🏗️</div>Vinç bulunamadı</div>'; return; }
+  
   const grouped = {};
-  filtered.forEach(m => { const k = m.firm_name || '__'; if (!grouped[k]) grouped[k] = []; grouped[k].push(m); });
+  filtered.forEach(m => { const k = m.firm_name || 'Tanımsız Firma'; if (!grouped[k]) grouped[k] = []; grouped[k].push(m); });
+  
   let html = '';
   Object.entries(grouped).forEach(([fn, list2]) => {
-    if (fn !== '__') html += `<div class="firm-divider"><div></div><span>🏢 ${esc(fn)}</span><div></div></div>`;
-    html += list2.map(m => `<div class="card" style="margin-bottom:.6rem">
-      <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem">
-        <div>
-          <div style="display:flex;align-items:center;gap:.5rem"><span style="font-weight:800;font-size:.9rem">🏗️ ${esc(m.machine_name)}</span>${m.firm_name ? `<span class="badge badge-admin">${esc(m.firm_name)}</span>` : ''}</div>
-          ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
-        </div>
-        <div style="display:flex;gap:.4rem">
-          <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
-          <button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button>
-        </div>
+    const isCollapsed = firmCollapsed[fn] || false;
+    html += `
+      <div class="firm-divider" onclick="toggleFirmAccordion('${esc(fn).replace(/'/g, "\\'")}')">
+        <div></div>
+        <span>🏢 ${esc(fn)} (${list2.length} Vinç) ${isCollapsed ? '▶' : '▼'}</span>
+        <div></div>
       </div>
-      <div style="padding:.8rem 1rem">${(m.items || []).length ? `<table style="font-size:.82rem;width:100%"><thead><tr><th>Ürün</th><th>Gerekli</th></tr></thead><tbody>${m.items.map(it => `<tr><td>${esc(it.product_name || '—')}</td><td style="font-family:var(--mono)">${it.quantity}</td></tr>`).join('')}</tbody></table>` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Ürün eklenmemiş</span>'}</div>
-    </div>`).join('');
+    `;
+    if (!isCollapsed) {
+      html += list2.map(m => `
+        <div class="card" style="margin-bottom:.5rem;overflow:hidden">
+          <div class="machine-accordion-head" onclick="toggleMachineItems(${m.id})">
+            <div>
+              <div style="display:flex;align-items:center;gap:.5rem">
+                <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
+                <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
+              </div>
+              ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:.4rem" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
+              <button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button>
+            </div>
+          </div>
+          <div id="machine-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+            ${(m.items || []).length ? `
+              <table style="font-size:.8rem;width:100%">
+                <thead><tr><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
+                <tbody>${m.items.map(it => `<tr>
+                  <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
+                  <td><strong>${esc(it.product_name || '—')}</strong></td>
+                  <td style="font-family:var(--mono)">${it.quantity}</td>
+                  <td style="font-family:var(--mono);color:var(--text2)">${it.machine_year || '—'}</td>
+                </tr>`).join('')}</tbody>
+              </table>
+            ` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Malzeme eklenmemiş</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
   });
   list.innerHTML = html;
 }
@@ -1669,23 +1728,61 @@ async function deleteBomCat(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── BOM SÜTUNLARI ─────────────────────────────────────────────────────────
+// ── BOM SÜTUNLARI & EŞLEŞTİRME ─────────────────────────────────────────────
+function buildBomFieldOptions(selectedVal) {
+  let opts = `
+    <option value="" ${!selectedVal ? 'selected' : ''}>— Otomatik Eşleştirme —</option>
+    <option value="name" ${selectedVal === 'name' ? 'selected' : ''}>Ürün Adı</option>
+    <option value="qty" ${selectedVal === 'qty' ? 'selected' : ''}>Miktar</option>
+    <option value="unit" ${selectedVal === 'unit' ? 'selected' : ''}>Birim</option>
+    <option value="machine_year" ${selectedVal === 'machine_year' ? 'selected' : ''}>Model Yılı (Lot)</option>
+    <option value="category" ${selectedVal === 'category' ? 'selected' : ''}>BOM Kategorisi</option>
+    <option value="notes" ${selectedVal === 'notes' ? 'selected' : ''}>Açıklama / Not</option>
+    <optgroup label="Ürün Sütunları">
+  `;
+  columns.forEach(c => {
+    const val = 'col_' + c.id;
+    opts += `<option value="${val}" ${selectedVal === val ? 'selected' : ''}>${esc(c.name)}</option>`;
+  });
+  opts += `</optgroup>`;
+  return opts;
+}
+
+function getMappedFieldLabel(mf) {
+  if (!mf) return '<span style="color:var(--muted)">Otomatik</span>';
+  if (mf === 'name') return 'Ürün Adı';
+  if (mf === 'qty') return 'Miktar';
+  if (mf === 'unit') return 'Birim';
+  if (mf === 'machine_year') return 'Model Yılı (Lot)';
+  if (mf === 'category') return 'BOM Kategorisi';
+  if (mf === 'notes') return 'Açıklama / Not';
+  if (mf.startsWith('col_')) {
+    const cid = mf.replace('col_', '');
+    const col = columns.find(c => String(c.id) === String(cid));
+    return col ? `<span style="color:var(--accent)">📦 ${esc(col.name)}</span>` : 'Sütun #' + cid;
+  }
+  return mf;
+}
+
 function renderBomColumns() {
   const tbody = document.getElementById('bomColsTbody');
   if (!tbody) return;
   tbody.innerHTML = bomColumns.map(c => `<tr>
     <td style="font-family:var(--mono);color:var(--muted)">${c.display_order}</td>
     <td><strong>${esc(c.name)}</strong></td>
+    <td>${getMappedFieldLabel(c.mapped_field)}</td>
     <td><span class="badge ${c.is_default ? 'badge-ok' : 'badge-low'}">${c.is_default ? 'Varsayılan' : 'Özel'}</span></td>
     <td style="display:flex;gap:.4rem">
-      ${c.is_default ? '—' : `<button class="btn btn-ghost btn-sm" onclick="editBomCol(${c.id})">Düzenle</button><button class="btn btn-danger btn-sm" onclick="deleteBomCol(${c.id})">Sil</button>`}
+      <button class="btn btn-ghost btn-sm" onclick="editBomCol(${c.id})">Düzenle</button>
+      ${c.is_default ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteBomCol(${c.id})">Sil</button>`}
     </td>
-  </tr>`).join('') || '<tr><td colspan="4" class="empty">BOM Sütunu yok</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="5" class="empty">BOM Sütunu yok</td></tr>';
 }
 
 function openBomColModal() {
   document.getElementById('editBomColId').value = '';
   document.getElementById('bomColName').value = '';
+  document.getElementById('bomColMappedField').innerHTML = buildBomFieldOptions('');
   document.getElementById('bomColModalTitle').textContent = 'Yeni BOM Sütunu';
   openModal('bomColModal');
 }
@@ -1695,6 +1792,7 @@ function editBomCol(id) {
   if (!c) return;
   document.getElementById('editBomColId').value = id;
   document.getElementById('bomColName').value = c.name || '';
+  document.getElementById('bomColMappedField').innerHTML = buildBomFieldOptions(c.mapped_field || '');
   document.getElementById('bomColModalTitle').textContent = 'BOM Sütununu Düzenle';
   openModal('bomColModal');
 }
@@ -1702,12 +1800,13 @@ function editBomCol(id) {
 async function saveBomCol() {
   const id = document.getElementById('editBomColId').value;
   const name = document.getElementById('bomColName').value.trim();
-  if (!name) { toast('Ad gerekli', 'error'); return; }
+  const mapped_field = document.getElementById('bomColMappedField').value || null;
+  if (!name) { toast('Sütun adı gerekli', 'error'); return; }
   if (id) {
     const col = bomColumns.find(c => c.id == id);
-    await api('/api/bom-columns/' + id, 'PUT', { name, display_order: col?.display_order || 0 });
+    await api('/api/bom-columns/' + id, 'PUT', { name, display_order: col?.display_order || 0, mapped_field });
   } else {
-    await api('/api/bom-columns', 'POST', { name });
+    await api('/api/bom-columns', 'POST', { name, mapped_field });
   }
   closeModal('bomColModal');
   await loadBomColumns();
