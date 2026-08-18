@@ -13,13 +13,11 @@ pool.on('error', (err) => {
 });
 
 async function query(sql, params = []) {
-  const client = await pool.connect();
-  try { return await client.query(sql, params); }
-  finally { client.release(); }
+  return pool.query(sql, params);
 }
 
 async function init() {
-  // ── 1. Eski Tablo Yapılarını Düzelt ───────────────────────────────────────
+  // ── 1. Eski Tablo Şemalarını Düzelt ───────────────────────────────────────
   await query(`
     DO $$
     BEGIN
@@ -103,17 +101,35 @@ async function init() {
     );
   `);
 
-  // ── 3. EKSİK SÜTUNLARI OTOMATİK EKLE (Hatanın Çözüldüğü Kısım) ─────────────
+  // ── 3. ESKİ SÜTUN KISITLAMALARINI KALDIR (Hatanın Çözümü) ───────────────────
   await query(`
     DO $$
+    DECLARE
+        r RECORD;
     BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name='products' AND column_name='values'
-      ) THEN
-        ALTER TABLE products ADD COLUMN "values" JSONB NOT NULL DEFAULT '{}';
-      END IF;
+        -- values sütunu yoksa ekle
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='products' AND column_name='values'
+        ) THEN
+          ALTER TABLE products ADD COLUMN "values" JSONB NOT NULL DEFAULT '{}';
+        END IF;
+
+        -- products tablosundaki 'code', 'name' vb. eski sütunların NOT NULL kısıtlamasını kaldır
+        FOR r IN
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'products'
+              AND column_name NOT IN ('id')
+              AND is_nullable = 'NO'
+        LOOP
+            IF r.column_name != 'values' THEN
+                EXECUTE format('ALTER TABLE products ALTER COLUMN %I DROP NOT NULL', r.column_name);
+            END IF;
+        END LOOP;
     END $$;
+
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS min_stock INT DEFAULT 5;
