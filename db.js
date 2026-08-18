@@ -10,7 +10,7 @@ const pool = new Pool({
 
 // Neon.tech boşta bağlantıyı kestiğinde Node.js'in çökmesini engeller
 pool.on('error', (err) => {
-  console.warn('⚠️ Veritabanı bağlantı yenilemesi:', err.message);
+  console.warn('⚠️ Veritabanı havuzu bağlantı yenilemesi:', err.message);
 });
 
 async function query(sql, params = []) {
@@ -18,6 +18,7 @@ async function query(sql, params = []) {
 }
 
 async function init() {
+  // ── Migrate: drop old task tables if they have wrong schema ──────────────
   await query(`
     DO $$
     BEGIN
@@ -123,6 +124,16 @@ async function init() {
     task_id INT REFERENCES tasks(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS activity_log (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INT,
+    details JSONB DEFAULT '{}',
+    ip_address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
   await query(`CREATE TABLE IF NOT EXISTS bom_columns (
     id SERIAL PRIMARY KEY,
