@@ -13,11 +13,12 @@ pool.on('error', (err) => {
 });
 
 async function query(sql, params = []) {
-  return pool.query(sql, params);
+  const client = await pool.connect();
+  try { return await client.query(sql, params); }
+  finally { client.release(); }
 }
 
 async function init() {
-  // ── 1. Eski Tablo Şemalarını Düzelt ───────────────────────────────────────
   await query(`
     DO $$
     BEGIN
@@ -37,7 +38,6 @@ async function init() {
     END $$;
   `);
 
-  // ── 2. Tabloları Oluştur ──────────────────────────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -101,13 +101,11 @@ async function init() {
     );
   `);
 
-  // ── 3. ESKİ SÜTUN KISITLAMALARINI KALDIR (Hatanın Çözümü) ───────────────────
   await query(`
     DO $$
     DECLARE
         r RECORD;
     BEGIN
-        -- values sütunu yoksa ekle
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns 
           WHERE table_name='products' AND column_name='values'
@@ -115,7 +113,6 @@ async function init() {
           ALTER TABLE products ADD COLUMN "values" JSONB NOT NULL DEFAULT '{}';
         END IF;
 
-        -- products tablosundaki 'code', 'name' vb. eski sütunların NOT NULL kısıtlamasını kaldır
         FOR r IN
             SELECT column_name
             FROM information_schema.columns
@@ -137,6 +134,7 @@ async function init() {
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
+    ALTER TABLE bom_columns ADD COLUMN IF NOT EXISTS mapped_field TEXT DEFAULT NULL;
   `);
 
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
@@ -177,6 +175,7 @@ async function init() {
     name TEXT NOT NULL,
     display_order INT DEFAULT 0,
     is_default BOOLEAN DEFAULT TRUE,
+    mapped_field TEXT DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
   await query(`CREATE TABLE IF NOT EXISTS bom_categories (
@@ -188,7 +187,7 @@ async function init() {
 
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
-    await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
+    await query("INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES('Sıra No', 1, true, 'auto_no'),('Malzeme Adı', 2, true, 'auto_name'),('Miktar', 3, true, 'auto_qty'),('Birim', 4, true, 'auto_unit'),('Açıklama', 5, true, 'auto_desc')");
   }
 }
 
