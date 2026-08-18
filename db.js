@@ -9,25 +9,37 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.warn('⚠️ Veritabanı havuzu bağlantı uyarısı:', err.message);
+  console.warn('⚠️ Veritabanı havuzu bağlantı yenilemesi:', err.message);
 });
 
 async function query(sql, params = []) {
   const client = await pool.connect();
-  try {
-    return await client.query(sql, params);
-  } finally {
-    client.release();
-  }
+  try { return await client.query(sql, params); }
+  finally { client.release(); }
 }
 
 async function init() {
-  // ── 1. Eski Tablo Şemalarını Temizle / Düzelt ───────────────────────────
+  // ── 1. Eski Tablo Yapılarını Düzelt ───────────────────────────────────────
   await query(`
-    DO $$     BEGIN       IF EXISTS (         SELECT 1 FROM information_schema.columns         WHERE table_name='task_transfers' AND column_name='task_id'       ) THEN         DROP TABLE IF EXISTS task_transfers CASCADE;       END IF;       IF EXISTS (         SELECT 1 FROM information_schema.columns         WHERE table_name='tasks' AND column_name='assigned_to'       ) THEN         DROP TABLE IF EXISTS task_stages CASCADE;         DROP TABLE IF EXISTS tasks CASCADE;       END IF;     END $$;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='task_transfers' AND column_name='task_id'
+      ) THEN
+        DROP TABLE IF EXISTS task_transfers CASCADE;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='tasks' AND column_name='assigned_to'
+      ) THEN
+        DROP TABLE IF EXISTS task_stages CASCADE;
+        DROP TABLE IF EXISTS tasks CASCADE;
+      END IF;
+    END $$;
   `);
 
-  // ── 2. Tabloları Oluştur ────────────────────────────────────────────────
+  // ── 2. Tabloları Oluştur ──────────────────────────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -91,12 +103,21 @@ async function init() {
     );
   `);
 
-  // ── 3. EKSİK SÜTUNLARI OTOMATİK EKLE (Hatanın Çözüldüğü Yer) ─────────────
+  // ── 3. EKSİK SÜTUNLARI OTOMATİK EKLE (Hatanın Çözüldüğü Kısım) ─────────────
   await query(`
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='products' AND column_name='values'
+      ) THEN
+        ALTER TABLE products ADD COLUMN "values" JSONB NOT NULL DEFAULT '{}';
+      END IF;
+    END $$;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS min_stock INT DEFAULT 5;
+    ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
