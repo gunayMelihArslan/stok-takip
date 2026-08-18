@@ -13,11 +13,13 @@ pool.on('error', (err) => {
 });
 
 async function query(sql, params = []) {
-  return pool.query(sql, params);
+  const client = await pool.connect();
+  try { return await client.query(sql, params); }
+  finally { client.release(); }
 }
 
 async function init() {
-  // ── 1. Eski Tabloları ve Şema Uyuşmazlıklarını Temizle / Düzelt ──────────
+  // ── 1. Eski Tablo Yapılarını Düzelt ───────────────────────────────────────
   await query(`
     DO $$
     BEGIN
@@ -37,7 +39,7 @@ async function init() {
     END $$;
   `);
 
-  // ── 2. Tabloları Oluştur ────────────────────────────────────────────────
+  // ── 2. Tabloları Oluştur ──────────────────────────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -48,7 +50,7 @@ async function init() {
       display_order INT DEFAULT 0, min_stock INT DEFAULT 5, created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS products (
-      id SERIAL PRIMARY KEY, values JSONB NOT NULL DEFAULT '{}',
+      id SERIAL PRIMARY KEY, "values" JSONB NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS firms (
@@ -104,6 +106,7 @@ async function init() {
   // ── 3. EKSİK SÜTUNLARI OTOMATİK EKLE (Hatanın Çözüldüğü Kısım) ─────────────
   await query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS min_stock INT DEFAULT 5;
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
