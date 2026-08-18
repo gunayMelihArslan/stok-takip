@@ -12,7 +12,6 @@ if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
 }
 const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
-// Beklenmeyen hatalarda sunucunun çökmesini engelle
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
 });
@@ -62,7 +61,6 @@ function admin(req, res, next) {
   next();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 async function getNumCol() {
   try {
     return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null;
@@ -75,25 +73,25 @@ async function getFirstCol() {
 }
 async function deductStock(product_id, qty, numCol) {
   if (!numCol) return;
-  const r = await query('SELECT values FROM products WHERE id=$1', [product_id]);
+  const r = await query('SELECT "values" FROM products WHERE id=$1', [product_id]);
   if (!r.rows[0]) return;
   const vals = r.rows[0].values || {};
   vals[numCol.id] = String(Math.max(0, parseFloat(vals[numCol.id] || 0) - qty));
-  await query('UPDATE products SET values=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), product_id]);
+  await query('UPDATE products SET "values"=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), product_id]);
 }
 async function restoreStock(product_id, qty, numCol) {
   if (!numCol) return;
-  const r = await query('SELECT values FROM products WHERE id=$1', [product_id]);
+  const r = await query('SELECT "values" FROM products WHERE id=$1', [product_id]);
   if (!r.rows[0]) return;
   const vals = r.rows[0].values || {};
   vals[numCol.id] = String(parseFloat(vals[numCol.id] || 0) + qty);
-  await query('UPDATE products SET values=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), product_id]);
+  await query('UPDATE products SET "values"=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), product_id]);
 }
 async function enrichTx(rows) {
   const firstCol = await getFirstCol();
   return Promise.all(rows.map(async t => {
     const u = (await query('SELECT username,display_name FROM users WHERE id=$1', [t.user_id])).rows[0];
-    const p = (await query('SELECT values FROM products WHERE id=$1', [t.product_id])).rows[0];
+    const p = (await query('SELECT "values" FROM products WHERE id=$1', [t.product_id])).rows[0];
     return { ...t, user_name: u?.display_name || u?.username || '?', username: u?.username || '?', product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
   }));
 }
@@ -218,8 +216,8 @@ app.put('/api/columns/:id', auth, admin, async (req, res) => {
 app.delete('/api/columns/:id', auth, admin, async (req, res) => {
   try {
     const cid = req.params.id;
-    for (const p of (await query('SELECT id,values FROM products')).rows) {
-      if (p.values?.[cid] !== undefined) { delete p.values[cid]; await query('UPDATE products SET values=$1 WHERE id=$2', [JSON.stringify(p.values), p.id]); }
+    for (const p of (await query('SELECT id, "values" FROM products')).rows) {
+      if (p.values?.[cid] !== undefined) { delete p.values[cid]; await query('UPDATE products SET "values"=$1 WHERE id=$2', [JSON.stringify(p.values), p.id]); }
     }
     await query('DELETE FROM column_defs WHERE id=$1', [cid]);
     broadcast('column_update', {});
@@ -229,20 +227,20 @@ app.delete('/api/columns/:id', auth, admin, async (req, res) => {
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
 app.get('/api/products', auth, async (req, res) => {
-  try { res.json((await query('SELECT * FROM products ORDER BY created_at DESC')).rows); }
+  try { res.json((await query('SELECT id, "values", created_at, updated_at FROM products ORDER BY created_at DESC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/products', auth, admin, async (req, res) => {
   try {
-    const r = await query('INSERT INTO products(values) VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
+    const r = await query('INSERT INTO products("values") VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
     broadcast('stock_update', {}); res.json(r.rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/products/:id', auth, admin, async (req, res) => {
   try {
-    const cur = (await query('SELECT values FROM products WHERE id=$1', [req.params.id])).rows[0];
+    const cur = (await query('SELECT "values" FROM products WHERE id=$1', [req.params.id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
-    await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
+    await query('UPDATE products SET "values"=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
     broadcast('stock_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -289,7 +287,7 @@ async function enrichMachines(rows) {
     return {
       ...m, firm_name: firm?.name || null,
       items: await Promise.all((m.items || []).map(async it => {
-        const p = (await query('SELECT values FROM products WHERE id=$1', [it.product_id])).rows[0];
+        const p = (await query('SELECT "values" FROM products WHERE id=$1', [it.product_id])).rows[0];
         return { ...it, product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
       }))
     };
@@ -629,7 +627,7 @@ app.delete('/api/users/:id', auth, admin, async (req, res) => {
 app.get('/api/export/stock', auth, async (req, res) => {
   try {
     const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
-    const prods = (await query('SELECT * FROM products ORDER BY created_at DESC')).rows;
+    const prods = (await query('SELECT id, "values" FROM products ORDER BY created_at DESC')).rows;
     const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="stok-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -760,12 +758,12 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
 // BOM yazdırılabilir şablon
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
-    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
+    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.machine_id])).rows[0];
     if (!machine) return res.status(404).send('Vinç bulunamadı');
     const firm = machine.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [machine.firm_id])).rows[0] : null;
     const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
     const bomCols = (await query('SELECT * FROM bom_columns ORDER BY display_order')).rows;
-    const prods = (await query('SELECT * FROM products')).rows;
+    const prods = (await query('SELECT id, "values" FROM products')).rows;
     const firstCol = cols[0];
     const numCol = cols.find(c => c.data_type === 'number');
     const unitCol = cols.find(c => c.name.toLowerCase().includes('birim'));
@@ -951,10 +949,10 @@ async function syncLotTotal(pid) {
     const total = parseFloat(
       (await query('SELECT COALESCE(SUM(quantity), 0) as t FROM product_lots WHERE product_id=$1', [pid])).rows[0].t
     );
-    const prod = (await query('SELECT values FROM products WHERE id=$1', [pid])).rows[0];
+    const prod = (await query('SELECT "values" FROM products WHERE id=$1', [pid])).rows[0];
     if (!prod) return;
     const vals = { ...(prod.values || {}), [numCol.id]: String(total) };
-    await query('UPDATE products SET values=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), pid]);
+    await query('UPDATE products SET "values"=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(vals), pid]);
   } catch(e) {
     console.error('syncLotTotal error:', e.message);
   }
@@ -1062,13 +1060,6 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
     await query("UPDATE users SET password_hash=$1 WHERE id=$2",[bcrypt.hashSync(new_password,10),req.user.id]);
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
-});
-
-// JSON Error Handler (HTML hata sayfası yerine JSON döndürür)
-app.use((err, req, res, next) => {
-  console.error('Sunucu Hatası:', err);
-  if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ error: err.message || 'Sunucu hatası oluştu' });
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
