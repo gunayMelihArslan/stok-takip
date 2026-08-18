@@ -7,17 +7,10 @@ const { query, init, pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
-if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
-  console.warn('⚠️  JWT_SECRET ortam değişkeni ayarlanmadı! Üretim ortamında mutlaka ayarlayın.');
-}
 const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
+process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err); });
+process.on('uncaughtException', (err) => { console.error('Uncaught Exception:', err); });
 
 app.set('trust proxy', 1);
 app.use((req,res,next)=>{
@@ -42,14 +35,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 
-// ── SSE ───────────────────────────────────────────────────────────────────
 const sseClients = new Set();
 function broadcast(event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   sseClients.forEach(res => { try { res.write(msg); } catch {} });
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────
 function auth(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '') || req.query.token;
   if (!token) return res.status(401).json({ error: 'Giriş yapın' });
@@ -61,16 +52,13 @@ function admin(req, res, next) {
   next();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 async function getNumCol() {
-  try {
-    return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null;
-  } catch(e) { return null; }
+  try { return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null; }
+  catch(e) { return null; }
 }
 async function getFirstCol() {
-  try {
-    return (await query("SELECT * FROM column_defs ORDER BY display_order LIMIT 1")).rows[0] || null;
-  } catch(e) { return null; }
+  try { return (await query("SELECT * FROM column_defs ORDER BY display_order LIMIT 1")).rows[0] || null; }
+  catch(e) { return null; }
 }
 async function deductStock(product_id, qty, numCol) {
   if (!numCol) return;
@@ -172,7 +160,6 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
-// ── SSE ───────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
   const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).end();
@@ -181,6 +168,7 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   res.write('event: connected\ndata: {}\n\n');
   sseClients.add(res);
@@ -733,18 +721,18 @@ app.get('/api/bom-columns', auth, async (req, res) => {
 });
 app.post('/api/bom-columns', auth, admin, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, mapped_field } = req.body;
     if (!name || !name.trim()) return res.status(400).json({error: 'Sütun adı zorunlu'});
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM bom_columns')).rows[0].m;
-    const r = (await query('INSERT INTO bom_columns(name, display_order, is_default) VALUES($1,$2,false) RETURNING *',
-      [name.trim(), mo + 1])).rows[0];
+    const r = (await query('INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES($1,$2,false,$3) RETURNING *',
+      [name.trim(), mo + 1, mapped_field || null])).rows[0];
     res.json(r);
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 app.put('/api/bom-columns/:id', auth, admin, async (req, res) => {
   try {
-    const { name, display_order } = req.body;
-    await query('UPDATE bom_columns SET name=$1, display_order=$2 WHERE id=$3', [name, display_order || 0, req.params.id]);
+    const { name, display_order, mapped_field } = req.body;
+    await query('UPDATE bom_columns SET name=$1, display_order=$2, mapped_field=$3 WHERE id=$4', [name, display_order || 0, mapped_field || null, req.params.id]);
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -791,7 +779,8 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           unit: prod && unitCol ? (prod.values?.[unitCol.id] || 'adet') : 'adet',
           desc: it.machine_year ? 'Model: ' + it.machine_year : '',
           category: catName,
-          extras: cols.filter(c => c !== firstCol && c !== numCol && c !== unitCol).map(c => prod?.values?.[c.id] || '')
+          prodValues: prod?.values || {},
+          rawItem: it
         });
       });
     });
@@ -815,12 +804,36 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
       }
       const cells = bomCols.map(c => {
         const cn = c.name.toLowerCase();
+        const mf = c.mapped_field || '';
+        
+        // 1. Dinamik Özel Eşleştirme Kontrolü
+        if (mf) {
+          if (mf.startsWith('col_')) {
+            const colId = mf.replace('col_', '');
+            return '<td>' + esc(it.prodValues[colId] || '—') + '</td>';
+          }
+          if (mf === 'machine_year') return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
+          if (mf === 'category') return '<td>' + esc(it.category || '—') + '</td>';
+          if (mf === 'notes') return '<td>' + esc(it.desc || '—') + '</td>';
+          if (mf === 'qty') return '<td class="qty-col">' + it.qty + '</td>';
+          if (mf === 'unit') return '<td>' + esc(it.unit) + '</td>';
+          if (mf === 'name') return '<td>' + esc(it.name) + '</td>';
+        }
+
+        // 2. Varsayılan Akıllı Eşleştirme
         if (cn.includes('sıra')) return '<td class="no-col">' + it.no + '</td><td>' + esc(it.category || '') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td>' + esc(it.name) + '</td>';
         if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col">' + it.qty + '</td>';
         if (cn.includes('birim')) return '<td>' + esc(it.unit) + '</td>';
         if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
-        return '<td></td>';
+        
+        // İsme göre ürün sütunundan otomatik ara (örn: "Marka" adlı sütun varsa)
+        const matchedCol = cols.find(col => col.name.toLowerCase() === cn);
+        if (matchedCol && it.prodValues[matchedCol.id]) {
+          return '<td>' + esc(it.prodValues[matchedCol.id]) + '</td>';
+        }
+
+        return '<td>—</td>';
       }).join('');
       const catCell = !bomCols.some(c => c.name.toLowerCase().includes('sıra')) ? '<td>' + esc(it.category || '') + '</td>' : '';
       const extraCells = extraHeaders.map(() => '<td></td>').join('');
@@ -1064,7 +1077,6 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ── START ─────────────────────────────────────────────────────────────────
 async function start() {
   await init();
   const uc = await query('SELECT COUNT(*) as c FROM users');
