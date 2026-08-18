@@ -758,7 +758,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// BOM yazdırılabilir şablon
+// ── BOM ÇIKTISI (Dinamik & Sütunlar Menüsünden Eşleşen) ───────────────────
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -770,22 +770,26 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const firstCol = cols[0];
     const numCol = cols.find(c => c.data_type === 'number');
     const unitCol = cols.find(c => c.name.toLowerCase().includes('birim'));
+    const catCol = cols.find(c => c.name.toLowerCase().includes('kategori'));
     const extraColCount = parseInt(req.query.extra_cols) || 0;
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
     
+    // Kategoriye göre grupla (Önce vinçteki kategori, yoksa ürünün sütunundaki/özelliklerindeki kategori, yoksa 'Genel')
     const categoryMap = {};
     (machine.items || []).forEach(it => {
-      const cat = it.category_name || 'Genel';
+      const prod = prods.find(p => p.id === Number(it.product_id));
+      const prodCat = catCol && prod?.values ? prod.values[catCol.id] : (prod?.values?.category || prod?.values?._category);
+      const cat = it.category_name || prodCat || 'Genel';
       if (!categoryMap[cat]) categoryMap[cat] = [];
-      categoryMap[cat].push(it);
+      categoryMap[cat].push({ item: it, prod: prod, cat: cat });
     });
+    
     let globalNo = 0;
     const items = [];
     Object.entries(categoryMap).forEach(([catName, catItems]) => {
       items.push({ isCategory: true, categoryName: catName });
-      catItems.forEach(it => {
+      catItems.forEach(({ item: it, prod, cat }) => {
         globalNo++;
-        const prod = prods.find(p => p.id === Number(it.product_id));
         items.push({
           isCategory: false,
           no: globalNo,
@@ -793,26 +797,25 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           qty: it.quantity,
           unit: prod && unitCol ? (prod.values?.[unitCol.id] || 'adet') : 'adet',
           desc: it.machine_year ? 'Model: ' + it.machine_year : '',
-          category: catName,
+          category: cat,
           prodValues: prod?.values || {},
           rawItem: it
         });
       });
     });
+    
     const firmName = firm?.name || '';
     const title = firmName ? firmName + ' — ' + machine.machine_name : machine.machine_name;
     const dateStr = new Date().toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'});
-    const defaultHeaders = [];
-    bomCols.forEach(c => {
-      defaultHeaders.push(c.name);
-      if (c.name.toLowerCase().includes('sıra')) defaultHeaders.push('Kategori');
-    });
-    if (!bomCols.some(c => c.name.toLowerCase().includes('sıra'))) defaultHeaders.unshift('Kategori');
+    
+    // Sütun başlıkları SADECE "BOM Sütunları" menüsünden gelir (Sabit/zorunlu kategori enjeksiyonu kaldırıldı)
+    const defaultHeaders = bomCols.map(c => c.name);
     const extraHeaders = [];
     for (let i = 0; i < extraColCount; i++) extraHeaders.push('Ek ' + (i + 1));
     const allHeaders = [...defaultHeaders, ...extraHeaders];
     const totalColCount = allHeaders.length;
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    
     const rowsHtml = items.map(it => {
       if (it.isCategory) {
         return '<tr><td colspan="' + totalColCount + '" style="background:#e8f5f0;font-weight:800;font-size:11px;padding:6px 10px;border:1px solid #1a6b56;color:#1a6b56">' + esc(it.categoryName) + '</td></tr>';
@@ -821,35 +824,41 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         const cn = c.name.toLowerCase();
         const mf = c.mapped_field || '';
         
+        // 1. Manuel Eşleştirilmiş Alan
         if (mf) {
           if (mf.startsWith('col_')) {
             const colId = mf.replace('col_', '');
             return '<td>' + esc(it.prodValues[colId] || '—') + '</td>';
           }
+          if (mf === 'auto_no' || mf === 'no') return '<td class="no-col">' + it.no + '</td>';
+          if (mf === 'auto_name' || mf === 'name') return '<td>' + esc(it.name) + '</td>';
+          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col">' + it.qty + '</td>';
+          if (mf === 'auto_unit' || mf === 'unit') return '<td>' + esc(it.unit) + '</td>';
+          if (mf === 'auto_desc' || mf === 'notes') return '<td>' + esc(it.desc) + '</td>';
           if (mf === 'machine_year') return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
           if (mf === 'category') return '<td>' + esc(it.category || '—') + '</td>';
-          if (mf === 'notes') return '<td>' + esc(it.desc || '—') + '</td>';
-          if (mf === 'qty') return '<td class="qty-col">' + it.qty + '</td>';
-          if (mf === 'unit') return '<td>' + esc(it.unit) + '</td>';
-          if (mf === 'name') return '<td>' + esc(it.name) + '</td>';
         }
 
-        if (cn.includes('sıra')) return '<td class="no-col">' + it.no + '</td><td>' + esc(it.category || '') + '</td>';
+        // 2. Otomatik Akıllı Eşleştirme (BOM Sütun İsmine Göre)
+        if (cn.includes('sıra') || cn === 'no') return '<td class="no-col">' + it.no + '</td>';
+        if (cn.includes('kategori')) return '<td>' + esc(it.category || '—') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td>' + esc(it.name) + '</td>';
         if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col">' + it.qty + '</td>';
         if (cn.includes('birim')) return '<td>' + esc(it.unit) + '</td>';
         if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
+        if (cn.includes('yıl') || cn.includes('model')) return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
         
+        // Sütunlar menüsündeki ürün sütunlarıyla tam eşleşme
         const matchedCol = cols.find(col => col.name.toLowerCase() === cn);
-        if (matchedCol && it.prodValues[matchedCol.id]) {
+        if (matchedCol && it.prodValues[matchedCol.id] !== undefined && it.prodValues[matchedCol.id] !== '') {
           return '<td>' + esc(it.prodValues[matchedCol.id]) + '</td>';
         }
 
         return '<td>—</td>';
       }).join('');
-      const catCell = !bomCols.some(c => c.name.toLowerCase().includes('sıra')) ? '<td>' + esc(it.category || '') + '</td>' : '';
+
       const extraCells = extraHeaders.map(() => '<td></td>').join('');
-      return '<tr>' + catCell + cells + extraCells + '</tr>';
+      return '<tr>' + cells + extraCells + '</tr>';
     }).join('\n      ');
     const itemCount = items.filter(it => !it.isCategory).length;
     const extraRowsHtml = Array.from({length: extraRowCount}, (_, i) => {
