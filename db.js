@@ -1,44 +1,26 @@
 const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000
+});
+
+// Neon.tech boşta bağlantıyı kestiğinde Node.js'in çökmesini engeller
+pool.on('error', (err) => {
+  console.warn('⚠️ Veritabanı bağlantı yenilemesi:', err.message);
 });
 
 async function query(sql, params = []) {
-  const client = await pool.connect();
-  try {
-    return await client.query(sql, params);
-  } finally {
-    client.release();
-  }
+  return pool.query(sql, params);
 }
 
 async function init() {
-  // ── 1. Şema ve Sütun Uyumlaması ──
   await query(`
     DO $$
     BEGIN
-      -- users tablosunda 'password' kalmışsa 'password_hash' olarak adlandır
-      IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='password'
-      ) AND NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='password_hash'
-      ) THEN
-        ALTER TABLE users RENAME COLUMN password TO password_hash;
-      END IF;
-
-      -- display_name yoksa ekle
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='display_name'
-      ) THEN
-        ALTER TABLE users ADD COLUMN display_name TEXT;
-      END IF;
-
       IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name='task_transfers' AND column_name='task_id'
@@ -55,7 +37,6 @@ async function init() {
     END $$;
   `);
 
-  // ── 2. Orijinal Tablo Tanımları ──
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -120,7 +101,6 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
-  
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
 
   await query(`CREATE TABLE IF NOT EXISTS notifications (
@@ -129,14 +109,12 @@ async function init() {
     title TEXT NOT NULL, body TEXT DEFAULT '', type TEXT DEFAULT 'info',
     is_read BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  
   await query(`CREATE TABLE IF NOT EXISTS stage_comments (
     id SERIAL PRIMARY KEY,
     stage_id INT NOT NULL REFERENCES task_stages(id) ON DELETE CASCADE,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  
   await query(`CREATE TABLE IF NOT EXISTS purchase_requests (
     id SERIAL PRIMARY KEY,
     requested_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -146,18 +124,6 @@ async function init() {
     status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  
-  await query(`CREATE TABLE IF NOT EXISTS activity_log (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE SET NULL,
-    action TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    entity_id INT,
-    details JSONB DEFAULT '{}',
-    ip_address TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`);
-  
   await query(`CREATE TABLE IF NOT EXISTS bom_columns (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -165,29 +131,18 @@ async function init() {
     is_default BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  
   await query(`CREATE TABLE IF NOT EXISTS bom_categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     display_order INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  
   await query("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL");
-
-  // Varsayılan BOM sütunları
+  
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
     await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
   }
-
-  // Varsayılan admin kullanıcısı (Çakışma durumunda hata fırlatmadan geçer)
-  const defaultPassHash = bcrypt.hashSync('admin123', 10);
-  await query(`
-    INSERT INTO users (username, password_hash, role, display_name)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (username) DO NOTHING
-  `, ['admin', defaultPassHash, 'admin', 'Yönetici']);
 }
 
 module.exports = { query, init, pool };
