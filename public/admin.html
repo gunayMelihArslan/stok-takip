@@ -106,7 +106,7 @@
     <div class="page" id="page-products">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()"></div>
-        <button class="btn btn-primary" onclick="addProductRow()">+ Yeni Ürün</button>
+        <button class="btn btn-primary" onclick="openProductModal()">+ Yeni Ürün</button>
         <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
@@ -198,6 +198,7 @@
         <tbody id="purchaseTbody"></tbody>
       </table></div></div>
     </div>
+
     <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar">
@@ -207,6 +208,7 @@
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
+
     <!-- BOM SETTINGS -->
     <div class="page" id="page-bom">
       <div class="toolbar">
@@ -221,6 +223,7 @@
         💡 Bu sütunlar BOM (Vinç Reçetesi) indirme şablonunda görünür.
       </div>
     </div>
+
     <!-- BOM CATEGORIES -->
     <div class="page" id="page-bom_categories">
       <div class="toolbar">
@@ -239,17 +242,49 @@
 </div>
 
 <!-- Modals -->
-<div class="modal-overlay" id="columnModal">
-  <div class="modal"><div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="editColId">
-    <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName"></div>
-    <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
-    <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok</label><input type="number" id="colMinStock" value="5"></div>
+
+<!-- 1. YENİ ÜRÜN MODALI -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3 id="productModalTitle">Yeni Ürün Ekle</h3>
+      <button class="modal-close" onclick="closeModal('productModal')">×</button>
+    </div>
+    <div class="modal-body" id="productModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveProductModal()">Kaydet</button>
+    </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" onclick="saveColumn()">Kaydet</button></div></div>
+</div>
+
+<!-- 2. SÜTUN MODALI -->
+<div class="modal-overlay" id="columnModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="columnModalTitle">Yeni Sütun</h3>
+      <button class="modal-close" onclick="closeModal('columnModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editColId">
+      <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName"></div>
+      <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
+      <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok</label><input type="number" id="colMinStock" value="5"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveColumn()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. BOM SÜTUN MODALI -->
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
-    <div class="modal-header"><h3 id="bomColModalTitle">Yeni BOM Sütunu</h3><button class="modal-close" onclick="closeModal('bomColModal')">×</button></div>
+    <div class="modal-header">
+      <h3 id="bomColModalTitle">Yeni BOM Sütunu</h3>
+      <button class="modal-close" onclick="closeModal('bomColModal')">×</button>
+    </div>
     <div class="modal-body">
       <input type="hidden" id="editBomColId">
       <div class="form-group"><label>Sütun Adı</label><input type="text" id="bomColName"></div>
@@ -260,86 +295,204 @@
     </div>
   </div>
 </div>
+
+<!-- 4. BOM KATEGORİ MODALI -->
 <div class="modal-overlay" id="bomCatModal">
   <div class="modal">
-    <div class="modal-header"><h3 id="bomCatModalTitle">Yeni Kategori</h3><button class="modal-close" onclick="closeModal('bomCatModal')">×</button></div>
-    <div class="modal-body"><input type="hidden" id="editBomCatId">
+    <div class="modal-header">
+      <h3 id="bomCatModalTitle">Yeni Kategori</h3>
+      <button class="modal-close" onclick="closeModal('bomCatModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editBomCatId">
       <div class="form-group"><label>Kategori Adı</label><input type="text" id="bomCatName" placeholder="Örn: Kanca Cihazı"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button><button class="btn btn-primary" onclick="saveBomCat()">Kaydet</button></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveBomCat()">Kaydet</button>
+    </div>
   </div>
 </div>
 
+<!-- 5. FİRMA MODALI -->
 <div class="modal-overlay" id="firmModal">
-  <div class="modal"><div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="editFirmId">
-    <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div>
-    <div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="firmModalTitle">Yeni Firma</h3>
+      <button class="modal-close" onclick="closeModal('firmModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editFirmId">
+      <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div>
+      <div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveFirm()">Kaydet</button>
+    </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div></div>
 </div>
 
+<!-- 6. VİNÇ MODALI -->
 <div class="modal-overlay" id="machineModal">
-  <div class="modal" style="max-width:560px"><div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="editMachineId">
-    <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
-    <div class="form-group"><label>Vinç Adı / Modeli</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
-    <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
-    <div class="form-group"><label>Gerekli Ürünler</label>
-      <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="machineModalTitle">Yeni Vinç</h3>
+      <button class="modal-close" onclick="closeModal('machineModal')">×</button>
     </div>
-    <div style="background:var(--accent-dim);border:1px solid rgba(232,184,75,.2);border-radius:8px;padding:.65rem .85rem;font-family:var(--mono);font-size:.72rem;color:var(--accent);margin-top:.5rem">
-      💡 Vinç kaydedilince otomatik olarak <strong>Pano → Yerleştirme → Kedi Tesisat</strong> aşamalı bir iş açılır
+    <div class="modal-body">
+      <input type="hidden" id="editMachineId">
+      <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
+      <div class="form-group"><label>Vinç Adı / Modeli</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+      <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
+      <div class="form-group"><label>Gerekli Ürünler</label>
+        <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
+      </div>
+      <div style="background:var(--accent-dim);border:1px solid rgba(232,184,75,.2);border-radius:8px;padding:.65rem .85rem;font-family:var(--mono);font-size:.72rem;color:var(--accent);margin-top:.5rem">
+        💡 Vinç kaydedilince otomatik olarak <strong>Pano → Yerleştirme → Kedi Tesisat</strong> aşamalı bir iş açılır
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveMachine()">Kaydet</button>
     </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" onclick="saveMachine()">Kaydet</button></div></div>
 </div>
 
+<!-- 7. İŞ (TASK) MODALI -->
 <div class="modal-overlay" id="taskModal">
-  <div class="modal" style="max-width:500px"><div class="modal-header"><h3>Manuel İş Ekle</h3><button class="modal-close" onclick="closeModal('taskModal')">×</button></div>
-  <div class="modal-body">
-    <div class="form-group"><label>İş Başlığı</label><input type="text" id="taskTitle" placeholder="Özel iş açıklaması..."></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-      <div class="form-group"><label>Firma</label><select id="taskFirm" onchange="filterTaskMachines()"><option value="">— Firma —</option></select></div>
-      <div class="form-group"><label>Vinç (opsiyonel)</label><select id="taskMachine"><option value="">— Vinç —</option></select></div>
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3>Manuel İş Ekle</h3>
+      <button class="modal-close" onclick="closeModal('taskModal')">×</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-      <div class="form-group"><label>Öncelik</label><select id="taskPriority"><option value="normal" selected>Normal</option><option value="high">Yüksek</option><option value="urgent">Acil</option><option value="low">Düşük</option></select></div>
-      <div class="form-group"><label>Aşama İsimleri</label><input type="text" id="taskStages" placeholder="Pano, Yerleştirme, Kedi Tesisat" value="Pano, Yerleştirme, Kedi Tesisat"></div>
+    <div class="modal-body">
+      <div class="form-group"><label>İş Başlığı</label><input type="text" id="taskTitle" placeholder="Özel iş açıklaması..."></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div class="form-group"><label>Firma</label><select id="taskFirm" onchange="filterTaskMachines()"><option value="">— Firma —</option></select></div>
+        <div class="form-group"><label>Vinç (opsiyonel)</label><select id="taskMachine"><option value="">— Vinç —</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div class="form-group"><label>Öncelik</label><select id="taskPriority"><option value="normal" selected>Normal</option><option value="high">Yüksek</option><option value="urgent">Acil</option><option value="low">Düşük</option></select></div>
+        <div class="form-group"><label>Aşama İsimleri</label><input type="text" id="taskStages" placeholder="Pano, Yerleştirme, Kedi Tesisat" value="Pano, Yerleştirme, Kedi Tesisat"></div>
+      </div>
+      <div class="form-group"><label>Not</label><textarea id="taskNotes" rows="2"></textarea></div>
     </div>
-    <div class="form-group"><label>Not</label><textarea id="taskNotes" rows="2"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveTask()">Kaydet</button>
+    </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" onclick="saveTask()">Kaydet</button></div></div>
 </div>
 
+<!-- 8. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
-  <div class="modal"><div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="assignStageId">
-    <div class="form-group"><label>Personel</label>
-      <select id="assignUser"><option value="">— Atanamı Kaldır —</option></select>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="assignModalTitle">Aşama Ata</h3>
+      <button class="modal-close" onclick="closeModal('assignModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="assignStageId">
+      <div class="form-group"><label>Personel</label>
+        <select id="assignUser"><option value="">— Atamayı Kaldır —</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button>
+      <button class="btn btn-primary" onclick="doAssign()">Ata</button>
     </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" onclick="doAssign()">Ata</button></div></div>
 </div>
 
+<!-- 9. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
-  <div class="modal" style="max-width:580px"><div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
-  <div class="modal-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div></div>
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h3 id="historyModalTitle">Stok Hareketi</h3>
+      <button class="modal-close" onclick="closeModal('historyModal')">×</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead>
+          <tbody id="historyTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- 10. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
-  <div class="modal"><div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="editUserId">
-    <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
-    <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
-    <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
-    <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="userModalTitle">Yeni Kullanıcı</h3>
+      <button class="modal-close" onclick="closeModal('userModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editUserId">
+      <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
+      <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
+      <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
+      <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveUser()">Kaydet</button>
+    </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div></div>
+</div>
+
+<!-- 11. LOT MODALI -->
+<div class="modal-overlay" id="lotModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div>
+        <h3 id="lotTitle">Model Yılı</h3>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('lotModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lotPid">
+      <div id="lotRows" style="margin-bottom:1rem"></div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
+          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2020" min="1980" max="2099"></div>
+          <div class="form-group" style="margin:0"><label>Adet</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder=""></div>
+        <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
+        <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
+      </div>
+      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.</div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
+  </div>
+</div>
+
+<!-- 12. YORUM / NOT MODALI -->
+<div class="modal-overlay" id="commentModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
+    <div class="modal-body">
+      <div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div>
+      <div class="form-group" style="margin:0"><label>Yeni Not</label>
+        <textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button>
+      <button class="btn btn-primary" onclick="saveComment()">💬 Not Ekle</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
+
 <script>
 const _f=window.fetch.bind(window);
 window.fetch=function(url,opts){opts=opts||{};opts.headers=opts.headers||{};if(typeof url==='string'&&url.startsWith('/api')){var t=localStorage.getItem('stok_token');if(t)opts.headers['Authorization']='Bearer '+t;}return _f(url,opts);};
@@ -444,7 +597,7 @@ function showPage(name){
   if(name==='transactions'){newTxCount=0;document.getElementById('txBadge').style.display='none';}
   if(name==='tasks')document.getElementById('taskBadge').style.display='none';
 
-  // 1) Hemen cache'deki veriyle render et (anlık tepki)
+  // 1) Hemen cache'deki veriyle render et
   const renderNow={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,firms:renderFirms,machines:renderMachines,bom:renderBomColumns,bom_categories:renderBomCategories,tasks:renderTasks,transactions:renderTransactions,users:renderUsers,purchases:renderPurchases};
   renderNow[name]?.();
 
@@ -485,7 +638,6 @@ function renderDashboard(){
 }
 function renderLiveBoard(){
   const el=document.getElementById('liveBoard');
-  // Collect all active stages
   const active=[];
   tasks.forEach(t=>{
     (t.stages||[]).filter(s=>s.status==='in_progress'||s.status==='pending_transfer').forEach(s=>{
@@ -531,7 +683,30 @@ function renderProductRows(prods){
 }
 
 function filterProducts(){const q=document.getElementById('productSearch').value.toLowerCase();renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);}
-async function addProductRow(){const r=await api('/api/products','POST',{values:{}});if(!r)return;await loadProducts();renderProducts();toast('Eklendi','success');}
+function openProductModal(){
+  const body = document.getElementById('productModalBody');
+  body.innerHTML = columns.map(c => `
+    <div class="form-group">
+      <label>${esc(c.name)} ${c.data_type === 'number' ? '(Sayı)' : ''}</label>
+      <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" placeholder="${esc(c.name)} giriniz...">
+    </div>
+  `).join('');
+  openModal('productModal');
+}
+async function saveProductModal(){
+  const inputs = document.querySelectorAll('#productModalBody .prod-input');
+  const values = {};
+  inputs.forEach(inp => {
+    values[inp.getAttribute('data-cid')] = inp.value.trim();
+  });
+  const r = await api('/api/products', 'POST', { values });
+  if(!r) return;
+  closeModal('productModal');
+  await loadProducts();
+  renderProducts();
+  toast('Ürün başarıyla eklendi ✓', 'success');
+}
+async function addProductRow(){openProductModal();}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
 function startEdit(td,pid,cid,dtype){if(editingCell)cancelEdit();const oldVal=td.querySelector('.badge')?td.querySelector('.badge').textContent.trim():td.textContent.trim();editingCell={td,pid,cid,oldVal};td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;td.querySelector('input').focus();td.querySelector('input').select();}
 async function commitEdit(){if(!editingCell)return;const{td,pid,cid,oldVal}=editingCell;const input=td.querySelector('input');const newVal=input?input.value:oldVal;editingCell=null;td.textContent=newVal;if(newVal!==oldVal){await api('/api/products/'+pid,'PUT',{values:{[cid]:newVal}});await loadProducts();renderProducts();}}
@@ -622,7 +797,6 @@ window.miCatChange=function(select){
   }
 };
 
-// Global Autocomplete Handlers
 window.acFocus = function(input) {
   window.acInput(input, true);
 };
@@ -631,7 +805,6 @@ window.acInput = function(input, showAll = false) {
   var listDiv = input.nextElementSibling;
   var pidInput = input.previousElementSibling;
   
-  // Ürünleri filtrele
   var row = input.closest('.machine-item-row');
   var catSelect = row ? row.querySelector('.mi-cat') : null;
   var catVal = catSelect ? catSelect.value : '';
@@ -654,7 +827,6 @@ window.acInput = function(input, showAll = false) {
     return;
   }
   
-  // Liste HTML'i oluştur (en fazla 30 sonuç göster, kasmasın)
   var firstCol=columns[0];
   var numCol=columns.find(col=>col.data_type==='number');
   var html = filtered.slice(0,30).map(p=>{
@@ -688,7 +860,6 @@ window.acSelect = function(item, pid, name, stock) {
   setTimeout(()=>inp.style.borderColor='var(--border)', 1000);
 };
 
-// Dışarı tıklanınca listeleri kapat
 document.addEventListener('click', function(e) {
   if(!e.target.classList.contains('mi-search')) {
     document.querySelectorAll('.ac-list').forEach(l => l.style.display='none');
@@ -727,7 +898,6 @@ const stageStatusIcon={open:'○',in_progress:'⚡',pending_transfer:'🔄',comp
 const stageStatusColor={open:'var(--muted)',in_progress:'var(--success)',pending_transfer:'var(--warning)',completed:'var(--accent)'};
 
 function renderTasks(){
-  // Update filters
   const sq = (document.getElementById('taskSearch').value||'').toLowerCase();
   const fsel=document.getElementById('taskFirmFilter');const curF=fsel.value;fsel.innerHTML='<option value="">Tüm Firmalar</option>'+firms.map(f=>`<option value="${f.id}" ${String(f.id)===curF?'selected':''}>${esc(f.name)}</option>`).join('');fsel.value=curF;
   let filtered=tasks;
@@ -739,7 +909,6 @@ function renderTasks(){
   const board=document.getElementById('taskBoard');
   if(!filtered.length){board.innerHTML='<div class="card empty"><div class="icon">📋</div>İş yok — Vinç ekleyince otomatik oluşur</div>';return;}
 
-  // Group by firm
   const grouped={};
   filtered.forEach(t=>{const k=t.firm_name||'__';if(!grouped[k])grouped[k]=[];grouped[k].push(t);});
   let html='';
@@ -874,6 +1043,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');}
 document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+
 // ── Refresh helpers ───────────────────────────────────────────────────────
 async function refresh(){
   const fns={
@@ -1280,7 +1450,6 @@ async function doChangePassword(){
 // INIT
 // ═══════════════════════════════════════════════════════════════
 async function initExtras(){
-  // Bildirim butonu topbar
   var tb=document.querySelector('.topbar');
   if(tb&&!document.getElementById('notifBtn')){
     var w=document.createElement('div');w.style.cssText='position:relative;display:inline-block;margin-left:.5rem';
@@ -1297,7 +1466,6 @@ async function initExtras(){
     document.getElementById('markAllBtn').onclick=markAllRead;
     document.addEventListener('click',function(e){if(!w.contains(e.target)&&_notifOpen){_notifOpen=false;var p=document.getElementById('notifPanel');if(p)p.style.display='none';}});
   }
-  // Şifre değiştir butonu sidebar
   var sf=document.querySelector('.sidebar-footer');
   if(sf&&!sf.querySelector('.pwBtn')){
     var b=document.createElement('button');b.className='logout-btn pwBtn';
@@ -1308,7 +1476,6 @@ async function initExtras(){
   await loadNotifs();
   await loadPurchases();
   setTimeout(autoSort,400);setInterval(autoSort,3000);
-  // Enter key
   document.addEventListener('keydown',function(e){
     if(e.key!=='Enter')return;
     var active=document.querySelector('.modal-overlay.open');if(!active)return;
@@ -1322,49 +1489,5 @@ document.addEventListener('DOMContentLoaded', function() {
   init();
 });
 </script>
-
-<div class="modal-overlay" id="lotModal">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-header">
-      <div>
-        <h3 id="lotTitle">Model Yılı</h3>
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
-      </div>
-      <button class="modal-close" onclick="closeModal('lotModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="lotPid">
-      <div id="lotRows" style="margin-bottom:1rem"></div>
-      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
-          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2020" min="1980" max="2099"></div>
-          <div class="form-group" style="margin:0"><label>Adet</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
-        </div>
-        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder=""></div>
-        <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
-        <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
-      </div>
-      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.</div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="commentModal">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
-    <div class="modal-body">
-      <div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div>
-      <div class="form-group" style="margin:0"><label>Yeni Not</label>
-        <textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button>
-      <button class="btn btn-primary" onclick="saveComment()">💬 Not Ekle</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
