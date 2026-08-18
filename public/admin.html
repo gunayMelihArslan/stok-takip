@@ -28,6 +28,7 @@
 .firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;}
 .firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;}
 .firm-divider div{height:1px;flex:1;background:var(--border);}
+.lot-row-item{display:grid;grid-template-columns:110px 100px 1fr 32px;gap:.5rem;align-items:center;margin-bottom:.4rem;}
 </style>
 </head>
 <body>
@@ -51,7 +52,6 @@
     <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
     <div class="nav-section-label">İş Takibi</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
-    <div class="nav-section-label">Performans</div>
     <div class="nav-item" onclick="showPage('performance')"><span class="nav-icon">🏆</span>Performans</div>
     <div class="nav-section-label">İşlemler</div>
     <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
@@ -76,6 +76,7 @@
   </div>
   <div class="content">
 
+    <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow"></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem">
@@ -102,6 +103,7 @@
       </div>
     </div>
 
+    <!-- PRODUCTS -->
     <div class="page" id="page-products">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -117,6 +119,7 @@
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
     </div>
 
+    <!-- COLUMNS -->
     <div class="page" id="page-columns">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="columnSearch" placeholder="🔍 Sütun ara..." style="max-width:260px" oninput="renderColumns()"></div>
@@ -125,6 +128,7 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
     </div>
 
+    <!-- FIRMS -->
     <div class="page" id="page-firms">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="firmSearch" placeholder="🔍 Firma ara..." style="max-width:260px" oninput="renderFirms()"></div>
@@ -134,6 +138,7 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinçler</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
     </div>
 
+    <!-- MACHINES -->
     <div class="page" id="page-machines">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="machineSearchTxt" placeholder="🔍 Vinç ara..." style="max-width:200px" oninput="renderMachines()"></div>
@@ -144,6 +149,7 @@
       <div id="machineList" style="display:grid;gap:.75rem"></div>
     </div>
 
+    <!-- TASKS -->
     <div class="page" id="page-tasks">
       <div class="toolbar">
         <input type="text" id="taskSearch" placeholder="🔍 İş ara..." style="max-width:200px" oninput="renderTasks()">
@@ -161,11 +167,13 @@
       <div id="taskBoard"></div>
     </div>
 
+    <!-- PERFORMANCE -->
     <div class="page" id="page-performance">
       <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button></div>
       <div id="perfContent"></div>
     </div>
 
+    <!-- TRANSACTIONS -->
     <div class="page" id="page-transactions">
       <div class="toolbar">
         <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
@@ -176,6 +184,7 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
 
+    <!-- PURCHASES -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
         <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." style="max-width:200px" oninput="renderPurchases()">
@@ -196,6 +205,7 @@
       </table></div></div>
     </div>
 
+    <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." style="max-width:260px" oninput="renderUsers()"></div>
@@ -205,6 +215,7 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
+    <!-- BOM SETTINGS -->
     <div class="page" id="page-bom">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM indirme şablonundaki sütunları yönetin</span></div>
@@ -216,6 +227,7 @@
       </table></div></div>
     </div>
 
+    <!-- BOM CATEGORIES -->
     <div class="page" id="page-bom_categories">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM Kategorilerini yönetin</span></div>
@@ -229,13 +241,16 @@
   </div>
 </div>
 
+<!-- Modals -->
+
+<!-- 1. YENİ ÜRÜN MODALI -->
 <div class="modal-overlay" id="productModal">
-  <div class="modal" style="max-width:520px">
+  <div class="modal" style="max-width:540px">
     <div class="modal-header">
       <h3 id="productModalTitle">Yeni Ürün Ekle</h3>
       <button class="modal-close" onclick="closeModal('productModal')">×</button>
     </div>
-    <div class="modal-body" id="productModalBody"></div>
+    <div class="modal-body" id="productModalBody" style="max-height:70vh;overflow-y:auto"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button>
       <button class="btn btn-primary" onclick="saveProductModal()">Kaydet</button>
@@ -243,6 +258,7 @@
   </div>
 </div>
 
+<!-- 2. SÜTUN MODALI -->
 <div class="modal-overlay" id="columnModal">
   <div class="modal">
     <div class="modal-header">
@@ -262,6 +278,7 @@
   </div>
 </div>
 
+<!-- 3. BOM SÜTUN MODALI -->
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
     <div class="modal-header">
@@ -279,6 +296,7 @@
   </div>
 </div>
 
+<!-- 4. BOM KATEGORİ MODALI -->
 <div class="modal-overlay" id="bomCatModal">
   <div class="modal">
     <div class="modal-header">
@@ -296,6 +314,7 @@
   </div>
 </div>
 
+<!-- 5. FİRMA MODALI -->
 <div class="modal-overlay" id="firmModal">
   <div class="modal">
     <div class="modal-header">
@@ -314,6 +333,7 @@
   </div>
 </div>
 
+<!-- 6. VİNÇ MODALI -->
 <div class="modal-overlay" id="machineModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-header">
@@ -337,6 +357,7 @@
   </div>
 </div>
 
+<!-- 7. İŞ MODALI -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -362,6 +383,7 @@
   </div>
 </div>
 
+<!-- 8. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
   <div class="modal">
     <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
@@ -374,6 +396,7 @@
   </div>
 </div>
 
+<!-- 9. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
@@ -381,6 +404,7 @@
   </div>
 </div>
 
+<!-- 10. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
@@ -394,6 +418,7 @@
   </div>
 </div>
 
+<!-- 11. LOT MODALI -->
 <div class="modal-overlay" id="lotModal">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -424,6 +449,7 @@
   </div>
 </div>
 
+<!-- 12. YORUM MODALI -->
 <div class="modal-overlay" id="commentModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
@@ -561,13 +587,28 @@ function updateGoldDisplay(g) {
 
 async function api(url, method = 'GET', body = null) {
   try {
-    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    const token = localStorage.getItem('stok_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
-    const data = await res.json();
-    if (!res.ok) { toast(data.error || 'İşlem başarısız', 'error'); return null; }
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.error('API Non-JSON:', url, text);
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
+      return null;
+    }
+    if (!res.ok) {
+      toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error');
+      return null;
+    }
     return data;
   } catch (e) {
+    console.error('API Error:', e);
     toast('Bağlantı hatası: ' + (e && e.message || ''), 'error');
     return null;
   }
@@ -653,7 +694,7 @@ function renderProducts() {
   const otherCols = columns.filter(c => (c.name || '').toLowerCase() !== 'kategori');
   const theadTr = document.getElementById('productThead')?.querySelector('tr');
   if (theadTr) {
-    theadTr.innerHTML = '<th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Model Yılı (Lot)</th><th></th><th>İşlem</th>';
+    theadTr.innerHTML = '<th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name || 'Sütun')}</th>`).join('') + '<th>Model Yılı (Lot)</th><th></th><th>İşlem</th>';
   }
   filterProducts();
 }
@@ -677,7 +718,7 @@ function renderProductRows(prods) {
     const cells = otherCols.map(c => {
       const val = p.values?.[c.id] ?? '';
       const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
-      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow ? `<span class="badge badge-low">${esc(val)}</span>` : esc(val)}</td>`;
+      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow ? `<span class="badge badge-low">${esc(String(val))}</span>` : esc(String(val))}</td>`;
     }).join('');
     const lc = p._lc || 0;
     return `<tr data-pid="${p.id}">
@@ -685,7 +726,7 @@ function renderProductRows(prods) {
       ${cells}
       <td>
         <button class="btn ${lc > 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="lotOpen(${p.id},'${safeNm}')" style="font-family:var(--mono);font-size:.72rem">
-          ${lc > 0 ? `⚡ ${lc} Yıl (Lot Detayı)` : '🗂️ Yıl Ekle'}
+          ${lc > 0 ? `⚡ ${lc} Model Yılı (Lot)` : '🗂️ Model Yılı Ekle'}
         </button>
       </td>
       <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})" title="Stok Geçmişi">📋</button></td>
@@ -727,28 +768,26 @@ function openProductModal() {
     if (c.name && c.name.toLowerCase() === 'kategori') return;
     html += `
       <div class="form-group">
-        <label>${esc(c.name)} ${c.data_type === 'number' ? '(Sayı)' : ''}</label>
-        <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" placeholder="${esc(c.name)} giriniz...">
+        <label>${esc(c.name || 'Sütun')} ${c.data_type === 'number' ? '(Sayısal Stok)' : ''}</label>
+        <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" data-type="${c.data_type}" placeholder="${esc(c.name || '')} giriniz...">
       </div>
     `;
   });
 
   html += `
     <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;margin-top:.75rem">
-      <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.5rem">⚡ Model Yılı (Lot) & Stok Girişi (Opsiyonel)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
-        <div class="form-group" style="margin:0">
-          <label style="font-size:.72rem">Model / Üretim Yılı</label>
-          <input type="number" id="prodModalYear" placeholder="Örn: 2024" min="1980" max="2099">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label style="font-size:.72rem">Model Yılı Adedi</label>
-          <input type="number" id="prodModalQty" placeholder="0" min="0" step="any">
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase">⚡ Model Yılı (Lot) Dağılımı (Opsiyonel)</div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addModalLotRow()" style="font-size:.68rem">+ Model Yılı Ekle</button>
       </div>
-      <div class="form-group" style="margin:.5rem 0 0">
-        <label style="font-size:.72rem">Lot Notu (opsiyonel)</label>
-        <input type="text" id="prodModalLotNote" placeholder="Örn: İlk parti sevkiyat">
+      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına (örn: 2022, 2024, 2025) göre miktar girebilirsiniz. Girilen adetler toplam stoğu belirler.</div>
+      <div id="modalLotList">
+        <div class="lot-row-item">
+          <input type="number" class="modal-lot-year" placeholder="Yıl (2024)" min="1980" max="2099">
+          <input type="number" class="modal-lot-qty" placeholder="Adet" min="0" step="any">
+          <input type="text" class="modal-lot-note" placeholder="Not (opsiyonel)">
+          <span></span>
+        </div>
       </div>
     </div>
   `;
@@ -757,12 +796,23 @@ function openProductModal() {
   openModal('productModal');
 }
 
+function addModalLotRow() {
+  const container = document.getElementById('modalLotList');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'lot-row-item';
+  div.innerHTML = `
+    <input type="number" class="modal-lot-year" placeholder="Yıl (2025)" min="1980" max="2099">
+    <input type="number" class="modal-lot-qty" placeholder="Adet" min="0" step="any">
+    <input type="text" class="modal-lot-note" placeholder="Not (opsiyonel)">
+    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:4px">×</button>
+  `;
+  container.appendChild(div);
+}
+
 async function saveProductModal() {
   const inputs = document.querySelectorAll('#productModalBody .prod-input');
   const catVal = document.getElementById('prodModalCat')?.value || 'Genel';
-  const yearInput = document.getElementById('prodModalYear')?.value;
-  const qtyInput = document.getElementById('prodModalQty')?.value;
-  const lotNote = document.getElementById('prodModalLotNote')?.value || '';
 
   const values = {};
   inputs.forEach(inp => {
@@ -775,23 +825,36 @@ async function saveProductModal() {
   values.category = catVal;
   values._category = catVal;
 
-  const numCol = columns.find(c => c.data_type === 'number');
-  const yearVal = yearInput ? parseInt(yearInput) : NaN;
-  const qtyVal = qtyInput !== '' && qtyInput !== undefined ? parseFloat(qtyInput) : NaN;
+  const lotRows = document.querySelectorAll('#modalLotList .lot-row-item');
+  const validLots = [];
+  let totalLotQty = 0;
 
-  if (numCol && !isNaN(qtyVal) && qtyVal >= 0 && (!values[numCol.id] || values[numCol.id] === '0')) {
-    values[numCol.id] = String(qtyVal);
+  lotRows.forEach(row => {
+    const yr = parseInt(row.querySelector('.modal-lot-year')?.value);
+    const qty = parseFloat(row.querySelector('.modal-lot-qty')?.value);
+    const note = row.querySelector('.modal-lot-note')?.value.trim() || '';
+    if (!isNaN(yr) && yr >= 1980 && !isNaN(qty) && qty >= 0) {
+      validLots.push({ production_year: yr, quantity: qty, notes: note });
+      totalLotQty += qty;
+    }
+  });
+
+  const numCol = columns.find(c => c.data_type === 'number');
+  if (numCol) {
+    if (validLots.length > 0) {
+      values[numCol.id] = String(totalLotQty);
+    } else if (!values[numCol.id]) {
+      values[numCol.id] = '0';
+    }
   }
 
   const r = await api('/api/products', 'POST', { values });
   if (!r) return;
 
-  if (!isNaN(yearVal) && yearVal >= 1980 && !isNaN(qtyVal) && qtyVal >= 0) {
-    await api('/api/products/' + r.id + '/lots', 'POST', {
-      production_year: yearVal,
-      quantity: qtyVal,
-      notes: lotNote
-    });
+  if (validLots.length > 0) {
+    for (const lot of validLots) {
+      await api('/api/products/' + r.id + '/lots', 'POST', lot);
+    }
   }
 
   closeModal('productModal');
@@ -873,7 +936,7 @@ function renderColumns() {
   if (!tbody) return;
   tbody.innerHTML = cols.map(c => `<tr>
     <td style="font-family:var(--mono);color:var(--muted)">${c.display_order}</td>
-    <td><strong>${esc(c.name)}</strong></td>
+    <td><strong>${esc(c.name || '')}</strong></td>
     <td><span class="badge" style="background:var(--accent-dim);color:var(--accent)">${c.data_type === 'number' ? 'Sayı' : 'Metin'}</span></td>
     <td style="font-family:var(--mono)">${c.data_type === 'number' ? (c.min_stock || 5) : '—'}</td>
     <td style="display:flex;gap:.4rem">
@@ -1683,7 +1746,7 @@ function renderNotifPanel() {
       '<span style="font-size:1rem;flex-shrink:0">' + (ic[n.type] || 'ℹ️') + '</span>' +
       '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read ? 400 : 700) + '">' + esc(n.title) + '</div>' +
       (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
-      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">'+ fmtDate(n.created_at) + '</div></div>' +
       (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
       '</div>';
   }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
