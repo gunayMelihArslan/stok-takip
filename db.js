@@ -49,14 +49,17 @@ async function init() {
     );
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY, "values" JSONB NOT NULL DEFAULT '{}',
+      display_order INT DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS firms (
-      id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT NOW()
+      id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT DEFAULT '', 
+      display_order INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS machines (
       id SERIAL PRIMARY KEY, machine_name TEXT NOT NULL,
       firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
+      display_order INT DEFAULT 0,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS transactions (
@@ -127,10 +130,13 @@ async function init() {
     END $$;
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS min_stock INT DEFAULT 5;
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
+    ALTER TABLE firms ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
