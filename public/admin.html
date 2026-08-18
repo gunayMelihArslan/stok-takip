@@ -75,7 +75,6 @@
   </div>
   <div class="content">
 
-    <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow"></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem">
@@ -102,10 +101,14 @@
       </div>
     </div>
 
-    <!-- PRODUCTS -->
     <div class="page" id="page-products">
       <div class="toolbar">
-        <div class="toolbar-left"><input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:260px" oninput="filterProducts()"></div>
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:220px" oninput="filterProducts()">
+          <select id="productCatFilter" style="max-width:180px" onchange="filterProducts()">
+            <option value="">Tüm Kategoriler</option>
+          </select>
+        </div>
         <button class="btn btn-primary" onclick="openProductModal()">+ Yeni Ürün</button>
         <button class="btn btn-ghost" onclick="window.location='/api/export/stock'">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
@@ -113,7 +116,6 @@
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
     </div>
 
-    <!-- COLUMNS -->
     <div class="page" id="page-columns">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="columnSearch" placeholder="🔍 Sütun ara..." style="max-width:260px" oninput="renderColumns()"></div>
@@ -122,7 +124,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
     </div>
 
-    <!-- FIRMS -->
     <div class="page" id="page-firms">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="firmSearch" placeholder="🔍 Firma ara..." style="max-width:260px" oninput="renderFirms()"></div>
@@ -132,7 +133,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinçler</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
     </div>
 
-    <!-- MACHINES -->
     <div class="page" id="page-machines">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="machineSearchTxt" placeholder="🔍 Vinç ara..." style="max-width:200px" oninput="renderMachines()"></div>
@@ -143,7 +143,6 @@
       <div id="machineList" style="display:grid;gap:.75rem"></div>
     </div>
 
-    <!-- TASKS -->
     <div class="page" id="page-tasks">
       <div class="toolbar">
         <input type="text" id="taskSearch" placeholder="🔍 İş ara..." style="max-width:200px" oninput="renderTasks()">
@@ -161,13 +160,11 @@
       <div id="taskBoard"></div>
     </div>
 
-    <!-- PERFORMANCE -->
     <div class="page" id="page-performance">
       <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button></div>
       <div id="perfContent"></div>
     </div>
 
-    <!-- TRANSACTIONS -->
     <div class="page" id="page-transactions">
       <div class="toolbar">
         <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
@@ -178,7 +175,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
 
-    <!-- PURCHASES -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
         <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." style="max-width:200px" oninput="renderPurchases()">
@@ -199,7 +195,6 @@
       </table></div></div>
     </div>
 
-    <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." style="max-width:260px" oninput="renderUsers()"></div>
@@ -209,7 +204,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
-    <!-- BOM SETTINGS -->
     <div class="page" id="page-bom">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM indirme şablonundaki sütunları yönetin</span></div>
@@ -224,7 +218,6 @@
       </div>
     </div>
 
-    <!-- BOM CATEGORIES -->
     <div class="page" id="page-bom_categories">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM Kategorilerini (Malzeme Grupları) yönetin</span></div>
@@ -235,15 +228,12 @@
         <tbody id="bomCatsTbody"></tbody>
       </table></div></div>
       <div style="margin-top:1rem;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;font-family:var(--mono);font-size:.72rem;color:var(--text2)">
-        💡 Bu kategoriler vinçlere ürün eklenirken seçilir ("Kanca Cihazı", "Kedi Cihazı" vb.) ve BOM şablonunda gruplama olarak listelenir.
+        💡 Bu kategoriler vinçlere ürün eklenirken ve ürünler yönetilirken malzeme grupları olarak listelenir.
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modals -->
-
-<!-- 1. YENİ ÜRÜN MODALI -->
 <div class="modal-overlay" id="productModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -258,7 +248,6 @@
   </div>
 </div>
 
-<!-- 2. SÜTUN MODALI -->
 <div class="modal-overlay" id="columnModal">
   <div class="modal">
     <div class="modal-header">
@@ -278,7 +267,6 @@
   </div>
 </div>
 
-<!-- 3. BOM SÜTUN MODALI -->
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
     <div class="modal-header">
@@ -296,7 +284,6 @@
   </div>
 </div>
 
-<!-- 4. BOM KATEGORİ MODALI -->
 <div class="modal-overlay" id="bomCatModal">
   <div class="modal">
     <div class="modal-header">
@@ -314,7 +301,6 @@
   </div>
 </div>
 
-<!-- 5. FİRMA MODALI -->
 <div class="modal-overlay" id="firmModal">
   <div class="modal">
     <div class="modal-header">
@@ -333,7 +319,6 @@
   </div>
 </div>
 
-<!-- 6. VİNÇ MODALI -->
 <div class="modal-overlay" id="machineModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-header">
@@ -360,7 +345,6 @@
   </div>
 </div>
 
-<!-- 7. İŞ (TASK) MODALI -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -386,66 +370,38 @@
   </div>
 </div>
 
-<!-- 8. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="assignModalTitle">Aşama Ata</h3>
-      <button class="modal-close" onclick="closeModal('assignModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="assignStageId">
+    <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="assignStageId">
       <div class="form-group"><label>Personel</label>
         <select id="assignUser"><option value="">— Atamayı Kaldır —</option></select>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button>
-      <button class="btn btn-primary" onclick="doAssign()">Ata</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" onclick="doAssign()">Ata</button></div>
   </div>
 </div>
 
-<!-- 9. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
   <div class="modal" style="max-width:580px">
-    <div class="modal-header">
-      <h3 id="historyModalTitle">Stok Hareketi</h3>
-      <button class="modal-close" onclick="closeModal('historyModal')">×</button>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead>
-          <tbody id="historyTbody"></tbody>
-        </table>
-      </div>
-    </div>
+    <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
+    <div class="modal-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div>
   </div>
 </div>
 
-<!-- 10. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="userModalTitle">Yeni Kullanıcı</h3>
-      <button class="modal-close" onclick="closeModal('userModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editUserId">
+    <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editUserId">
       <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
       <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
       <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
       <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveUser()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 11. LOT MODALI -->
 <div class="modal-overlay" id="lotModal">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
@@ -474,7 +430,6 @@
   </div>
 </div>
 
-<!-- 12. YORUM / NOT MODALI -->
 <div class="modal-overlay" id="commentModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
@@ -521,6 +476,8 @@ function connectSSE(){
   es.addEventListener('bom_category_update',async()=>{
     await loadBomCategories();
     if(currentPage==='bom_categories')renderBomCategories();
+    if(currentPage==='products')renderProducts();
+    if(currentPage==='machines')renderMachines();
   });
   es.addEventListener('firm_update', async () => {
     await loadFirms(); await loadMachines();
@@ -597,14 +554,12 @@ function showPage(name){
   if(name==='transactions'){newTxCount=0;document.getElementById('txBadge').style.display='none';}
   if(name==='tasks')document.getElementById('taskBadge').style.display='none';
 
-  // 1) Hemen cache'deki veriyle render et
   const renderNow={dashboard:renderDashboard,products:renderProducts,columns:renderColumns,firms:renderFirms,machines:renderMachines,bom:renderBomColumns,bom_categories:renderBomCategories,tasks:renderTasks,transactions:renderTransactions,users:renderUsers,purchases:renderPurchases};
   renderNow[name]?.();
 
-  // 2) Arka planda taze veri çek ve tekrar render et
   const fetchMap={
     dashboard:    async()=>{await loadAll();if(currentPage===name)renderDashboard();},
-    products:     async()=>{await loadProducts();if(currentPage===name)renderProducts();},
+    products:     async()=>{await loadProducts();await loadBomCategories();if(currentPage===name)renderProducts();},
     columns:      async()=>{await loadColumns();await loadProducts();if(currentPage===name)renderColumns();},
     firms:        async()=>{await loadFirms();await loadMachines();if(currentPage===name)renderFirms();},
     machines:     async()=>{await loadMachines();if(currentPage===name)renderMachines();},
@@ -657,7 +612,16 @@ function renderLiveBoard(){
 }
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
-function renderProducts(){document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Lot</th><th></th><th>İşlem</th>';renderProductRows(products);}
+function renderProducts(){
+  const catSel = document.getElementById('productCatFilter');
+  if (catSel) {
+    const curCat = catSel.value;
+    catSel.innerHTML = '<option value="">Tüm Kategoriler</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === curCat ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    catSel.value = curCat;
+  }
+  document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Lot</th><th></th><th>İşlem</th>';
+  filterProducts();
+}
 function renderProductRows(prods){
   const numCol=columns.find(c=>c.data_type==='number');
   const firstCol=columns[0];
@@ -682,15 +646,43 @@ function renderProductRows(prods){
   }).join('');
 }
 
-function filterProducts(){const q=document.getElementById('productSearch').value.toLowerCase();renderProductRows(q?products.filter(p=>columns.some(c=>(p.values?.[c.id]||'').toLowerCase().includes(q))):products);}
+function filterProducts(){
+  const q=(document.getElementById('productSearch').value||'').toLowerCase();
+  const catFilter=(document.getElementById('productCatFilter')?.value||'').toLowerCase();
+  const catCol=columns.find(c=>c.name.toLowerCase()==='kategori');
+  
+  let prods = products;
+  if(catFilter && catCol){
+    prods = prods.filter(p => (p.values?.[catCol.id] || '').trim().toLowerCase() === catFilter);
+  }
+  if(q){
+    prods = prods.filter(p => columns.some(c => (p.values?.[c.id] || '').toLowerCase().includes(q)));
+  }
+  renderProductRows(prods);
+}
+
 function openProductModal(){
   const body = document.getElementById('productModalBody');
-  body.innerHTML = columns.map(c => `
-    <div class="form-group">
-      <label>${esc(c.name)} ${c.data_type === 'number' ? '(Sayı)' : ''}</label>
-      <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" placeholder="${esc(c.name)} giriniz...">
-    </div>
-  `).join('');
+  body.innerHTML = columns.map(c => {
+    const isCat = c.name.toLowerCase() === 'kategori';
+    if (isCat && bomCategories.length > 0) {
+      return `
+        <div class="form-group">
+          <label>${esc(c.name)} (BOM Kategorisi)</label>
+          <select class="prod-input" data-cid="${c.id}">
+            <option value="">— Kategori Seçin —</option>
+            ${bomCategories.map(cat => `<option value="${esc(cat.name)}">${esc(cat.name)}</option>`).join('')}
+          </select>
+        </div>
+      `;
+    }
+    return `
+      <div class="form-group">
+        <label>${esc(c.name)} ${c.data_type === 'number' ? '(Sayı)' : ''}</label>
+        <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" placeholder="${esc(c.name)} giriniz...">
+      </div>
+    `;
+  }).join('');
   openModal('productModal');
 }
 async function saveProductModal(){
@@ -708,8 +700,36 @@ async function saveProductModal(){
 }
 async function addProductRow(){openProductModal();}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
-function startEdit(td,pid,cid,dtype){if(editingCell)cancelEdit();const oldVal=td.querySelector('.badge')?td.querySelector('.badge').textContent.trim():td.textContent.trim();editingCell={td,pid,cid,oldVal};td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;td.querySelector('input').focus();td.querySelector('input').select();}
-async function commitEdit(){if(!editingCell)return;const{td,pid,cid,oldVal}=editingCell;const input=td.querySelector('input');const newVal=input?input.value:oldVal;editingCell=null;td.textContent=newVal;if(newVal!==oldVal){await api('/api/products/'+pid,'PUT',{values:{[cid]:newVal}});await loadProducts();renderProducts();}}
+function startEdit(td,pid,cid,dtype){
+  if(editingCell)cancelEdit();
+  const oldVal=td.querySelector('.badge')?td.querySelector('.badge').textContent.trim():td.textContent.trim();
+  editingCell={td,pid,cid,oldVal};
+  const col = columns.find(c => c.id === cid);
+  if(col && col.name.toLowerCase() === 'kategori' && bomCategories.length > 0){
+    td.innerHTML=`<select class="inline-edit" onblur="commitEdit()" onchange="commitEdit()" onkeydown="if(event.key==='Escape')cancelEdit()">
+      <option value="">— Seçin —</option>
+      ${bomCategories.map(cat => `<option value="${esc(cat.name)}" ${cat.name===oldVal?'selected':''}>${esc(cat.name)}</option>`).join('')}
+    </select>`;
+    td.querySelector('select').focus();
+    return;
+  }
+  td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;
+  td.querySelector('input').focus();
+  td.querySelector('input').select();
+}
+async function commitEdit(){
+  if(!editingCell)return;
+  const{td,pid,cid,oldVal}=editingCell;
+  const input=td.querySelector('input, select');
+  const newVal=input?input.value:oldVal;
+  editingCell=null;
+  td.textContent=newVal;
+  if(newVal!==oldVal){
+    await api('/api/products/'+pid,'PUT',{values:{[cid]:newVal}});
+    await loadProducts();
+    renderProducts();
+  }
+}
 function cancelEdit(){if(!editingCell)return;editingCell.td.textContent=editingCell.oldVal;editingCell=null;}
 async function showHistory(pid){const txs=await api('/api/transactions?product_id='+pid+'&limit=100');const prod=products.find(p=>p.id===pid);const firstCol=columns[0];document.getElementById('historyModalTitle').textContent='Stok Hareketi — '+(prod&&firstCol?(prod.values?.[firstCol.id]||`#${pid}`):`#${pid}`);document.getElementById('historyTbody').innerHTML=(txs||[]).length?(txs||[]).map(t=>`<tr><td style="font-family:var(--mono);font-size:.72rem">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type==='return'?'+':'-'}${t.quantity}</td><td><span class="badge ${t.tx_type==='return'?'badge-ok':'badge-low'}">${t.tx_type==='return'?'İade':'Çıkış'}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty">İşlem yok</td></tr>';openModal('historyModal');}
 
@@ -1048,7 +1068,7 @@ document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('clic
 async function refresh(){
   const fns={
     dashboard: async()=>{await loadAll();renderDashboard();},
-    products:  async()=>{await loadProducts();renderProducts();},
+    products:  async()=>{await loadProducts();await loadBomCategories();renderProducts();},
     columns:   async()=>{await loadColumns();await loadProducts();renderColumns();},
     firms:     async()=>{await loadFirms();await loadMachines();renderFirms();},
     machines:  async()=>{await loadMachines();renderMachines();},
@@ -1180,6 +1200,7 @@ async function saveBomCat(){
   closeModal('bomCatModal');
   await loadBomCategories();
   renderBomCategories();
+  if(currentPage==='products')renderProducts();
   toast('Kaydedildi','success');
 }
 async function deleteBomCat(id){
@@ -1187,6 +1208,7 @@ async function deleteBomCat(id){
   await api('/api/bom-categories/' + id, 'DELETE');
   await loadBomCategories();
   renderBomCategories();
+  if(currentPage==='products')renderProducts();
   toast('Silindi','success');
 }
 
