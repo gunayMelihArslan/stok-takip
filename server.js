@@ -7,6 +7,9 @@ const { query, init, pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
+if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
+  console.warn('⚠️  JWT_SECRET ortam değişkeni ayarlanmadı! Üretim ortamında mutlaka ayarlayın.');
+}
 const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
 process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err); });
@@ -160,6 +163,7 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
+// ── SSE ───────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
   const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).end();
@@ -180,15 +184,16 @@ app.get('/api/gold', auth, async (req, res) => res.json(await fetchGold()));
 
 // ── COLUMNS ───────────────────────────────────────────────────────────────
 app.get('/api/columns', auth, async (req, res) => {
-  try { res.json((await query('SELECT * FROM column_defs ORDER BY display_order')).rows); }
+  try { res.json((await query('SELECT * FROM column_defs ORDER BY display_order ASC, id ASC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/columns', auth, admin, async (req, res) => {
   try {
-    const { name, data_type, min_stock } = req.body;
+    const { name, data_type, min_stock, display_order } = req.body;
     if (!name) return res.status(400).json({ error: 'Sütun adı gerekli' });
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM column_defs')).rows[0].m;
-    const r = (await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', mo + 1, min_stock || 5])).rows[0];
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
+    const r = (await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', ord, min_stock || 5])).rows[0];
     broadcast('column_update', {});
     res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -196,7 +201,7 @@ app.post('/api/columns', auth, admin, async (req, res) => {
 app.put('/api/columns/:id', auth, admin, async (req, res) => {
   try {
     const { name, data_type, display_order, min_stock } = req.body;
-    await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, display_order, min_stock || 0, req.params.id]);
+    await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, parseInt(display_order) || 0, min_stock || 0, req.params.id]);
     broadcast('column_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -215,20 +220,23 @@ app.delete('/api/columns/:id', auth, admin, async (req, res) => {
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
 app.get('/api/products', auth, async (req, res) => {
-  try { res.json((await query('SELECT id, "values", created_at, updated_at FROM products ORDER BY created_at DESC')).rows); }
+  try { res.json((await query('SELECT id, "values", display_order, created_at, updated_at FROM products ORDER BY display_order ASC, created_at DESC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/products', auth, admin, async (req, res) => {
   try {
-    const r = await query('INSERT INTO products("values") VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM products')).rows[0].m;
+    const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
+    const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {}), ord]);
     broadcast('stock_update', {}); res.json(r.rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/products/:id', auth, admin, async (req, res) => {
   try {
-    const cur = (await query('SELECT "values" FROM products WHERE id=$1', [req.params.id])).rows[0];
+    const cur = (await query('SELECT "values", display_order FROM products WHERE id=$1', [req.params.id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
-    await query('UPDATE products SET "values"=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
+    const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : cur.display_order;
+    await query('UPDATE products SET "values"=$1, display_order=$2, updated_at=NOW() WHERE id=$3', [JSON.stringify({ ...cur.values, ...(req.body.values || {}) }), ord, req.params.id]);
     broadcast('stock_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -240,13 +248,15 @@ app.delete('/api/products/:id', auth, admin, async (req, res) => {
 
 // ── FIRMS ─────────────────────────────────────────────────────────────────
 app.get('/api/firms', auth, async (req, res) => {
-  try { res.json((await query('SELECT * FROM firms ORDER BY name')).rows); }
+  try { res.json((await query('SELECT * FROM firms ORDER BY display_order ASC, name ASC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/firms', auth, admin, async (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: 'Firma adı gerekli' });
   try { 
-    const r = (await query('INSERT INTO firms(name,notes) VALUES($1,$2) RETURNING *', [req.body.name, req.body.notes || ''])).rows[0];
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM firms')).rows[0].m;
+    const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
+    const r = (await query('INSERT INTO firms(name,notes,display_order) VALUES($1,$2,$3) RETURNING *', [req.body.name, req.body.notes || '', ord])).rows[0];
     broadcast('firm_update', {});
     res.json(r); 
   }
@@ -254,7 +264,8 @@ app.post('/api/firms', auth, admin, async (req, res) => {
 });
 app.put('/api/firms/:id', auth, admin, async (req, res) => {
   try {
-    await query('UPDATE firms SET name=$1,notes=$2 WHERE id=$3', [req.body.name, req.body.notes || '', req.params.id]); 
+    const { name, notes, display_order } = req.body;
+    await query('UPDATE firms SET name=$1, notes=$2, display_order=$3 WHERE id=$4', [name, notes || '', parseInt(display_order) || 0, req.params.id]); 
     broadcast('firm_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -285,17 +296,19 @@ app.get('/api/machines', auth, async (req, res) => {
   try {
     const firm_id = req.query.firm_id;
     const rows = firm_id
-      ? (await query('SELECT * FROM machines WHERE firm_id=$1 ORDER BY created_at DESC', [firm_id])).rows
-      : (await query('SELECT * FROM machines ORDER BY firm_id NULLS LAST, created_at DESC')).rows;
+      ? (await query('SELECT * FROM machines WHERE firm_id=$1 ORDER BY display_order ASC, created_at DESC', [firm_id])).rows
+      : (await query('SELECT * FROM machines ORDER BY display_order ASC, firm_id NULLS LAST, created_at DESC')).rows;
     res.json(await enrichMachines(rows));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/machines', auth, admin, async (req, res) => {
   try {
-    const { machine_name, notes, items, firm_id } = req.body;
+    const { machine_name, notes, items, firm_id, display_order } = req.body;
     if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
-    const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *',
-      [machine_name, firm_id || null, notes || '', JSON.stringify(items || [])])).rows[0];
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM machines')).rows[0].m;
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
+    const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items,display_order) VALUES($1,$2,$3,$4,$5) RETURNING *',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), ord])).rows[0];
     await autoCreateTask(r.id, firm_id || null, machine_name);
     broadcast('task_update', { action: 'auto_created', machine: machine_name });
     broadcast('machine_update', {});
@@ -304,9 +317,9 @@ app.post('/api/machines', auth, admin, async (req, res) => {
 });
 app.put('/api/machines/:id', auth, admin, async (req, res) => {
   try {
-    const { machine_name, notes, items, firm_id } = req.body;
-    await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5',
-      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), req.params.id]);
+    const { machine_name, notes, items, firm_id, display_order } = req.body;
+    await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4,display_order=$5 WHERE id=$6',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), parseInt(display_order) || 0, req.params.id]);
     await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
       [machine_name, firm_id || null, req.params.id]);
     broadcast('machine_update', {});
@@ -614,8 +627,8 @@ app.delete('/api/users/:id', auth, admin, async (req, res) => {
 // ── CSV EXPORTS ───────────────────────────────────────────────────────────
 app.get('/api/export/stock', auth, async (req, res) => {
   try {
-    const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
-    const prods = (await query('SELECT id, "values" FROM products ORDER BY created_at DESC')).rows;
+    const cols = (await query('SELECT * FROM column_defs ORDER BY display_order ASC, id ASC')).rows;
+    const prods = (await query('SELECT id, "values" FROM products ORDER BY display_order ASC, created_at DESC')).rows;
     const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="stok-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -634,7 +647,7 @@ app.get('/api/export/transactions', auth, async (req, res) => {
 });
 app.get('/api/export/firms', auth, async (req, res) => {
   try {
-    const fms = (await query('SELECT * FROM firms ORDER BY name')).rows;
+    const fms = (await query('SELECT * FROM firms ORDER BY display_order ASC, name ASC')).rows;
     const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="firmalar-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -643,7 +656,7 @@ app.get('/api/export/firms', auth, async (req, res) => {
 });
 app.get('/api/export/machines', auth, async (req, res) => {
   try {
-    const mcs = (await query('SELECT m.*, f.name as firm_name FROM machines m LEFT JOIN firms f ON m.firm_id = f.id ORDER BY m.machine_name')).rows;
+    const mcs = (await query('SELECT m.*, f.name as firm_name FROM machines m LEFT JOIN firms f ON m.firm_id = f.id ORDER BY m.display_order ASC, m.machine_name ASC')).rows;
     const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="vincler-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -684,16 +697,17 @@ app.get('/api/export/purchases', auth, async (req, res) => {
 
 // ── BOM KATEGORİLERİ ──────────────────────────────────────────────────────
 app.get('/api/bom-categories', auth, async (req, res) => {
-  try { res.json((await query('SELECT * FROM bom_categories ORDER BY display_order')).rows); }
+  try { res.json((await query('SELECT * FROM bom_categories ORDER BY display_order ASC, id ASC')).rows); }
   catch(e) { res.status(500).json({error: e.message}); }
 });
 app.post('/api/bom-categories', auth, admin, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, display_order } = req.body;
     if (!name || !name.trim()) return res.status(400).json({error: 'Kategori adı zorunlu'});
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM bom_categories')).rows[0].m;
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO bom_categories(name, display_order) VALUES($1,$2) RETURNING *',
-      [name.trim(), mo + 1])).rows[0];
+      [name.trim(), ord])).rows[0];
     broadcast('bom_category_update', {});
     res.json(r);
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -701,7 +715,7 @@ app.post('/api/bom-categories', auth, admin, async (req, res) => {
 app.put('/api/bom-categories/:id', auth, admin, async (req, res) => {
   try {
     const { name, display_order } = req.body;
-    await query('UPDATE bom_categories SET name=$1, display_order=$2 WHERE id=$3', [name, display_order || 0, req.params.id]);
+    await query('UPDATE bom_categories SET name=$1, display_order=$2 WHERE id=$3', [name, parseInt(display_order) || 0, req.params.id]);
     broadcast('bom_category_update', {});
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -716,23 +730,24 @@ app.delete('/api/bom-categories/:id', auth, admin, async (req, res) => {
 
 // ── BOM SÜTUNLARI ─────────────────────────────────────────────────────────
 app.get('/api/bom-columns', auth, async (req, res) => {
-  try { res.json((await query('SELECT * FROM bom_columns ORDER BY display_order')).rows); }
+  try { res.json((await query('SELECT * FROM bom_columns ORDER BY display_order ASC, id ASC')).rows); }
   catch(e) { res.status(500).json({error: e.message}); }
 });
 app.post('/api/bom-columns', auth, admin, async (req, res) => {
   try {
-    const { name, mapped_field } = req.body;
+    const { name, mapped_field, display_order } = req.body;
     if (!name || !name.trim()) return res.status(400).json({error: 'Sütun adı zorunlu'});
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM bom_columns')).rows[0].m;
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES($1,$2,false,$3) RETURNING *',
-      [name.trim(), mo + 1, mapped_field || null])).rows[0];
+      [name.trim(), ord, mapped_field || null])).rows[0];
     res.json(r);
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 app.put('/api/bom-columns/:id', auth, admin, async (req, res) => {
   try {
     const { name, display_order, mapped_field } = req.body;
-    await query('UPDATE bom_columns SET name=$1, display_order=$2, mapped_field=$3 WHERE id=$4', [name, display_order || 0, mapped_field || null, req.params.id]);
+    await query('UPDATE bom_columns SET name=$1, display_order=$2, mapped_field=$3 WHERE id=$4', [name, parseInt(display_order) || 0, mapped_field || null, req.params.id]);
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -749,8 +764,8 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
     if (!machine) return res.status(404).send('Vinç bulunamadı');
     const firm = machine.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [machine.firm_id])).rows[0] : null;
-    const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
-    const bomCols = (await query('SELECT * FROM bom_columns ORDER BY display_order')).rows;
+    const cols = (await query('SELECT * FROM column_defs ORDER BY display_order ASC, id ASC')).rows;
+    const bomCols = (await query('SELECT * FROM bom_columns ORDER BY display_order ASC, id ASC')).rows;
     const prods = (await query('SELECT id, "values" FROM products')).rows;
     const firstCol = cols[0];
     const numCol = cols.find(c => c.data_type === 'number');
@@ -806,7 +821,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         const cn = c.name.toLowerCase();
         const mf = c.mapped_field || '';
         
-        // 1. Dinamik Özel Eşleştirme Kontrolü
         if (mf) {
           if (mf.startsWith('col_')) {
             const colId = mf.replace('col_', '');
@@ -820,14 +834,12 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           if (mf === 'name') return '<td>' + esc(it.name) + '</td>';
         }
 
-        // 2. Varsayılan Akıllı Eşleştirme
         if (cn.includes('sıra')) return '<td class="no-col">' + it.no + '</td><td>' + esc(it.category || '') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td>' + esc(it.name) + '</td>';
         if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col">' + it.qty + '</td>';
         if (cn.includes('birim')) return '<td>' + esc(it.unit) + '</td>';
         if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
         
-        // İsme göre ürün sütunundan otomatik ara (örn: "Marka" adlı sütun varsa)
         const matchedCol = cols.find(col => col.name.toLowerCase() === cn);
         if (matchedCol && it.prodValues[matchedCol.id]) {
           return '<td>' + esc(it.prodValues[matchedCol.id]) + '</td>';
