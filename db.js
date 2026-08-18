@@ -8,7 +8,6 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000
 });
 
-// Neon.tech boşta bağlantıyı kestiğinde Node.js'in çökmesini engeller
 pool.on('error', (err) => {
   console.warn('⚠️ Veritabanı havuzu bağlantı yenilemesi:', err.message);
 });
@@ -18,7 +17,7 @@ async function query(sql, params = []) {
 }
 
 async function init() {
-  // ── Migrate: drop old task tables if they have wrong schema ──────────────
+  // ── 1. Eski Tabloları ve Şema Uyuşmazlıklarını Temizle / Düzelt ──────────
   await query(`
     DO $$
     BEGIN
@@ -38,6 +37,7 @@ async function init() {
     END $$;
   `);
 
+  // ── 2. Tabloları Oluştur ────────────────────────────────────────────────
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -59,14 +59,12 @@ async function init() {
       firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY, user_id INT NOT NULL, product_id INT NOT NULL,
       company TEXT NOT NULL, quantity NUMERIC NOT NULL, notes TEXT DEFAULT '',
       tx_type TEXT NOT NULL DEFAULT 'out', created_at TIMESTAMPTZ DEFAULT NOW(),
       machine_id INT REFERENCES machines(id) ON DELETE SET NULL
     );
-    ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -102,6 +100,17 @@ async function init() {
       resolved_at TIMESTAMPTZ
     );
   `);
+
+  // ── 3. EKSİK SÜTUNLARI OTOMATİK EKLE (Hatanın Çözüldüğü Kısım) ─────────────
+  await query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS min_stock INT DEFAULT 5;
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
+    ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
+    ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
+  `);
+
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
 
   await query(`CREATE TABLE IF NOT EXISTS notifications (
@@ -148,8 +157,7 @@ async function init() {
     display_order INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
-  await query("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL");
-  
+
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
     await query("INSERT INTO bom_columns(name, display_order, is_default) VALUES('Sıra No', 1, true),('Malzeme Adı', 2, true),('Miktar', 3, true),('Birim', 4, true),('Açıklama', 5, true)");
