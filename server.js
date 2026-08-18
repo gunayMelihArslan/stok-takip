@@ -61,6 +61,7 @@ function admin(req, res, next) {
   next();
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
 async function getNumCol() {
   try {
     return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null;
@@ -180,7 +181,6 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   res.write('event: connected\ndata: {}\n\n');
   sseClients.add(res);
@@ -758,7 +758,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
 // BOM yazdırılabilir şablon
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
-    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.machine_id])).rows[0];
+    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
     if (!machine) return res.status(404).send('Vinç bulunamadı');
     const firm = machine.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [machine.firm_id])).rows[0] : null;
     const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
