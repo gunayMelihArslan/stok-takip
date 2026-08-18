@@ -52,6 +52,7 @@
     <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
     <div class="nav-section-label">İş Takibi</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
+    <div class="nav-section-label">Performans</div>
     <div class="nav-item" onclick="showPage('performance')"><span class="nav-icon">🏆</span>Performans</div>
     <div class="nav-section-label">İşlemler</div>
     <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
@@ -76,7 +77,6 @@
   </div>
   <div class="content">
 
-    <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow"></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem">
@@ -103,7 +103,6 @@
       </div>
     </div>
 
-    <!-- PRODUCTS -->
     <div class="page" id="page-products">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -119,7 +118,6 @@
       <div class="card"><div class="table-wrap"><table><thead id="productThead"><tr></tr></thead><tbody id="productTbody"></tbody></table></div></div>
     </div>
 
-    <!-- COLUMNS -->
     <div class="page" id="page-columns">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="columnSearch" placeholder="🔍 Sütun ara..." style="max-width:260px" oninput="renderColumns()"></div>
@@ -128,7 +126,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
     </div>
 
-    <!-- FIRMS -->
     <div class="page" id="page-firms">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="firmSearch" placeholder="🔍 Firma ara..." style="max-width:260px" oninput="renderFirms()"></div>
@@ -138,7 +135,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Firma Adı</th><th>Not</th><th>Vinçler</th><th>İşlem</th></tr></thead><tbody id="firmsTbody"></tbody></table></div></div>
     </div>
 
-    <!-- MACHINES -->
     <div class="page" id="page-machines">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="machineSearchTxt" placeholder="🔍 Vinç ara..." style="max-width:200px" oninput="renderMachines()"></div>
@@ -149,7 +145,6 @@
       <div id="machineList" style="display:grid;gap:.75rem"></div>
     </div>
 
-    <!-- TASKS -->
     <div class="page" id="page-tasks">
       <div class="toolbar">
         <input type="text" id="taskSearch" placeholder="🔍 İş ara..." style="max-width:200px" oninput="renderTasks()">
@@ -167,13 +162,11 @@
       <div id="taskBoard"></div>
     </div>
 
-    <!-- PERFORMANCE -->
     <div class="page" id="page-performance">
       <div class="toolbar"><button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button></div>
       <div id="perfContent"></div>
     </div>
 
-    <!-- TRANSACTIONS -->
     <div class="page" id="page-transactions">
       <div class="toolbar">
         <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
@@ -184,7 +177,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
 
-    <!-- PURCHASES -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
         <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." style="max-width:200px" oninput="renderPurchases()">
@@ -205,7 +197,6 @@
       </table></div></div>
     </div>
 
-    <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar">
         <div class="toolbar-left"><input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." style="max-width:260px" oninput="renderUsers()"></div>
@@ -215,7 +206,6 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
-    <!-- BOM SETTINGS -->
     <div class="page" id="page-bom">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM indirme şablonundaki sütunları yönetin</span></div>
@@ -227,7 +217,6 @@
       </table></div></div>
     </div>
 
-    <!-- BOM CATEGORIES -->
     <div class="page" id="page-bom_categories">
       <div class="toolbar">
         <div class="toolbar-left"><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">BOM Kategorilerini yönetin</span></div>
@@ -241,9 +230,6 @@
   </div>
 </div>
 
-<!-- Modals -->
-
-<!-- 1. YENİ ÜRÜN MODALI -->
 <div class="modal-overlay" id="productModal">
   <div class="modal" style="max-width:540px">
     <div class="modal-header">
@@ -258,7 +244,6 @@
   </div>
 </div>
 
-<!-- 2. SÜTUN MODALI -->
 <div class="modal-overlay" id="columnModal">
   <div class="modal">
     <div class="modal-header">
@@ -278,7 +263,6 @@
   </div>
 </div>
 
-<!-- 3. BOM SÜTUN MODALI -->
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
     <div class="modal-header">
@@ -296,7 +280,6 @@
   </div>
 </div>
 
-<!-- 4. BOM KATEGORİ MODALI -->
 <div class="modal-overlay" id="bomCatModal">
   <div class="modal">
     <div class="modal-header">
@@ -314,7 +297,6 @@
   </div>
 </div>
 
-<!-- 5. FİRMA MODALI -->
 <div class="modal-overlay" id="firmModal">
   <div class="modal">
     <div class="modal-header">
@@ -333,7 +315,6 @@
   </div>
 </div>
 
-<!-- 6. VİNÇ MODALI -->
 <div class="modal-overlay" id="machineModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-header">
@@ -357,7 +338,6 @@
   </div>
 </div>
 
-<!-- 7. İŞ MODALI -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -383,7 +363,6 @@
   </div>
 </div>
 
-<!-- 8. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
   <div class="modal">
     <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
@@ -396,7 +375,6 @@
   </div>
 </div>
 
-<!-- 9. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
@@ -404,7 +382,6 @@
   </div>
 </div>
 
-<!-- 10. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
@@ -418,7 +395,6 @@
   </div>
 </div>
 
-<!-- 11. LOT MODALI -->
 <div class="modal-overlay" id="lotModal">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -449,7 +425,6 @@
   </div>
 </div>
 
-<!-- 12. YORUM MODALI -->
 <div class="modal-overlay" id="commentModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
@@ -598,8 +573,13 @@ async function api(url, method = 'GET', body = null) {
     try {
       data = JSON.parse(text);
     } catch (err) {
-      console.error('API Non-JSON:', url, text);
-      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
+      console.warn('API Response:', res.status, text.slice(0, 100));
+      if (res.status === 401) {
+        localStorage.removeItem('stok_token');
+        window.location.href = '/';
+        return null;
+      }
+      toast('Sunucu yanıt vermedi (' + res.status + ')', 'error');
       return null;
     }
     if (!res.ok) {
@@ -609,7 +589,7 @@ async function api(url, method = 'GET', body = null) {
     return data;
   } catch (e) {
     console.error('API Error:', e);
-    toast('Bağlantı hatası: ' + (e && e.message || ''), 'error');
+    toast('Bağlantı sorunu, tekrar deneniyor...', 'error');
     return null;
   }
 }
@@ -780,7 +760,7 @@ function openProductModal() {
         <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase">⚡ Model Yılı (Lot) Dağılımı (Opsiyonel)</div>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addModalLotRow()" style="font-size:.68rem">+ Model Yılı Ekle</button>
       </div>
-      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına (örn: 2022, 2024, 2025) göre miktar girebilirsiniz. Girilen adetler toplam stoğu belirler.</div>
+      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına (örn: 2022, 2024, 2025) göre adet girebilirsiniz. Girilen adetlerin toplamı ana stok miktarı olacaktır.</div>
       <div id="modalLotList">
         <div class="lot-row-item">
           <input type="number" class="modal-lot-year" placeholder="Yıl (2024)" min="1980" max="2099">
@@ -886,7 +866,7 @@ async function deleteProduct(id) {
   await api('/api/products/' + id, 'DELETE');
   await loadProducts();
   renderProducts();
-  toast('Silindi', 'success');
+  toast('Silindi ✓', 'success');
 }
 
 function startEdit(td, pid, cid, dtype) {
@@ -1746,7 +1726,7 @@ function renderNotifPanel() {
       '<span style="font-size:1rem;flex-shrink:0">' + (ic[n.type] || 'ℹ️') + '</span>' +
       '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read ? 400 : 700) + '">' + esc(n.title) + '</div>' +
       (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
-      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">'+ fmtDate(n.created_at) + '</div></div>' +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
       (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
       '</div>';
   }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
