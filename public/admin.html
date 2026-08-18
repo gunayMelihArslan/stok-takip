@@ -103,10 +103,10 @@
 
     <div class="page" id="page-products">
       <div class="toolbar">
-        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap">
-          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:220px" oninput="filterProducts()">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:200px" oninput="filterProducts()">
           <select id="productCatFilter" style="max-width:180px" onchange="filterProducts()">
-            <option value="">Tüm Kategoriler</option>
+            <option value="">📁 Tüm Kategoriler</option>
           </select>
         </div>
         <button class="btn btn-primary" onclick="openProductModal()">+ Yeni Ürün</button>
@@ -235,7 +235,7 @@
 </div>
 
 <div class="modal-overlay" id="productModal">
-  <div class="modal" style="max-width:500px">
+  <div class="modal" style="max-width:520px">
     <div class="modal-header">
       <h3 id="productModalTitle">Yeni Ürün Ekle</h3>
       <button class="modal-close" onclick="closeModal('productModal')">×</button>
@@ -403,11 +403,11 @@
 </div>
 
 <div class="modal-overlay" id="lotModal">
-  <div class="modal" style="max-width:460px">
+  <div class="modal" style="max-width:480px">
     <div class="modal-header">
       <div>
-        <h3 id="lotTitle">Model Yılı</h3>
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
+        <h3 id="lotTitle">Model Yılı Yönetimi</h3>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam Stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
       </div>
       <button class="modal-close" onclick="closeModal('lotModal')">×</button>
     </div>
@@ -415,16 +415,18 @@
       <input type="hidden" id="lotPid">
       <div id="lotRows" style="margin-bottom:1rem"></div>
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">Yıl Ekle / Güncelle</div>
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
-          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2020" min="1980" max="2099"></div>
-          <div class="form-group" style="margin:0"><label>Adet</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
+          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2024" min="1980" max="2099"></div>
+          <div class="form-group" style="margin:0"><label>Adet (Miktar)</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
         </div>
-        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder=""></div>
+        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder="Örn: Yeni sevkiyat"></div>
         <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
         <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
       </div>
-      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">⚡ En eski yıl önce kullanılır (FIFO). Lot toplamı = ürünün stok miktarı.</div>
+      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">
+        ⚡ <strong>FIFO Prensibi:</strong> Çıkış işlemlerinde en eski model yılına ait stoklar otomatik olarak önce düşülür. Lot toplamı ürünün güncel stok miktarını belirler.
+      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
   </div>
@@ -611,108 +613,181 @@ function renderLiveBoard(){
     </div>`).join('');
 }
 
-// ── PRODUCTS ─────────────────────────────────────────────────────────────
+// ── PRODUCTS & BOM CATEGORY HELPER ─────────────────────────────────────────
+function getProductCategory(p) {
+  const catCol = columns.find(c => c.name.toLowerCase() === 'kategori');
+  if (catCol && p.values && p.values[catCol.id]) return p.values[catCol.id];
+  return p.values?.category || p.values?._category || 'Genel';
+}
+
 function renderProducts(){
   const catSel = document.getElementById('productCatFilter');
   if (catSel) {
     const curCat = catSel.value;
-    catSel.innerHTML = '<option value="">Tüm Kategoriler</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === curCat ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    catSel.innerHTML = '<option value="">📁 Tüm Kategoriler</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === curCat ? 'selected' : ''}>📁 ${esc(c.name)}</option>`).join('');
     catSel.value = curCat;
   }
-  document.getElementById('productThead').querySelector('tr').innerHTML=columns.map(c=>`<th>${esc(c.name)}</th>`).join('')+'<th>Lot</th><th></th><th>İşlem</th>';
+  const otherCols = columns.filter(c => c.name.toLowerCase() !== 'kategori');
+  document.getElementById('productThead').querySelector('tr').innerHTML =
+    '<th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Model Yılı (Lot)</th><th></th><th>İşlem</th>';
   filterProducts();
 }
+
 function renderProductRows(prods){
-  const numCol=columns.find(c=>c.data_type==='number');
-  const firstCol=columns[0];
-  const tbody=document.getElementById('productTbody');
-  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${columns.length+3}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
-  tbody.innerHTML=prods.map(p=>{
-    const cells=columns.map(c=>{
-      const val=p.values?.[c.id]||'';
-      const isLow=c.data_type==='number'&&parseFloat(val)<(c.min_stock||5);
-      return`<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow?`<span class="badge badge-low">${esc(val)}</span>`:esc(val)}</td>`;
+  const otherCols = columns.filter(c => c.name.toLowerCase() !== 'kategori');
+  const numCol = columns.find(c => c.data_type === 'number');
+  const firstCol = columns[0];
+  const tbody = document.getElementById('productTbody');
+  if(!prods.length){tbody.innerHTML=`<tr><td colspan="${otherCols.length+4}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;return;}
+  tbody.innerHTML = prods.map(p => {
+    const catName = getProductCategory(p);
+    const catCell = `<td><span class="badge badge-admin" style="cursor:pointer" onclick="editProductCategory(${p.id}, '${esc(catName)}')" title="Kategoriyi değiştir">📁 ${esc(catName)}</span></td>`;
+    const cells = otherCols.map(c => {
+      const val = p.values?.[c.id] || '';
+      const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
+      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow ? `<span class="badge badge-low">${esc(val)}</span>` : esc(val)}</td>`;
     }).join('');
-    const nm=firstCol?(p.values?.[firstCol.id]||'#'+p.id):'#'+p.id;
-    const lc=p._lc||0;
-    return`<tr data-pid="${p.id}">${cells}
-      <td><button class="btn btn-ghost btn-sm" onclick="lotOpen(${p.id},'${esc(nm)}')"
-        ${lc>0?'style="color:var(--accent);font-weight:700"':''} title="Model yılı bazlı stok">
-        ${lc>0?'⚡ '+lc+' yıl':'🗂️'}
-      </button></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})">📋</button></td>
+    const nm = firstCol ? (p.values?.[firstCol.id] || '#' + p.id) : '#' + p.id;
+    const lc = p._lc || 0;
+    return `<tr data-pid="${p.id}">
+      ${catCell}
+      ${cells}
+      <td>
+        <button class="btn ${lc > 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="lotOpen(${p.id},'${esc(nm)}')" style="font-family:var(--mono);font-size:.72rem">
+          ${lc > 0 ? `⚡ ${lc} Yıl (Lot Detayı)` : '🗂️ Yıl Ekle'}
+        </button>
+      </td>
+      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})" title="Stok Geçmişi">📋</button></td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
     </tr>`;
   }).join('');
 }
 
 function filterProducts(){
-  const q=(document.getElementById('productSearch').value||'').toLowerCase();
-  const catFilter=(document.getElementById('productCatFilter')?.value||'').toLowerCase();
-  const catCol=columns.find(c=>c.name.toLowerCase()==='kategori');
+  const q = (document.getElementById('productSearch').value || '').toLowerCase();
+  const catFilter = (document.getElementById('productCatFilter')?.value || '').toLowerCase();
   
   let prods = products;
-  if(catFilter && catCol){
-    prods = prods.filter(p => (p.values?.[catCol.id] || '').trim().toLowerCase() === catFilter);
+  if(catFilter){
+    prods = prods.filter(p => getProductCategory(p).toLowerCase() === catFilter);
   }
   if(q){
-    prods = prods.filter(p => columns.some(c => (p.values?.[c.id] || '').toLowerCase().includes(q)));
+    prods = prods.filter(p => {
+      const cName = getProductCategory(p).toLowerCase();
+      return cName.includes(q) || columns.some(c => (p.values?.[c.id] || '').toLowerCase().includes(q));
+    });
   }
   renderProductRows(prods);
 }
 
 function openProductModal(){
   const body = document.getElementById('productModalBody');
-  body.innerHTML = columns.map(c => {
-    const isCat = c.name.toLowerCase() === 'kategori';
-    if (isCat && bomCategories.length > 0) {
-      return `
-        <div class="form-group">
-          <label>${esc(c.name)} (BOM Kategorisi)</label>
-          <select class="prod-input" data-cid="${c.id}">
-            <option value="">— Kategori Seçin —</option>
-            ${bomCategories.map(cat => `<option value="${esc(cat.name)}">${esc(cat.name)}</option>`).join('')}
-          </select>
-        </div>
-      `;
-    }
-    return `
+  let html = `
+    <div class="form-group">
+      <label>📁 BOM Kategorisi</label>
+      <select id="prodModalCat" style="width:100%">
+        <option value="">— Kategori Seçin —</option>
+        ${bomCategories.map(cat => `<option value="${esc(cat.name)}">${esc(cat.name)}</option>`).join('')}
+      </select>
+      <small style="color:var(--muted);font-size:.68rem">Vinç malzeme grupları ve BOM listesinde otomatik gruplama sağlar.</small>
+    </div>
+  `;
+
+  columns.forEach(c => {
+    if (c.name.toLowerCase() === 'kategori') return;
+    html += `
       <div class="form-group">
         <label>${esc(c.name)} ${c.data_type === 'number' ? '(Sayı)' : ''}</label>
         <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" placeholder="${esc(c.name)} giriniz...">
       </div>
     `;
-  }).join('');
+  });
+
+  html += `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;margin-top:.75rem">
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.5rem">⚡ Model Yılı (Lot) & Stok Girişi</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group" style="margin:0">
+          <label style="font-size:.72rem">Model / Üretim Yılı</label>
+          <input type="number" id="prodModalYear" placeholder="Örn: 2024" min="1980" max="2099">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:.72rem">Adet (Miktar)</label>
+          <input type="number" id="prodModalQty" placeholder="0" min="0" step="any">
+        </div>
+      </div>
+      <div class="form-group" style="margin:.5rem 0 0">
+        <label style="font-size:.72rem">Lot Notu (opsiyonel)</label>
+        <input type="text" id="prodModalLotNote" placeholder="Örn: İlk parti sevkiyat">
+      </div>
+    </div>
+  `;
+
+  body.innerHTML = html;
   openModal('productModal');
 }
+
 async function saveProductModal(){
   const inputs = document.querySelectorAll('#productModalBody .prod-input');
+  const catVal = document.getElementById('prodModalCat')?.value || 'Genel';
+  const yearVal = parseInt(document.getElementById('prodModalYear')?.value);
+  const qtyVal = parseFloat(document.getElementById('prodModalQty')?.value);
+  const lotNote = document.getElementById('prodModalLotNote')?.value || '';
+
   const values = {};
   inputs.forEach(inp => {
     values[inp.getAttribute('data-cid')] = inp.value.trim();
   });
+
+  const catCol = columns.find(c => c.name.toLowerCase() === 'kategori');
+  if (catCol) values[catCol.id] = catVal;
+  values.category = catVal;
+  values._category = catVal;
+
+  const numCol = columns.find(c => c.data_type === 'number');
+  if (numCol && !isNaN(qtyVal) && qtyVal >= 0 && !values[numCol.id]) {
+    values[numCol.id] = String(qtyVal);
+  }
+
   const r = await api('/api/products', 'POST', { values });
   if(!r) return;
+
+  if (!isNaN(yearVal) && yearVal >= 1980 && !isNaN(qtyVal) && qtyVal >= 0) {
+    const tok = localStorage.getItem('stok_token');
+    await fetch('/api/products/' + r.id + '/lots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ production_year: yearVal, quantity: qtyVal, notes: lotNote })
+    });
+  }
+
   closeModal('productModal');
   await loadProducts();
   renderProducts();
-  toast('Ürün başarıyla eklendi ✓', 'success');
+  toast('Ürün ve model yılı başarıyla kaydedildi ✓', 'success');
 }
+
+async function editProductCategory(pid, curCat){
+  const catOpts = bomCategories.map(c => c.name);
+  const newCat = prompt('Yeni BOM Kategorisini seçin veya yazın:\n' + catOpts.join(', '), curCat);
+  if(newCat === null) return;
+  const catCol = columns.find(c => c.name.toLowerCase() === 'kategori');
+  const p = products.find(x => x.id === pid);
+  if(!p) return;
+  const vals = Object.assign({}, p.values, { category: newCat.trim(), _category: newCat.trim() });
+  if(catCol) vals[catCol.id] = newCat.trim();
+  await api('/api/products/' + pid, 'PUT', { values: vals });
+  await loadProducts();
+  renderProducts();
+  toast('Kategori güncellendi ✓', 'success');
+}
+
 async function addProductRow(){openProductModal();}
 async function deleteProduct(id){if(!confirm('Silmek istediğinizden emin misiniz?'))return;await api('/api/products/'+id,'DELETE');await loadProducts();renderProducts();toast('Silindi','success');}
 function startEdit(td,pid,cid,dtype){
   if(editingCell)cancelEdit();
   const oldVal=td.querySelector('.badge')?td.querySelector('.badge').textContent.trim():td.textContent.trim();
   editingCell={td,pid,cid,oldVal};
-  const col = columns.find(c => c.id === cid);
-  if(col && col.name.toLowerCase() === 'kategori' && bomCategories.length > 0){
-    td.innerHTML=`<select class="inline-edit" onblur="commitEdit()" onchange="commitEdit()" onkeydown="if(event.key==='Escape')cancelEdit()">
-      <option value="">— Seçin —</option>
-      ${bomCategories.map(cat => `<option value="${esc(cat.name)}" ${cat.name===oldVal?'selected':''}>${esc(cat.name)}</option>`).join('')}
-    </select>`;
-    td.querySelector('select').focus();
-    return;
-  }
   td.innerHTML=`<input class="inline-edit" type="${dtype==='number'?'number':'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;
   td.querySelector('input').focus();
   td.querySelector('input').select();
@@ -720,7 +795,7 @@ function startEdit(td,pid,cid,dtype){
 async function commitEdit(){
   if(!editingCell)return;
   const{td,pid,cid,oldVal}=editingCell;
-  const input=td.querySelector('input, select');
+  const input=td.querySelector('input');
   const newVal=input?input.value:oldVal;
   editingCell=null;
   td.textContent=newVal;
@@ -831,10 +906,7 @@ window.acInput = function(input, showAll = false) {
 
   var filtered = products;
   if(catVal) {
-    var catCol = columns.find(c=>c.name.toLowerCase()==='kategori');
-    if(catCol) {
-      filtered = products.filter(p => String(p.values?.[catCol.id]||'').trim().toLowerCase() === catVal.trim().toLowerCase());
-    }
+    filtered = products.filter(p => getProductCategory(p).trim().toLowerCase() === catVal.trim().toLowerCase());
   }
 
   if(q && !showAll) {
