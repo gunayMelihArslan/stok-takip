@@ -12,6 +12,14 @@ if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
 }
 const DEFAULT_STAGES = ['Pano', 'Yerleştirme', 'Kedi Tesisat'];
 
+// Beklenmeyen hatalarda sunucunun çökmesini engelle
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
 app.set('trust proxy', 1);
 app.use((req,res,next)=>{
   res.header('Access-Control-Allow-Origin','*');
@@ -21,7 +29,6 @@ app.use((req,res,next)=>{
   next();
 });
 
-// Security headers for production deployment
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -34,6 +41,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 // ── SSE ───────────────────────────────────────────────────────────────────
 const sseClients = new Set();
@@ -56,10 +64,14 @@ function admin(req, res, next) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 async function getNumCol() {
-  return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null;
+  try {
+    return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null;
+  } catch(e) { return null; }
 }
 async function getFirstCol() {
-  return (await query("SELECT * FROM column_defs ORDER BY display_order LIMIT 1")).rows[0] || null;
+  try {
+    return (await query("SELECT * FROM column_defs ORDER BY display_order LIMIT 1")).rows[0] || null;
+  } catch(e) { return null; }
 }
 async function deductStock(product_id, qty, numCol) {
   if (!numCol) return;
@@ -86,7 +98,6 @@ async function enrichTx(rows) {
   }));
 }
 
-// Enriches a task with its stages, firm, machine, user names
 async function enrichTask(t) {
   const firm = t.firm_id ? (await query('SELECT id,name FROM firms WHERE id=$1', [t.firm_id])).rows[0] : null;
   const machine = t.machine_id ? (await query('SELECT id,machine_name FROM machines WHERE id=$1', [t.machine_id])).rows[0] : null;
@@ -97,7 +108,6 @@ async function enrichTask(t) {
     const pending_transfer = (await query("SELECT tt.*,u.display_name as from_name FROM task_transfers tt JOIN users u ON u.id=tt.from_user_id WHERE tt.stage_id=$1 AND tt.status='pending' LIMIT 1", [s.id])).rows[0] || null;
     return { ...s, assignee_name: assignee?.display_name || assignee?.username || null, pending_transfer };
   }));
-  // Derive overall status from stages
   const allDone = stages.every(s => s.status === 'completed');
   const anyActive = stages.some(s => s.status === 'in_progress' || s.status === 'pending_transfer');
   const derivedStatus = allDone ? 'completed' : anyActive ? 'in_progress' : 'open';
@@ -107,7 +117,6 @@ async function enrichTask(t) {
   return { ...t, status: derivedStatus, firm_name: firm?.name || null, machine_name: machine?.machine_name || null, creator_name: creator?.display_name || creator?.username || null, stages };
 }
 
-// Auto-create task + 3 stages for a machine
 async function autoCreateTask(machine_id, firm_id, machine_name) {
   const existing = (await query('SELECT id FROM tasks WHERE machine_id=$1 AND is_auto=TRUE', [machine_id])).rows[0];
   if (existing) return existing;
@@ -119,7 +128,6 @@ async function autoCreateTask(machine_id, firm_id, machine_name) {
   return t;
 }
 
-// Gold cache
 let goldCache = null, goldLastFetch = 0;
 async function fetchGold() {
   if (Date.now() - goldLastFetch < 5 * 60 * 1000 && goldCache) return goldCache;
@@ -139,7 +147,6 @@ async function fetchGold() {
 }
 setInterval(async () => { broadcast('gold_update', await fetchGold()); }, 5 * 60 * 1000);
 
-// ── AUTH ──────────────────────────────────────────────────────────────────
 const loginAttempts = new Map();
 function loginRateLimit(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress;
@@ -151,23 +158,23 @@ function loginRateLimit(req, res, next) {
   loginAttempts.set(ip, recent);
   next();
 }
-// Clean up every 30 minutes
 setInterval(() => { loginAttempts.forEach((v, k) => { if (!v.length || Date.now() - v[v.length-1] > 15*60*1000) loginAttempts.delete(k); }); }, 30*60*1000);
 
 app.post('/api/login', loginRateLimit, async (req, res) => {
-  const { username, password } = req.body;
-  const user = (await query('SELECT * FROM users WHERE username=$1', [username])).rows[0];
-  if (!user || !bcrypt.compareSync(password, user.password_hash))
-    return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
-  res.json({ role: user.role, display_name: user.display_name, token });
+  try {
+    const { username, password } = req.body;
+    const user = (await query('SELECT * FROM users WHERE username=$1', [username])).rows[0];
+    if (!user || !bcrypt.compareSync(password, user.password_hash))
+      return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
+    res.json({ role: user.role, display_name: user.display_name, token });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
 // ── SSE ───────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
-  // SSE: EventSource tarayıcısı header gönderemez, token query param'dan alınır
   const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).end();
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).end(); }
@@ -186,49 +193,70 @@ app.get('/api/events', (req, res) => {
 app.get('/api/gold', auth, async (req, res) => res.json(await fetchGold()));
 
 // ── COLUMNS ───────────────────────────────────────────────────────────────
-app.get('/api/columns', auth, async (req, res) => res.json((await query('SELECT * FROM column_defs ORDER BY display_order')).rows));
+app.get('/api/columns', auth, async (req, res) => {
+  try { res.json((await query('SELECT * FROM column_defs ORDER BY display_order')).rows); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/columns', auth, admin, async (req, res) => {
-  const { name, data_type, min_stock } = req.body;
-  if (!name) return res.status(400).json({ error: 'Sütun adı gerekli' });
-  const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM column_defs')).rows[0].m;
-  const r = (await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', mo + 1, min_stock || 5])).rows[0];
-  broadcast('column_update', {});
-  res.json(r);
+  try {
+    const { name, data_type, min_stock } = req.body;
+    if (!name) return res.status(400).json({ error: 'Sütun adı gerekli' });
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM column_defs')).rows[0].m;
+    const r = (await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', mo + 1, min_stock || 5])).rows[0];
+    broadcast('column_update', {});
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/columns/:id', auth, admin, async (req, res) => {
-  const { name, data_type, display_order, min_stock } = req.body;
-  await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, display_order, min_stock || 0, req.params.id]);
-  broadcast('column_update', {});
-  res.json({ ok: true });
+  try {
+    const { name, data_type, display_order, min_stock } = req.body;
+    await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, display_order, min_stock || 0, req.params.id]);
+    broadcast('column_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/columns/:id', auth, admin, async (req, res) => {
-  const cid = req.params.id;
-  for (const p of (await query('SELECT id,values FROM products')).rows) {
-    if (p.values?.[cid] !== undefined) { delete p.values[cid]; await query('UPDATE products SET values=$1 WHERE id=$2', [JSON.stringify(p.values), p.id]); }
-  }
-  await query('DELETE FROM column_defs WHERE id=$1', [cid]);
-  broadcast('column_update', {});
-  res.json({ ok: true });
+  try {
+    const cid = req.params.id;
+    for (const p of (await query('SELECT id,values FROM products')).rows) {
+      if (p.values?.[cid] !== undefined) { delete p.values[cid]; await query('UPDATE products SET values=$1 WHERE id=$2', [JSON.stringify(p.values), p.id]); }
+    }
+    await query('DELETE FROM column_defs WHERE id=$1', [cid]);
+    broadcast('column_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── PRODUCTS ─────────────────────────────────────────────────────────────
-app.get('/api/products', auth, async (req, res) => res.json((await query('SELECT * FROM products ORDER BY created_at DESC')).rows));
+app.get('/api/products', auth, async (req, res) => {
+  try { res.json((await query('SELECT * FROM products ORDER BY created_at DESC')).rows); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/products', auth, admin, async (req, res) => {
-  const r = await query('INSERT INTO products(values) VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
-  broadcast('stock_update', {}); res.json(r.rows[0]);
+  try {
+    const r = await query('INSERT INTO products(values) VALUES($1) RETURNING *', [JSON.stringify(req.body.values || {})]);
+    broadcast('stock_update', {}); res.json(r.rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/products/:id', auth, admin, async (req, res) => {
-  const cur = (await query('SELECT values FROM products WHERE id=$1', [req.params.id])).rows[0];
-  if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
-  await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
-  broadcast('stock_update', {}); res.json({ ok: true });
+  try {
+    const cur = (await query('SELECT values FROM products WHERE id=$1', [req.params.id])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
+    await query('UPDATE products SET values=$1,updated_at=NOW() WHERE id=$2', [JSON.stringify({ ...cur.values, ...req.body.values }), req.params.id]);
+    broadcast('stock_update', {}); res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/products/:id', auth, admin, async (req, res) => {
-  await query('DELETE FROM products WHERE id=$1', [req.params.id]); broadcast('stock_update', {}); res.json({ ok: true });
+  try {
+    await query('DELETE FROM products WHERE id=$1', [req.params.id]); broadcast('stock_update', {}); res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── FIRMS ─────────────────────────────────────────────────────────────────
-app.get('/api/firms', auth, async (req, res) => res.json((await query('SELECT * FROM firms ORDER BY name')).rows));
+app.get('/api/firms', auth, async (req, res) => {
+  try { res.json((await query('SELECT * FROM firms ORDER BY name')).rows); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/firms', auth, admin, async (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: 'Firma adı gerekli' });
   try { 
@@ -239,14 +267,18 @@ app.post('/api/firms', auth, admin, async (req, res) => {
   catch { res.status(409).json({ error: 'Bu firma zaten mevcut' }); }
 });
 app.put('/api/firms/:id', auth, admin, async (req, res) => {
-  await query('UPDATE firms SET name=$1,notes=$2 WHERE id=$3', [req.body.name, req.body.notes || '', req.params.id]); 
-  broadcast('firm_update', {});
-  res.json({ ok: true });
+  try {
+    await query('UPDATE firms SET name=$1,notes=$2 WHERE id=$3', [req.body.name, req.body.notes || '', req.params.id]); 
+    broadcast('firm_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/firms/:id', auth, admin, async (req, res) => {
-  await query('DELETE FROM firms WHERE id=$1', [req.params.id]); 
-  broadcast('firm_update', {});
-  res.json({ ok: true });
+  try {
+    await query('DELETE FROM firms WHERE id=$1', [req.params.id]); 
+    broadcast('firm_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── MACHINES ─────────────────────────────────────────────────────────────
@@ -264,68 +296,78 @@ async function enrichMachines(rows) {
   }));
 }
 app.get('/api/machines', auth, async (req, res) => {
-  const firm_id = req.query.firm_id;
-  const rows = firm_id
-    ? (await query('SELECT * FROM machines WHERE firm_id=$1 ORDER BY created_at DESC', [firm_id])).rows
-    : (await query('SELECT * FROM machines ORDER BY firm_id NULLS LAST, created_at DESC')).rows;
-  res.json(await enrichMachines(rows));
+  try {
+    const firm_id = req.query.firm_id;
+    const rows = firm_id
+      ? (await query('SELECT * FROM machines WHERE firm_id=$1 ORDER BY created_at DESC', [firm_id])).rows
+      : (await query('SELECT * FROM machines ORDER BY firm_id NULLS LAST, created_at DESC')).rows;
+    res.json(await enrichMachines(rows));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/machines', auth, admin, async (req, res) => {
-  const { machine_name, notes, items, firm_id } = req.body;
-  if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
-  const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *',
-    [machine_name, firm_id || null, notes || '', JSON.stringify(items || [])])).rows[0];
-  // Auto-create task with 3 stages
-  await autoCreateTask(r.id, firm_id || null, machine_name);
-  broadcast('task_update', { action: 'auto_created', machine: machine_name });
-  broadcast('machine_update', {});
-  res.json(r);
+  try {
+    const { machine_name, notes, items, firm_id } = req.body;
+    if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
+    const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items) VALUES($1,$2,$3,$4) RETURNING *',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || [])])).rows[0];
+    await autoCreateTask(r.id, firm_id || null, machine_name);
+    broadcast('task_update', { action: 'auto_created', machine: machine_name });
+    broadcast('machine_update', {});
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/machines/:id', auth, admin, async (req, res) => {
-  const { machine_name, notes, items, firm_id } = req.body;
-  await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5',
-    [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), req.params.id]);
-  // Update task title + firm if auto task exists
-  await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
-    [machine_name, firm_id || null, req.params.id]);
-  broadcast('machine_update', {});
-  broadcast('task_update', {});
-  res.json({ ok: true });
+  try {
+    const { machine_name, notes, items, firm_id } = req.body;
+    await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4 WHERE id=$5',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), req.params.id]);
+    await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
+      [machine_name, firm_id || null, req.params.id]);
+    broadcast('machine_update', {});
+    broadcast('task_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/machines/:id', auth, admin, async (req, res) => {
-  await query('DELETE FROM machines WHERE id=$1', [req.params.id]); 
-  broadcast('machine_update', {});
-  res.json({ ok: true });
+  try {
+    await query('DELETE FROM machines WHERE id=$1', [req.params.id]); 
+    broadcast('machine_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── TRANSACTIONS ─────────────────────────────────────────────────────────
 app.get('/api/transactions', auth, async (req, res) => {
-  const limit = parseInt(req.query.limit) || 300;
-  const pid = req.query.product_id;
-  const sql = pid ? 'SELECT * FROM transactions WHERE product_id=$1 ORDER BY created_at DESC LIMIT $2' : 'SELECT * FROM transactions ORDER BY created_at DESC LIMIT $1';
-  res.json(await enrichTx((await query(sql, pid ? [pid, limit] : [limit])).rows));
+  try {
+    const limit = parseInt(req.query.limit) || 300;
+    const pid = req.query.product_id;
+    const sql = pid ? 'SELECT * FROM transactions WHERE product_id=$1 ORDER BY created_at DESC LIMIT $2' : 'SELECT * FROM transactions ORDER BY created_at DESC LIMIT $1';
+    res.json(await enrichTx((await query(sql, pid ? [pid, limit] : [limit])).rows));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/transactions', auth, async (req, res) => {
-  const { product_id, company, quantity, notes, tx_type } = req.body;
-  if (!product_id || !company || !quantity) return res.status(400).json({ error: 'Ürün, firma ve miktar zorunlu' });
-  const type = tx_type || 'out';
-  const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
-    [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
-  const numCol = await getNumCol();
-  let hasLots = false;
   try {
-    const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [product_id])).rows[0];
-    hasLots = parseInt(lc.c) > 0;
-  } catch(e) { hasLots = false; }
-  if (type === 'out') {
-    if (hasLots) await deductFromLots(product_id, Number(quantity));
-    else await deductStock(product_id, Number(quantity), numCol);
-  } else if (type === 'return') {
-    if (hasLots) await restoreToLots(product_id, Number(quantity));
-    else await restoreStock(product_id, Number(quantity), numCol);
-  }
-  broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
-  res.json({ id: r.rows[0].id });
+    const { product_id, company, quantity, notes, tx_type } = req.body;
+    if (!product_id || !company || !quantity) return res.status(400).json({ error: 'Ürün, firma ve miktar zorunlu' });
+    const type = tx_type || 'out';
+    const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+      [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
+    const numCol = await getNumCol();
+    let hasLots = false;
+    try {
+      const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [product_id])).rows[0];
+      hasLots = parseInt(lc.c) > 0;
+    } catch(e) { hasLots = false; }
+    if (type === 'out') {
+      if (hasLots) await deductFromLots(product_id, Number(quantity));
+      else await deductStock(product_id, Number(quantity), numCol);
+    } else if (type === 'return') {
+      if (hasLots) await restoreToLots(product_id, Number(quantity));
+      else await restoreStock(product_id, Number(quantity), numCol);
+    }
+    broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
+    res.json({ id: r.rows[0].id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/machines/:id/taken', auth, async (req, res) => {
   try {
@@ -333,13 +375,11 @@ app.get('/api/machines/:id/taken', auth, async (req, res) => {
       "SELECT product_id, COALESCE(bom_category,'') as bom_category, SUM(CASE WHEN tx_type='out' THEN quantity WHEN tx_type='return' THEN -quantity ELSE 0 END) as taken FROM transactions WHERE machine_id=$1 GROUP BY product_id, COALESCE(bom_category,'')",
       [req.params.id]
     )).rows;
-    // Geriye uyumlu: hem eski format (product_id -> taken) hem yeni format (product_id::category -> taken)
     const m = {};
     rows.forEach(r => {
       const cat = r.bom_category || '';
       const key = cat ? r.product_id + '::' + cat : String(r.product_id);
       m[key] = (m[key] || 0) + parseFloat(r.taken || 0);
-      // Eski format desteği: toplam product_id bazlı da ekle
       m[r.product_id] = (m[r.product_id] || 0) + parseFloat(r.taken || 0);
     });
     res.json(m);
@@ -347,190 +387,205 @@ app.get('/api/machines/:id/taken', auth, async (req, res) => {
 });
 
 app.post('/api/transactions/bulk', auth, async (req, res) => {
-  const { machine_id, company, notes, items_to_take } = req.body;
-  if (!machine_id || !company) return res.status(400).json({ error: 'Vinç ve firma zorunlu' });
-  const machine = (await query('SELECT * FROM machines WHERE id=$1', [machine_id])).rows[0];
-  if (!machine) return res.status(404).json({ error: 'Vinç bulunamadı' });
-  
-  const items = items_to_take && items_to_take.length > 0 ? items_to_take : (machine.items || []);
-  
-  const numCol = await getNumCol(); const ids = [];
-  for (const item of items) {
-    const qty = Number(item.quantity);
-    if (!qty || qty <= 0) continue;
+  try {
+    const { machine_id, company, notes, items_to_take } = req.body;
+    if (!machine_id || !company) return res.status(400).json({ error: 'Vinç ve firma zorunlu' });
+    const machine = (await query('SELECT * FROM machines WHERE id=$1', [machine_id])).rows[0];
+    if (!machine) return res.status(404).json({ error: 'Vinç bulunamadı' });
     
-    let hasLots = false;
-    try {
-      const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [item.product_id])).rows[0];
-      hasLots = parseInt(lc.c) > 0;
-    } catch(e) { hasLots = false; }
-    
-    const bomCat = item.bom_category || null;
-    const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type,machine_id,bom_category) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-      [req.user.id, Number(item.product_id), company, qty, `${machine.machine_name}${notes ? ' — ' + notes : ''}`, 'out', Number(machine_id), bomCat]);
-    
-    if (hasLots) await deductFromLots(item.product_id, qty);
-    else await deductStock(item.product_id, qty, numCol);
-    
-    ids.push(r.rows[0].id);
-  }
-  broadcast('tx_new', {}); broadcast('stock_update', {});
-  res.json({ ids, count: ids.length });
+    const items = items_to_take && items_to_take.length > 0 ? items_to_take : (machine.items || []);
+    const numCol = await getNumCol(); const ids = [];
+    for (const item of items) {
+      const qty = Number(item.quantity);
+      if (!qty || qty <= 0) continue;
+      
+      let hasLots = false;
+      try {
+        const lc = (await query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [item.product_id])).rows[0];
+        hasLots = parseInt(lc.c) > 0;
+      } catch(e) { hasLots = false; }
+      
+      const bomCat = item.bom_category || null;
+      const r = await query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type,machine_id,bom_category) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+        [req.user.id, Number(item.product_id), company, qty, `${machine.machine_name}${notes ? ' — ' + notes : ''}`, 'out', Number(machine_id), bomCat]);
+      
+      if (hasLots) await deductFromLots(item.product_id, qty);
+      else await deductStock(item.product_id, qty, numCol);
+      
+      ids.push(r.rows[0].id);
+    }
+    broadcast('tx_new', {}); broadcast('stock_update', {});
+    res.json({ ids, count: ids.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/transactions/:id', auth, admin, async (req, res) => {
-  const tx = (await query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
-  if (!tx) return res.status(404).json({ error: 'Bulunamadı' });
-  const numCol = await getNumCol();
-  if (tx.tx_type !== 'return') await restoreStock(tx.product_id, parseFloat(tx.quantity), numCol);
-  else await deductStock(tx.product_id, parseFloat(tx.quantity), numCol);
-  await query('DELETE FROM transactions WHERE id=$1', [req.params.id]);
-  broadcast('stock_update', {}); res.json({ ok: true });
+  try {
+    const tx = (await query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
+    if (!tx) return res.status(404).json({ error: 'Bulunamadı' });
+    const numCol = await getNumCol();
+    if (tx.tx_type !== 'return') await restoreStock(tx.product_id, parseFloat(tx.quantity), numCol);
+    else await deductStock(tx.product_id, parseFloat(tx.quantity), numCol);
+    await query('DELETE FROM transactions WHERE id=$1', [req.params.id]);
+    broadcast('stock_update', {}); res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── TASKS ─────────────────────────────────────────────────────────────────
 app.get('/api/tasks', auth, async (req, res) => {
-  const { firm_id, status } = req.query;
-  let sql = 'SELECT * FROM tasks WHERE 1=1';
-  const params = [];
-  if (firm_id) { params.push(firm_id); sql += ` AND firm_id=$${params.length}`; }
-  if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
-  sql += ' ORDER BY created_at DESC';
-  const rows = (await query(sql, params)).rows;
-  res.json(await Promise.all(rows.map(enrichTask)));
+  try {
+    const { firm_id, status } = req.query;
+    let sql = 'SELECT * FROM tasks WHERE 1=1';
+    const params = [];
+    if (firm_id) { params.push(firm_id); sql += ` AND firm_id=$${params.length}`; }
+    if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
+    sql += ' ORDER BY created_at DESC';
+    const rows = (await query(sql, params)).rows;
+    res.json(await Promise.all(rows.map(enrichTask)));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Manual task creation
 app.post('/api/tasks', auth, async (req, res) => {
-  const { title, firm_id, machine_id, priority, notes, stage_names } = req.body;
-  if (!title) return res.status(400).json({ error: 'Başlık gerekli' });
-  const t = (await query('INSERT INTO tasks(title,firm_id,machine_id,created_by,is_auto,priority,notes) VALUES($1,$2,$3,$4,FALSE,$5,$6) RETURNING *',
-    [title, firm_id || null, machine_id || null, req.user.id, priority || 'normal', notes || ''])).rows[0];
-  const stages = stage_names?.length ? stage_names : DEFAULT_STAGES;
-  for (let i = 0; i < stages.length; i++) {
-    await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, stages[i]]);
-  }
-  broadcast('task_update', { action: 'created' });
-  res.json(await enrichTask(t));
+  try {
+    const { title, firm_id, machine_id, priority, notes, stage_names } = req.body;
+    if (!title) return res.status(400).json({ error: 'Başlık gerekli' });
+    const t = (await query('INSERT INTO tasks(title,firm_id,machine_id,created_by,is_auto,priority,notes) VALUES($1,$2,$3,$4,FALSE,$5,$6) RETURNING *',
+      [title, firm_id || null, machine_id || null, req.user.id, priority || 'normal', notes || ''])).rows[0];
+    const stages = stage_names?.length ? stage_names : DEFAULT_STAGES;
+    for (let i = 0; i < stages.length; i++) {
+      await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, stages[i]]);
+    }
+    broadcast('task_update', { action: 'created' });
+    res.json(await enrichTask(t));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/tasks/:id', auth, admin, async (req, res) => {
-  const { title, firm_id, machine_id, priority, notes } = req.body;
-  await query('UPDATE tasks SET title=$1,firm_id=$2,machine_id=$3,priority=$4,notes=$5,updated_at=NOW() WHERE id=$6',
-    [title, firm_id || null, machine_id || null, priority || 'normal', notes || '', req.params.id]);
-  broadcast('task_update', {}); res.json({ ok: true });
+  try {
+    const { title, firm_id, machine_id, priority, notes } = req.body;
+    await query('UPDATE tasks SET title=$1,firm_id=$2,machine_id=$3,priority=$4,notes=$5,updated_at=NOW() WHERE id=$6',
+      [title, firm_id || null, machine_id || null, priority || 'normal', notes || '', req.params.id]);
+    broadcast('task_update', {}); res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/tasks/:id', auth, admin, async (req, res) => {
-  await query('DELETE FROM task_stages WHERE task_id=$1', [req.params.id]);
-  await query('DELETE FROM tasks WHERE id=$1', [req.params.id]);
-  broadcast('task_update', {}); res.json({ ok: true });
+  try {
+    await query('DELETE FROM task_stages WHERE task_id=$1', [req.params.id]);
+    await query('DELETE FROM tasks WHERE id=$1', [req.params.id]);
+    broadcast('task_update', {}); res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin assigns a stage
 app.post('/api/task-stages/:id/assign', auth, admin, async (req, res) => {
-  const { user_id } = req.body;
-  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
-  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
-  if (user_id) {
-    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [user_id, req.params.id]);
-    try{const _s=(await query("SELECT ts.stage_name,t.title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1",[req.params.id])).rows[0];if(_s)await createNotif(user_id,'⚡ Aşama Atandı: '+_s.stage_name,_s.title,'task');}catch(e){}
-  } else {
-    await query("UPDATE task_stages SET assigned_to=NULL,status='open',started_at=NULL WHERE id=$1", [req.params.id]);
-  }
-  const t = (await query('SELECT * FROM tasks WHERE id=$1', [stage.task_id])).rows[0];
-  broadcast('task_update', { action: 'assigned' });
-  res.json(await enrichTask(t));
+  try {
+    const { user_id } = req.body;
+    const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+    if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+    if (user_id) {
+      await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [user_id, req.params.id]);
+      try{const _s=(await query("SELECT ts.stage_name,t.title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1",[req.params.id])).rows[0];if(_s)await createNotif(user_id,'⚡ Aşama Atandı: '+_s.stage_name,_s.title,'task');}catch(e){}
+    } else {
+      await query("UPDATE task_stages SET assigned_to=NULL,status='open',started_at=NULL WHERE id=$1", [req.params.id]);
+    }
+    const t = (await query('SELECT * FROM tasks WHERE id=$1', [stage.task_id])).rows[0];
+    broadcast('task_update', { action: 'assigned' });
+    res.json(await enrichTask(t));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Personnel self-assigns (take)
 app.post('/api/task-stages/:id/take', auth, async (req, res) => {
-  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
-  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
-  if (stage.status !== 'open') return res.status(400).json({ error: 'Bu aşama zaten alınmış' });
-  await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=NOW() WHERE id=$2", [req.user.id, req.params.id]);
-  broadcast('task_update', { action: 'taken', user: req.user.display_name });
-  res.json({ ok: true });
+  try {
+    const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+    if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+    if (stage.status !== 'open') return res.status(400).json({ error: 'Bu aşama zaten alınmış' });
+    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=NOW() WHERE id=$2", [req.user.id, req.params.id]);
+    broadcast('task_update', { action: 'taken', user: req.user.display_name });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Complete a stage
 app.post('/api/task-stages/:id/complete', auth, async (req, res) => {
-  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
-  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
-  if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
-    return res.status(403).json({ error: 'Bu aşama size ait değil' });
-  await query("UPDATE task_stages SET status='completed',completed_at=NOW() WHERE id=$1", [req.params.id]);
-  broadcast('task_update', { action: 'stage_completed', user: req.user.display_name });
-  res.json({ ok: true });
+  try {
+    const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+    if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+    if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Bu aşama size ait değil' });
+    await query("UPDATE task_stages SET status='completed',completed_at=NOW() WHERE id=$1", [req.params.id]);
+    broadcast('task_update', { action: 'stage_completed', user: req.user.display_name });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Request transfer (peer-to-peer)
 app.post('/api/task-stages/:id/transfer', auth, async (req, res) => {
-  const { to_user_id, message } = req.body;
-  if (!to_user_id) return res.status(400).json({ error: 'Hedef personel gerekli' });
-  const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
-  if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
-  if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
-    return res.status(403).json({ error: 'Bu aşama size ait değil' });
-  // Cancel any existing pending transfer for this stage
-  await query("UPDATE task_transfers SET status='rejected',resolved_at=NOW() WHERE stage_id=$1 AND status='pending'", [req.params.id]);
-  if (req.user.role === 'admin') {
-    // Admin: direct transfer, no approval
-    await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message,status,resolved_at) VALUES($1,$2,$3,$4,\'accepted\',NOW())',
-      [req.params.id, req.user.id, to_user_id, message || 'Yönetici tarafından devredildi']);
-    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [to_user_id, req.params.id]);
-  } else {
-    // Personnel: needs approval
-    await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message) VALUES($1,$2,$3,$4)',
-      [req.params.id, req.user.id, to_user_id, message || '']);
-    await query("UPDATE task_stages SET status='pending_transfer' WHERE id=$1", [req.params.id]);
-  }
-  broadcast('task_update', { action: 'transfer_requested', user: req.user.display_name });
-  res.json({ ok: true });
+  try {
+    const { to_user_id, message } = req.body;
+    if (!to_user_id) return res.status(400).json({ error: 'Hedef personel gerekli' });
+    const stage = (await query('SELECT * FROM task_stages WHERE id=$1', [req.params.id])).rows[0];
+    if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
+    if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Bu aşama size ait değil' });
+    await query("UPDATE task_transfers SET status='rejected',resolved_at=NOW() WHERE stage_id=$1 AND status='pending'", [req.params.id]);
+    if (req.user.role === 'admin') {
+      await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message,status,resolved_at) VALUES($1,$2,$3,$4,\'accepted\',NOW())',
+        [req.params.id, req.user.id, to_user_id, message || 'Yönetici tarafından devredildi']);
+      await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [to_user_id, req.params.id]);
+    } else {
+      await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message) VALUES($1,$2,$3,$4)',
+        [req.params.id, req.user.id, to_user_id, message || '']);
+      await query("UPDATE task_stages SET status='pending_transfer' WHERE id=$1", [req.params.id]);
+    }
+    broadcast('task_update', { action: 'transfer_requested', user: req.user.display_name });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Respond to transfer request
 app.post('/api/task-transfers/:id/respond', auth, async (req, res) => {
-  const { accept } = req.body;
-  const tr = (await query('SELECT * FROM task_transfers WHERE id=$1', [req.params.id])).rows[0];
-  if (!tr) return res.status(404).json({ error: 'Devir bulunamadı' });
-  if (tr.to_user_id !== req.user.id) return res.status(403).json({ error: 'Bu devir size ait değil' });
-  await query("UPDATE task_transfers SET status=$1,resolved_at=NOW() WHERE id=$2", [accept ? 'accepted' : 'rejected', req.params.id]);
-  if (accept) {
-    await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [req.user.id, tr.stage_id]);
-  } else {
-    await query("UPDATE task_stages SET status='in_progress' WHERE id=$1", [tr.stage_id]);
-  }
-  broadcast('task_update', { action: accept ? 'transfer_accepted' : 'transfer_rejected', user: req.user.display_name });
-  res.json({ ok: true });
+  try {
+    const { accept } = req.body;
+    const tr = (await query('SELECT * FROM task_transfers WHERE id=$1', [req.params.id])).rows[0];
+    if (!tr) return res.status(404).json({ error: 'Devir bulunamadı' });
+    if (tr.to_user_id !== req.user.id) return res.status(403).json({ error: 'Bu devir size ait değil' });
+    await query("UPDATE task_transfers SET status=$1,resolved_at=NOW() WHERE id=$2", [accept ? 'accepted' : 'rejected', req.params.id]);
+    if (accept) {
+      await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [req.user.id, tr.stage_id]);
+    } else {
+      await query("UPDATE task_stages SET status='in_progress' WHERE id=$1", [tr.stage_id]);
+    }
+    broadcast('task_update', { action: accept ? 'transfer_accepted' : 'transfer_rejected', user: req.user.display_name });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Get pending transfer requests for current user
 app.get('/api/task-transfers/pending', auth, async (req, res) => {
-  const rows = (await query(`
-    SELECT tt.*, ts.stage_name, t.title as task_title, u.display_name as from_name
-    FROM task_transfers tt
-    JOIN task_stages ts ON ts.id = tt.stage_id
-    JOIN tasks t ON t.id = ts.task_id
-    JOIN users u ON u.id = tt.from_user_id
-    WHERE tt.to_user_id=$1 AND tt.status='pending'
-    ORDER BY tt.created_at DESC`, [req.user.id])).rows;
-  res.json(rows);
+  try {
+    const rows = (await query(`
+      SELECT tt.*, ts.stage_name, t.title as task_title, u.display_name as from_name
+      FROM task_transfers tt
+      JOIN task_stages ts ON ts.id = tt.stage_id
+      JOIN tasks t ON t.id = ts.task_id
+      JOIN users u ON u.id = tt.from_user_id
+      WHERE tt.to_user_id=$1 AND tt.status='pending'
+      ORDER BY tt.created_at DESC`, [req.user.id])).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── PERFORMANCE ───────────────────────────────────────────────────────────
 app.get('/api/performance', auth, async (req, res) => {
-  const users = (await query("SELECT id,username,display_name FROM users WHERE role='personnel' ORDER BY display_name")).rows;
-  const results = await Promise.all(users.map(async u => {
-    const completed = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status='completed'", [u.id])).rows[0].c);
-    const inProgress = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status IN ('in_progress','pending_transfer')", [u.id])).rows[0].c);
-    const txCount = parseInt((await query("SELECT COUNT(*) as c FROM transactions WHERE user_id=$1", [u.id])).rows[0].c);
-    const avgRow = (await query("SELECT AVG(EXTRACT(EPOCH FROM (completed_at-started_at))/3600) as avg FROM task_stages WHERE assigned_to=$1 AND status='completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL", [u.id])).rows[0];
-    const avgHours = avgRow.avg ? parseFloat(avgRow.avg).toFixed(1) : null;
-    const score = completed * 10 + txCount * 2 + (avgHours && avgHours < 4 ? 5 : 0);
-    return { ...u, completed_stages: completed, in_progress: inProgress, tx_count: txCount, avg_hours: avgHours, score };
-  }));
-  results.sort((a, b) => b.score - a.score);
-  res.json(results);
+  try {
+    const users = (await query("SELECT id,username,display_name FROM users WHERE role='personnel' ORDER BY display_name")).rows;
+    const results = await Promise.all(users.map(async u => {
+      const completed = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status='completed'", [u.id])).rows[0].c);
+      const inProgress = parseInt((await query("SELECT COUNT(*) as c FROM task_stages WHERE assigned_to=$1 AND status IN ('in_progress','pending_transfer')", [u.id])).rows[0].c);
+      const txCount = parseInt((await query("SELECT COUNT(*) as c FROM transactions WHERE user_id=$1", [u.id])).rows[0].c);
+      const avgRow = (await query("SELECT AVG(EXTRACT(EPOCH FROM (completed_at-started_at))/3600) as avg FROM task_stages WHERE assigned_to=$1 AND status='completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL", [u.id])).rows[0];
+      const avgHours = avgRow.avg ? parseFloat(avgRow.avg).toFixed(1) : null;
+      const score = completed * 10 + txCount * 2 + (avgHours && avgHours < 4 ? 5 : 0);
+      return { ...u, completed_stages: completed, in_progress: inProgress, tx_count: txCount, avg_hours: avgHours, score };
+    }));
+    results.sort((a, b) => b.score - a.score);
+    res.json(results);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/active-sessions', auth, admin, (req, res) => {
@@ -538,7 +593,10 @@ app.get('/api/active-sessions', auth, admin, (req, res) => {
 });
 
 // ── USERS ─────────────────────────────────────────────────────────────────
-app.get('/api/users', auth, async (req, res) => res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at')).rows));
+app.get('/api/users', auth, async (req, res) => {
+  try { res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at')).rows); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/users', auth, admin, async (req, res) => {
   const { username, password, role, display_name } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
@@ -550,74 +608,92 @@ app.post('/api/users', auth, admin, async (req, res) => {
   catch { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
 });
 app.put('/api/users/:id', auth, admin, async (req, res) => {
-  const { display_name, role, password } = req.body;
-  if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password, 10), req.params.id]);
-  else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [display_name, role, req.params.id]);
-  broadcast('user_update', {});
-  res.json({ ok: true });
+  try {
+    const { display_name, role, password } = req.body;
+    if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password, 10), req.params.id]);
+    else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [display_name, role, req.params.id]);
+    broadcast('user_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/users/:id', auth, admin, async (req, res) => {
-  if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
-  await query('DELETE FROM users WHERE id=$1', [req.params.id]); 
-  broadcast('user_update', {});
-  res.json({ ok: true });
+  try {
+    if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
+    await query('DELETE FROM users WHERE id=$1', [req.params.id]); 
+    broadcast('user_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── CSV ───────────────────────────────────────────────────────────────────
+// ── CSV EXPORTS ───────────────────────────────────────────────────────────
 app.get('/api/export/stock', auth, async (req, res) => {
-  const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
-  const prods = (await query('SELECT * FROM products ORDER BY created_at DESC')).rows;
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="stok-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [cols.map(c => c.name).join(','), ...prods.map(p => cols.map(c => e(p.values?.[c.id] || '')).join(','))].join('\n'));
+  try {
+    const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
+    const prods = (await query('SELECT * FROM products ORDER BY created_at DESC')).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="stok-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [cols.map(c => c.name).join(','), ...prods.map(p => cols.map(c => e(p.values?.[c.id] || '')).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/transactions', auth, async (req, res) => {
-  const txs = await enrichTx((await query('SELECT * FROM transactions ORDER BY created_at DESC')).rows);
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="islemler-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Tarih', 'Personel', 'Ürün', 'Firma', 'Miktar', 'Tür', 'Not'].join(','),
-    ...txs.map(t => [t.created_at?.toISOString().slice(0, 19), t.user_name, t.product_name, t.company, t.quantity, t.tx_type === 'return' ? 'İade' : 'Çıkış', t.notes || ''].map(e).join(','))].join('\n'));
+  try {
+    const txs = await enrichTx((await query('SELECT * FROM transactions ORDER BY created_at DESC')).rows);
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="islemler-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Tarih', 'Personel', 'Ürün', 'Firma', 'Miktar', 'Tür', 'Not'].join(','),
+      ...txs.map(t => [t.created_at?.toISOString().slice(0, 19), t.user_name, t.product_name, t.company, t.quantity, t.tx_type === 'return' ? 'İade' : 'Çıkış', t.notes || ''].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/firms', auth, async (req, res) => {
-  const fms = (await query('SELECT * FROM firms ORDER BY name')).rows;
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="firmalar-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Firma Adı', 'Notlar'].join(','), ...fms.map(f => [f.name, f.notes].map(e).join(','))].join('\n'));
+  try {
+    const fms = (await query('SELECT * FROM firms ORDER BY name')).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="firmalar-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Firma Adı', 'Notlar'].join(','), ...fms.map(f => [f.name, f.notes].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/machines', auth, async (req, res) => {
-  const mcs = (await query('SELECT m.*, f.name as firm_name FROM machines m LEFT JOIN firms f ON m.firm_id = f.id ORDER BY m.machine_name')).rows;
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="vincler-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Vinç Adı', 'Firma', 'Notlar'].join(','), ...mcs.map(m => [m.machine_name, m.firm_name, m.notes].map(e).join(','))].join('\n'));
+  try {
+    const mcs = (await query('SELECT m.*, f.name as firm_name FROM machines m LEFT JOIN firms f ON m.firm_id = f.id ORDER BY m.machine_name')).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="vincler-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Vinç Adı', 'Firma', 'Notlar'].join(','), ...mcs.map(m => [m.machine_name, m.firm_name, m.notes].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/users', auth, admin, async (req, res) => {
-  const usrs = (await query('SELECT * FROM users ORDER BY created_at')).rows;
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="kullanicilar-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Ad', 'Kullanıcı Adı', 'Rol', 'Oluşturulma'].join(','), ...usrs.map(u => [u.display_name||u.username, u.username, u.role, u.created_at?.toISOString().slice(0, 19)].map(e).join(','))].join('\n'));
+  try {
+    const usrs = (await query('SELECT * FROM users ORDER BY created_at')).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="kullanicilar-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Ad', 'Kullanıcı Adı', 'Rol', 'Oluşturulma'].join(','), ...usrs.map(u => [u.display_name||u.username, u.username, u.role, u.created_at?.toISOString().slice(0, 19)].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 async function getTasksEnriched() {
   const rows = (await query('SELECT * FROM tasks ORDER BY created_at DESC')).rows;
   return Promise.all(rows.map(enrichTask));
 }
 app.get('/api/export/tasks', auth, async (req, res) => {
-  const tsks = await getTasksEnriched();
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="isler-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Başlık', 'Firma', 'Durum', 'Aşama Sayısı'].join(','), ...tsks.map(t => [t.title, t.firm_name||'-', t.status, t.stages?.length||0].map(e).join(','))].join('\n'));
+  try {
+    const tsks = await getTasksEnriched();
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="isler-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Başlık', 'Firma', 'Durum', 'Aşama Sayısı'].join(','), ...tsks.map(t => [t.title, t.firm_name||'-', t.status, t.stages?.length||0].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/purchases', auth, async (req, res) => {
-  const prs = (await query('SELECT p.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests p LEFT JOIN users u ON p.requested_by = u.id LEFT JOIN tasks t ON p.task_id = t.id ORDER BY p.created_at DESC')).rows;
-  const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="satinalmalar-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.send('\uFEFF' + [['Tarih', 'Personel', 'Ürün', 'Miktar', 'Neden', 'İş', 'Durum', 'Not'].join(','), ...prs.map(p => [p.created_at?.toISOString().slice(0, 19), p.requester_name, p.product_name, p.quantity + ' ' + (p.unit||''), p.reason, p.task_title, p.status, p.admin_note].map(e).join(','))].join('\n'));
+  try {
+    const prs = (await query('SELECT p.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests p LEFT JOIN users u ON p.requested_by = u.id LEFT JOIN tasks t ON p.task_id = t.id ORDER BY p.created_at DESC')).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="satinalmalar-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Tarih', 'Personel', 'Ürün', 'Miktar', 'Neden', 'İş', 'Durum', 'Not'].join(','), ...prs.map(p => [p.created_at?.toISOString().slice(0, 19), p.requester_name, p.product_name, p.quantity + ' ' + (p.unit||''), p.reason, p.task_title, p.status, p.admin_note].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
 });
 
 // ── BOM KATEGORİLERİ ──────────────────────────────────────────────────────
@@ -652,7 +728,7 @@ app.delete('/api/bom-categories/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// ── BOM YÖNETİMİ ─────────────────────────────────────────────────────────
+// ── BOM SÜTUNLARI ─────────────────────────────────────────────────────────
 app.get('/api/bom-columns', auth, async (req, res) => {
   try { res.json((await query('SELECT * FROM bom_columns ORDER BY display_order')).rows); }
   catch(e) { res.status(500).json({error: e.message}); }
@@ -684,7 +760,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
 // BOM yazdırılabilir şablon
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
-    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.machine_id])).rows[0];
+    const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
     if (!machine) return res.status(404).send('Vinç bulunamadı');
     const firm = machine.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [machine.firm_id])).rows[0] : null;
     const cols = (await query('SELECT * FROM column_defs ORDER BY display_order')).rows;
@@ -695,7 +771,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const unitCol = cols.find(c => c.name.toLowerCase().includes('birim'));
     const extraColCount = parseInt(req.query.extra_cols) || 0;
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
-    // Kategoriye göre grupla
+    
     const categoryMap = {};
     (machine.items || []).forEach(it => {
       const cat = it.category_name || 'Genel';
@@ -705,7 +781,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     let globalNo = 0;
     const items = [];
     Object.entries(categoryMap).forEach(([catName, catItems]) => {
-      // Kategori başlık satırı
       items.push({ isCategory: true, categoryName: catName });
       catItems.forEach(it => {
         globalNo++;
@@ -725,14 +800,11 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const firmName = firm?.name || '';
     const title = firmName ? firmName + ' — ' + machine.machine_name : machine.machine_name;
     const dateStr = new Date().toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'});
-    // Sıra No'dan sonra Kategori sütunu ekle
-    const hasCategoryCol = true;
     const defaultHeaders = [];
     bomCols.forEach(c => {
       defaultHeaders.push(c.name);
       if (c.name.toLowerCase().includes('sıra')) defaultHeaders.push('Kategori');
     });
-    // Eğer hiç sıra sütunu yoksa Kategori'yi başa ekle
     if (!bomCols.some(c => c.name.toLowerCase().includes('sıra'))) defaultHeaders.unshift('Kategori');
     const extraHeaders = [];
     for (let i = 0; i < extraColCount; i++) extraHeaders.push('Ek ' + (i + 1));
@@ -752,7 +824,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
         return '<td></td>';
       }).join('');
-      // Eğer sıra sütunu yoksa kategori hücresini başa ekle
       const catCell = !bomCols.some(c => c.name.toLowerCase().includes('sıra')) ? '<td>' + esc(it.category || '') + '</td>' : '';
       const extraCells = extraHeaders.map(() => '<td></td>').join('');
       return '<tr>' + catCell + cells + extraCells + '</tr>';
@@ -841,7 +912,6 @@ app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty < 0) return res.status(400).json({error: 'Geçersiz adet'});
 
-    // Varsa güncelle, yoksa ekle
     const existing = (await query(
       'SELECT id FROM product_lots WHERE product_id=$1 AND production_year=$2',
       [req.params.id, parseInt(production_year)]
@@ -877,7 +947,7 @@ app.delete('/api/lots/:id', auth, admin, async (req, res) => {
 async function syncLotTotal(pid) {
   try {
     const numCol = await getNumCol();
-    if (!numCol) return; // sayısal sütun yoksa stok güncellemesi yapma
+    if (!numCol) return;
     const total = parseFloat(
       (await query('SELECT COALESCE(SUM(quantity), 0) as t FROM product_lots WHERE product_id=$1', [pid])).rows[0].t
     );
@@ -993,6 +1063,14 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
+
+// JSON Error Handler (HTML hata sayfası yerine JSON döndürür)
+app.use((err, req, res, next) => {
+  console.error('Sunucu Hatası:', err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || 'Sunucu hatası oluştu' });
+});
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── START ─────────────────────────────────────────────────────────────────
