@@ -172,7 +172,6 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   res.write('event: connected\ndata: {}\n\n');
   sseClients.add(res);
@@ -303,12 +302,12 @@ app.get('/api/machines', auth, async (req, res) => {
 });
 app.post('/api/machines', auth, admin, async (req, res) => {
   try {
-    const { machine_name, notes, items, firm_id, display_order } = req.body;
+    const { machine_name, notes, items, firm_id, display_order, capacity } = req.body;
     if (!machine_name) return res.status(400).json({ error: 'Vinç adı gerekli' });
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM machines')).rows[0].m;
     const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
-    const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items,display_order) VALUES($1,$2,$3,$4,$5) RETURNING *',
-      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), ord])).rows[0];
+    const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items,display_order,capacity) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), ord, capacity || ''])).rows[0];
     await autoCreateTask(r.id, firm_id || null, machine_name);
     broadcast('task_update', { action: 'auto_created', machine: machine_name });
     broadcast('machine_update', {});
@@ -317,9 +316,9 @@ app.post('/api/machines', auth, admin, async (req, res) => {
 });
 app.put('/api/machines/:id', auth, admin, async (req, res) => {
   try {
-    const { machine_name, notes, items, firm_id, display_order } = req.body;
-    await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4,display_order=$5 WHERE id=$6',
-      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), parseInt(display_order) || 0, req.params.id]);
+    const { machine_name, notes, items, firm_id, display_order, capacity } = req.body;
+    await query('UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4,display_order=$5,capacity=$6 WHERE id=$7',
+      [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), parseInt(display_order) || 0, capacity || '', req.params.id]);
     await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
       [machine_name, firm_id || null, req.params.id]);
     broadcast('machine_update', {});
@@ -660,7 +659,7 @@ app.get('/api/export/machines', auth, async (req, res) => {
     const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="vincler-${new Date().toISOString().slice(0, 10)}.csv"`);
-    res.send('\uFEFF' + [['Vinç Adı', 'Firma', 'Notlar'].join(','), ...mcs.map(m => [m.machine_name, m.firm_name, m.notes].map(e).join(','))].join('\n'));
+    res.send('\uFEFF' + [['Vinç Adı', 'Firma', 'Kapasite/Tonaj', 'Notlar'].join(','), ...mcs.map(m => [m.machine_name, m.firm_name, m.capacity || '', m.notes].map(e).join(','))].join('\n'));
   } catch(err) { res.status(500).send('CSV export error'); }
 });
 app.get('/api/export/users', auth, admin, async (req, res) => {
@@ -758,7 +757,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// ── BOM ÇIKTISI (Dinamik & Sütunlar Menüsünden Eşleşen) ───────────────────
+// ── BOM ÇIKTISI (Dinamik & Yönlendirme Destekli) ───────────────────────────
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -773,8 +772,8 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const catCol = cols.find(c => c.name.toLowerCase().includes('kategori'));
     const extraColCount = parseInt(req.query.extra_cols) || 0;
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
+    const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'landscape';
     
-    // Kategoriye göre grupla (Önce vinçteki kategori, yoksa ürünün sütunundaki/özelliklerindeki kategori, yoksa 'Genel')
     const categoryMap = {};
     (machine.items || []).forEach(it => {
       const prod = prods.find(p => p.id === Number(it.product_id));
@@ -806,9 +805,9 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     
     const firmName = firm?.name || '';
     const title = firmName ? firmName + ' — ' + machine.machine_name : machine.machine_name;
+    const capacityStr = machine.capacity ? ` [Kapasite: ${machine.capacity}]` : '';
     const dateStr = new Date().toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'});
     
-    // Sütun başlıkları SADECE "BOM Sütunları" menüsünden gelir (Sabit/zorunlu kategori enjeksiyonu kaldırıldı)
     const defaultHeaders = bomCols.map(c => c.name);
     const extraHeaders = [];
     for (let i = 0; i < extraColCount; i++) extraHeaders.push('Ek ' + (i + 1));
@@ -824,7 +823,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         const cn = c.name.toLowerCase();
         const mf = c.mapped_field || '';
         
-        // 1. Manuel Eşleştirilmiş Alan
         if (mf) {
           if (mf.startsWith('col_')) {
             const colId = mf.replace('col_', '');
@@ -839,7 +837,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           if (mf === 'category') return '<td>' + esc(it.category || '—') + '</td>';
         }
 
-        // 2. Otomatik Akıllı Eşleştirme (BOM Sütun İsmine Göre)
         if (cn.includes('sıra') || cn === 'no') return '<td class="no-col">' + it.no + '</td>';
         if (cn.includes('kategori')) return '<td>' + esc(it.category || '—') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td>' + esc(it.name) + '</td>';
@@ -848,7 +845,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
         if (cn.includes('yıl') || cn.includes('model')) return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
         
-        // Sütunlar menüsündeki ürün sütunlarıyla tam eşleşme
         const matchedCol = cols.find(col => col.name.toLowerCase() === cn);
         if (matchedCol && it.prodValues[matchedCol.id] !== undefined && it.prodValues[matchedCol.id] !== '') {
           return '<td>' + esc(it.prodValues[matchedCol.id]) + '</td>';
@@ -870,7 +866,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
 <html lang="tr"><head><meta charset="UTF-8">
 <title>BOM — ${esc(title)}</title>
 <style>
-@page{size:A4 landscape;margin:12mm 10mm}*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4 ${orientation};margin:10mm}*{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1a;background:#fff}
 .page{max-width:1100px;margin:0 auto;padding:10mm 0}
 .header{display:flex;align-items:center;gap:16px;margin-bottom:14px;padding-bottom:10px;border-bottom:2.5px solid #1a6b56}
@@ -888,13 +884,14 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .notes{margin-top:14px;font-size:9.5px;color:#555}.notes-title{font-weight:700;margin-bottom:4px}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.page{padding:0}}
 .print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:12px;font-size:13px;position:sticky;top:0;z-index:100}
-.print-bar button{background:#fff;color:#1a6b56;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px}
+.print-bar button{background:#fff;color:#1a6b56;border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px}
 .print-bar button:hover{background:#e8f5f0}
 .print-bar label{font-size:11px}.print-bar input{padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:11px;width:50px}
 </style></head><body>
 <div class="print-bar no-print">
   <span>📄 BOM Önizleme</span>
-  <button onclick="window.print()">🖨️ Yazdır / PDF Kaydet</button>
+  <button onclick="window.print()">🖨️ Yazdır / PDF</button>
+  <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay Yap' : '↕️ Dikey Yap'}</button>
   <label>Ekstra Satır: <input type="number" id="erInput" value="${extraRowCount}" min="0" max="50" onchange="reloadBOM()"></label>
   <label>Ekstra Sütun: <input type="number" id="ecInput" value="${extraColCount}" min="0" max="10" onchange="reloadBOM()"></label>
   <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)">✕ Kapat</button>
@@ -903,7 +900,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   <div class="header">
     <img src="/logo.png" class="logo" alt="Logo" onerror="this.style.display='none'">
     <div class="header-info">
-      <div class="header-title">${esc(title)}</div>
+      <div class="header-title">${esc(title)}${esc(capacityStr)}</div>
       <div class="header-sub">Malzeme Listesi (BOM)${machine.notes ? ' — ' + esc(machine.notes) : ''}</div>
     </div>
     <div class="header-date"><div style="font-weight:700">${dateStr}</div><div>Toplam: ${items.length} kalem</div></div>
@@ -915,7 +912,22 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   <div class="notes"><div class="notes-title">Notlar:</div><div style="min-height:40px;border:1px solid #ddd;border-radius:4px;padding:6px;margin-top:4px"></div></div>
   <div class="footer"><span>⚡ Elektrikhane Stok Takip Sistemi</span><span>Oluşturulma: ${dateStr}</span></div>
 </div>
-<script>function reloadBOM(){var er=document.getElementById('erInput').value||0;var ec=document.getElementById('ecInput').value||0;var u=new URL(window.location);u.searchParams.set('extra_rows',er);u.searchParams.set('extra_cols',ec);window.location.href=u.toString();}</script>
+<script>
+function reloadBOM(){
+  var er=document.getElementById('erInput').value||0;
+  var ec=document.getElementById('ecInput').value||0;
+  var u=new URL(window.location);
+  u.searchParams.set('extra_rows',er);
+  u.searchParams.set('extra_cols',ec);
+  window.location.href=u.toString();
+}
+function toggleOrient(){
+  var u=new URL(window.location);
+  var cur = u.searchParams.get('orientation') || '${orientation}';
+  u.searchParams.set('orientation', cur === 'portrait' ? 'landscape' : 'portrait');
+  window.location.href=u.toString();
+}
+</script>
 </body></html>`);
   } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
 });
