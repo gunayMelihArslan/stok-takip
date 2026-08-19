@@ -59,6 +59,7 @@ async function init() {
     CREATE TABLE IF NOT EXISTS machines (
       id SERIAL PRIMARY KEY, machine_name TEXT NOT NULL,
       firm_id INT REFERENCES firms(id) ON DELETE SET NULL,
+      capacity TEXT DEFAULT '',
       display_order INT DEFAULT 0,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -137,6 +138,7 @@ async function init() {
     ALTER TABLE column_defs ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
     ALTER TABLE firms ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS capacity TEXT DEFAULT '';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
