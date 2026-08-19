@@ -354,9 +354,12 @@
     <div class="modal-body">
       <input type="hidden" id="editMachineId">
       <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
-      <div class="form-group"><label>Vinç Adı / Modeli</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Vinç Adı / Modeli / Seri No</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+        <div class="form-group"><label>Tonaj / Kapasite</label><input type="text" id="machineCapacity" placeholder="Örn: 10 Ton, 32/5T"></div>
+      </div>
       <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
-      <div class="form-group"><label>Gerekli Ürünler</label>
+      <div class="form-group"><label>Gerekli Ürünler (Reçete)</label>
         <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
         <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
       </div>
@@ -368,7 +371,40 @@
   </div>
 </div>
 
-<!-- 7. İŞ MODALI -->
+<!-- 7. VİNÇ KOPYALAMA MODALI -->
+<div class="modal-overlay" id="cloneMachineModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>📋 Vinci Kopyala (Klonla)</h3>
+      <button class="modal-close" onclick="closeModal('cloneMachineModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cloneSourceId">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
+        <div>Kaynak Vinç: <strong id="cloneSourceName">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="cloneSourceItemCount">0 kalem malzeme aktarılacak</div>
+      </div>
+      <div class="form-group">
+        <label>Hedef Firma</label>
+        <select id="cloneTargetFirm" style="width:100%"></select>
+      </div>
+      <div class="form-group">
+        <label>Yeni Vinç Adı / Modeli / Seri No *</label>
+        <input type="text" id="cloneNewName" placeholder="Yeni vinç adı giriniz...">
+      </div>
+      <div class="form-group">
+        <label>Yeni Tonaj / Kapasite</label>
+        <input type="text" id="cloneNewCapacity" placeholder="Örn: 10 Ton, 20T">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button>
+      <button class="btn btn-primary" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- 8. İŞ MODALI -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -394,7 +430,7 @@
   </div>
 </div>
 
-<!-- 8. ATAMA MODALI -->
+<!-- 9. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
   <div class="modal">
     <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
@@ -407,7 +443,7 @@
   </div>
 </div>
 
-<!-- 9. GEÇMİŞ MODALI -->
+<!-- 10. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
@@ -415,7 +451,7 @@
   </div>
 </div>
 
-<!-- 10. KULLANICI MODALI -->
+<!-- 11. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
@@ -429,7 +465,7 @@
   </div>
 </div>
 
-<!-- 11. LOT MODALI -->
+<!-- 12. LOT MODALI -->
 <div class="modal-overlay" id="lotModal">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -443,7 +479,7 @@
       <input type="hidden" id="lotPid">
       <div id="lotRows" style="margin-bottom:1rem"></div>
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
           <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2024" min="1980" max="2099"></div>
           <div class="form-group" style="margin:0"><label>Adet (Miktar)</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
@@ -460,7 +496,7 @@
   </div>
 </div>
 
-<!-- 12. YORUM MODALI -->
+<!-- 13. YORUM MODALI -->
 <div class="modal-overlay" id="commentModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
@@ -918,7 +954,6 @@ async function deleteProduct(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── GENEL SIRALAMA (YUKARI/AŞAĞI TAŞIMA) FONKSİYONU ───────────────────────
 async function moveEntityOrder(type, id, direction) {
   let list = [];
   let apiPath = '';
@@ -1152,7 +1187,7 @@ async function deleteFirm(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── MACHINES ─────────────────────────────────────────────────────────────
+// ── MACHINES (Akordiyon Görünüm & Kopyalama Desteği) ─────────────────────
 function toggleFirmAccordion(fn) {
   firmCollapsed[fn] = !firmCollapsed[fn];
   renderMachines();
@@ -1199,6 +1234,7 @@ function renderMachines() {
             <div>
               <div style="display:flex;align-items:center;gap:.5rem">
                 <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
+                ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
                 <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
               </div>
               ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
@@ -1208,6 +1244,7 @@ function renderMachines() {
                 <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, -1)">▲</button>
                 <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, 1)">▼</button>
               </div>
+              <button class="btn btn-ghost btn-sm" onclick="openCloneMachineModal(${m.id})" title="Bu vinci kopyala">📋 Kopyala</button>
               <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
               <button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button>
@@ -1237,6 +1274,7 @@ function openMachineModal() {
   document.getElementById('editMachineId').value = '';
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = '';
+  document.getElementById('machineCapacity').value = '';
   document.getElementById('machineNotes').value = '';
   document.getElementById('machineItems').innerHTML = '';
   document.getElementById('machineModalTitle').textContent = 'Yeni Vinç';
@@ -1249,11 +1287,50 @@ function editMachine(id) {
   document.getElementById('editMachineId').value = id;
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = m.machine_name || '';
+  document.getElementById('machineCapacity').value = m.capacity || '';
   document.getElementById('machineNotes').value = m.notes || '';
   document.getElementById('machineItems').innerHTML = '';
   (m.items || []).forEach(it => addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || ''));
   document.getElementById('machineModalTitle').textContent = 'Vinç Düzenle';
   openModal('machineModal');
+}
+
+function openCloneMachineModal(id) {
+  const m = machines.find(x => x.id == id);
+  if (!m) return;
+  document.getElementById('cloneSourceId').value = m.id;
+  document.getElementById('cloneSourceName').textContent = m.machine_name + (m.firm_name ? ` (${m.firm_name})` : '');
+  document.getElementById('cloneSourceItemCount').textContent = `${(m.items || []).length} kalem malzeme listesi aktarılacak`;
+  document.getElementById('cloneTargetFirm').innerHTML = firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  document.getElementById('cloneNewName').value = m.machine_name + ' (Kopya)';
+  document.getElementById('cloneNewCapacity').value = m.capacity || '';
+  openModal('cloneMachineModal');
+}
+
+async function executeCloneMachine() {
+  const sourceId = document.getElementById('cloneSourceId').value;
+  const targetFirmId = document.getElementById('cloneTargetFirm').value || null;
+  const newName = document.getElementById('cloneNewName').value.trim();
+  const newCapacity = document.getElementById('cloneNewCapacity').value.trim();
+
+  if (!newName) { toast('Yeni vinç adı / seri no gerekli', 'error'); return; }
+  const sourceMachine = machines.find(x => x.id == sourceId);
+  if (!sourceMachine) return;
+
+  const payload = {
+    machine_name: newName,
+    firm_id: targetFirmId,
+    capacity: newCapacity,
+    notes: sourceMachine.notes || '',
+    items: sourceMachine.items || []
+  };
+
+  const r = await api('/api/machines', 'POST', payload);
+  if (!r) return;
+  closeModal('cloneMachineModal');
+  await Promise.all([loadMachines(), loadTasks()]);
+  renderMachines();
+  toast('Vinç başarıyla kopyalandı ve yeni iş açıldı ✓', 'success');
 }
 
 function addMachineItem(pid, qty, machineYear, catName) {
@@ -1348,6 +1425,7 @@ document.addEventListener('click', function(e) {
 async function saveMachine() {
   const id = document.getElementById('editMachineId').value;
   const machine_name = document.getElementById('machineName').value.trim();
+  const capacity = document.getElementById('machineCapacity').value.trim();
   const notes = document.getElementById('machineNotes').value.trim();
   const firm_id = document.getElementById('machineFirm').value || null;
   if (!machine_name) { toast('Vinç adı gerekli', 'error'); return; }
@@ -1366,8 +1444,8 @@ async function saveMachine() {
     };
   }).filter(i => i.product_id);
 
-  if (id) { await api('/api/machines/' + id, 'PUT', { machine_name, firm_id, notes, items }); }
-  else { await api('/api/machines', 'POST', { machine_name, firm_id, notes, items }); }
+  if (id) { await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items }); }
+  else { await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items }); }
   closeModal('machineModal');
   await Promise.all([loadMachines(), loadTasks()]);
   renderMachines();
@@ -2045,7 +2123,7 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
       '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
       '<td><strong>' + esc(p.product_name) + '</strong></td>' +
       '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
