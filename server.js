@@ -226,7 +226,7 @@ app.post('/api/products', auth, admin, async (req, res) => {
   try {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM products')).rows[0].m;
     const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
-    const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {})], ord);
+    const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {}), ord]);
     broadcast('stock_update', {}); res.json(r.rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1016,18 +1016,64 @@ function recalcNumbers(){
   document.getElementById('topHeaderStats').textContent = 'Toplam: ' + (idx - 1) + ' Kalem';
 }
 function exportToExcel(filename){
-  var table = document.getElementById('bomMainTable');
+  var title = document.querySelector('.header-title').innerText;
+  var sub = document.querySelector('.header-sub').innerText;
+  var dateStr = document.querySelector('.header-date').innerText.replace(/\\n/g, ' - ');
+  var table = document.getElementById('bomMainTable').cloneNode(true);
+  var summary = document.getElementById('summaryText').innerText;
+  var notes = document.querySelector('.notes-content').innerText;
+  var thCount = table.querySelectorAll('th').length || 5;
+
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
-  html += '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>BOM Listesi</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
-  html += '<h2>' + document.querySelector('.header-title').textContent + '</h2>';
-  html += '<h4>' + document.querySelector('.header-sub').textContent + '</h4>';
+  html += '<head><meta charset="utf-8">';
+  html += '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>BOM Reçetesi</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->';
+  html += '<style>';
+  html += 'body { font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; }';
+  html += 'table { border-collapse: collapse; width: 100%; }';
+  html += 'th { background-color: #1a6b56; color: #ffffff; font-weight: bold; border: 1pt solid #157a5e; padding: 8px; text-align: left; font-size: 11pt; }';
+  html += 'td { border: 1pt solid #d0d0d0; padding: 6px 8px; vertical-align: middle; }';
+  html += '.category-header-cell { background-color: #e8f5f0; color: #1a6b56; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1a6b56; padding: 8px; }';
+  html += '.no-col { text-align: center; font-weight: bold; color: #555555; }';
+  html += '.qty-col { text-align: center; font-weight: bold; }';
+  html += '.title-cell { font-size: 16pt; font-weight: bold; color: #1a6b56; }';
+  html += '.sub-cell { font-size: 11pt; color: #555555; }';
+  html += '.summary-cell { background-color: #f0f5f3; color: #1a6b56; font-weight: bold; font-size: 11pt; border: 1pt solid #c2ded6; padding: 8px; }';
+  html += '.notes-header { font-weight: bold; color: #333333; }';
+  html += '.notes-box { border: 1pt solid #cccccc; padding: 8px; background-color: #ffffff; }';
+  html += '.sig-header { background-color: #e8f5f0; color: #1a6b56; font-weight: bold; border: 1pt solid #1a6b56; text-align: center; padding: 6px; font-size: 10pt; }';
+  html += '.sig-content { border: 1pt solid #cccccc; padding: 10px; height: 60pt; vertical-align: top; font-size: 9pt; }';
+  html += '</style></head><body>';
+  
+  html += '<table style="margin-bottom: 12px;">';
+  html += '<tr><td colspan="' + thCount + '" class="title-cell" style="border:none;">' + title + '</td></tr>';
+  html += '<tr><td colspan="' + thCount + '" class="sub-cell" style="border:none;">' + sub + ' | ' + dateStr + '</td></tr>';
+  html += '<tr><td colspan="' + thCount + '" style="border:none;">&nbsp;</td></tr>';
+  html += '</table>';
+  
   html += table.outerHTML;
-  html += '<br><p>' + document.getElementById('summaryText').textContent + '</p>';
+  
+  html += '<br><table><tr><td colspan="' + thCount + '" class="summary-cell">' + summary + '</td></tr></table>';
+  
+  if(notes && notes.trim()){
+    html += '<br><table>';
+    html += '<tr><td class="notes-header" style="border:none;">NOTLAR:</td></tr>';
+    html += '<tr><td colspan="' + thCount + '" class="notes-box">' + notes + '</td></tr>';
+    html += '</table>';
+  }
+  
+  html += '<br><table style="margin-top: 15px;">';
+  html += '<tr>';
+  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">HAZIRLAYAN (ELEKTRİK/PROJE)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih: ' + (new Date().toLocaleDateString("tr-TR")) + '</td></tr></table></td>';
+  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">KONTROL EDEN (ATÖLYE ŞEFİ)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih:</td></tr></table></td>';
+  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">ONAY / TESLİM ALAN (YETKİLİ)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih:</td></tr></table></td>';
+  html += '</tr></table>';
+  
   html += '</body></html>';
+  
   var blob = new Blob(['\\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = (filename || 'BOM-Listesi') + '.xls';
+  link.download = (filename || 'BOM-Listesi').replace(/[/\\\\?%*:|"<>]/g, '-') + '.xls';
   link.click();
 }
 </script>
