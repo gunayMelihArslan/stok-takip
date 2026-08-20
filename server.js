@@ -226,7 +226,7 @@ app.post('/api/products', auth, admin, async (req, res) => {
   try {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM products')).rows[0].m;
     const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
-    const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {}), ord]);
+    const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {})], ord);
     broadcast('stock_update', {}); res.json(r.rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -757,7 +757,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// ── BOM ÇIKTISI (Dinamik & Yönlendirme Destekli) ───────────────────────────
+// ── BOM ÇIKTISI (Anlık Düzenleme, Excel, İmzalar, Kompakt Mod & Toplam Özeti) ──
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -784,11 +784,14 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     });
     
     let globalNo = 0;
+    let totalQuantityCount = 0;
     const items = [];
     Object.entries(categoryMap).forEach(([catName, catItems]) => {
       items.push({ isCategory: true, categoryName: catName });
       catItems.forEach(({ item: it, prod, cat }) => {
         globalNo++;
+        const qVal = parseFloat(it.quantity) || 0;
+        totalQuantityCount += qVal;
         items.push({
           isCategory: false,
           no: globalNo,
@@ -817,7 +820,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     
     const rowsHtml = items.map(it => {
       if (it.isCategory) {
-        return '<tr><td colspan="' + totalColCount + '" style="background:#e8f5f0;font-weight:800;font-size:11px;padding:6px 10px;border:1px solid #1a6b56;color:#1a6b56">' + esc(it.categoryName) + '</td></tr>';
+        return '<tr class="cat-row-tr"><td colspan="' + totalColCount + '" class="category-header-cell" contenteditable="true">' + esc(it.categoryName) + '</td></tr>';
       }
       const cells = bomCols.map(c => {
         const cn = c.name.toLowerCase();
@@ -826,90 +829,152 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         if (mf) {
           if (mf.startsWith('col_')) {
             const colId = mf.replace('col_', '');
-            return '<td>' + esc(it.prodValues[colId] || '—') + '</td>';
+            return '<td contenteditable="true">' + esc(it.prodValues[colId] || '—') + '</td>';
           }
-          if (mf === 'auto_no' || mf === 'no') return '<td class="no-col">' + it.no + '</td>';
-          if (mf === 'auto_name' || mf === 'name') return '<td>' + esc(it.name) + '</td>';
-          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col">' + it.qty + '</td>';
-          if (mf === 'auto_unit' || mf === 'unit') return '<td>' + esc(it.unit) + '</td>';
-          if (mf === 'auto_desc' || mf === 'notes') return '<td>' + esc(it.desc) + '</td>';
-          if (mf === 'machine_year') return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
-          if (mf === 'category') return '<td>' + esc(it.category || '—') + '</td>';
+          if (mf === 'auto_no' || mf === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
+          if (mf === 'auto_name' || mf === 'name') return '<td contenteditable="true">' + esc(it.name) + '</td>';
+          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
+          if (mf === 'auto_unit' || mf === 'unit') return '<td contenteditable="true">' + esc(it.unit) + '</td>';
+          if (mf === 'auto_desc' || mf === 'notes') return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
+          if (mf === 'machine_year') return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
+          if (mf === 'category') return '<td class="cat-name-cell" contenteditable="true">' + esc(it.category || '—') + '</td>';
         }
 
-        if (cn.includes('sıra') || cn === 'no') return '<td class="no-col">' + it.no + '</td>';
-        if (cn.includes('kategori')) return '<td>' + esc(it.category || '—') + '</td>';
-        if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td>' + esc(it.name) + '</td>';
-        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col">' + it.qty + '</td>';
-        if (cn.includes('birim')) return '<td>' + esc(it.unit) + '</td>';
-        if (cn.includes('açıklama') || cn.includes('not')) return '<td>' + esc(it.desc) + '</td>';
-        if (cn.includes('yıl') || cn.includes('model')) return '<td>' + esc(it.rawItem?.machine_year || '—') + '</td>';
+        if (cn.includes('sıra') || cn === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
+        if (cn.includes('kategori')) return '<td class="cat-name-cell" contenteditable="true">' + esc(it.category || '—') + '</td>';
+        if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td contenteditable="true">' + esc(it.name) + '</td>';
+        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
+        if (cn.includes('birim')) return '<td contenteditable="true">' + esc(it.unit) + '</td>';
+        if (cn.includes('açıklama') || cn.includes('not')) return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
+        if (cn.includes('yıl') || cn.includes('model')) return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
         
         const matchedCol = cols.find(col => col.name.toLowerCase() === cn);
         if (matchedCol && it.prodValues[matchedCol.id] !== undefined && it.prodValues[matchedCol.id] !== '') {
-          return '<td>' + esc(it.prodValues[matchedCol.id]) + '</td>';
+          return '<td contenteditable="true">' + esc(it.prodValues[matchedCol.id]) + '</td>';
         }
 
-        return '<td>—</td>';
+        return '<td contenteditable="true">—</td>';
       }).join('');
 
-      const extraCells = extraHeaders.map(() => '<td></td>').join('');
-      return '<tr>' + cells + extraCells + '</tr>';
+      const extraCells = extraHeaders.map(() => '<td contenteditable="true">&nbsp;</td>').join('');
+      return '<tr class="item-row-tr">' + cells + extraCells + '</tr>';
     }).join('\n      ');
     const itemCount = items.filter(it => !it.isCategory).length;
     const extraRowsHtml = Array.from({length: extraRowCount}, (_, i) => {
-      const cells = allHeaders.map((h, j) => j === 0 ? '<td class="no-col">' + (itemCount + i + 1) + '</td>' : '<td>&nbsp;</td>').join('');
-      return '<tr>' + cells + '</tr>';
+      const cells = allHeaders.map((h, j) => j === 0 ? '<td class="no-col" contenteditable="true">' + (itemCount + i + 1) + '</td>' : '<td contenteditable="true">&nbsp;</td>').join('');
+      return '<tr class="item-row-tr">' + cells + '</tr>';
     }).join('\n      ');
 
     res.send(`<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8">
 <title>BOM — ${esc(title)}</title>
 <style>
-@page{size:A4 ${orientation};margin:10mm}*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4 ${orientation};margin:8mm 10mm}*{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1a;background:#fff}
 .page{max-width:1100px;margin:0 auto;padding:10mm 0}
-.header{display:flex;align-items:center;gap:16px;margin-bottom:14px;padding-bottom:10px;border-bottom:2.5px solid #1a6b56}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:12px;padding-bottom:8px;border-bottom:2.5px solid #1a6b56}
 .logo{height:42px;width:auto}.header-info{flex:1}
-.header-title{font-size:16px;font-weight:800;color:#1a1a1a;letter-spacing:-.02em}
-.header-sub{font-size:10px;color:#666;margin-top:2px}
+.header-title{font-size:16px;font-weight:800;color:#1a1a1a;letter-spacing:-.02em;outline:none}
+.header-sub{font-size:10px;color:#666;margin-top:2px;outline:none}
 .header-date{font-size:10px;color:#888;text-align:right;white-space:nowrap}
 table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10.5px}
 th{background:#1a6b56;color:#fff;padding:6px 8px;text-align:left;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #157a5e}
-td{padding:5px 8px;border:1px solid #d0d0d0;vertical-align:middle}
+td{padding:5px 8px;border:1px solid #d0d0d0;vertical-align:middle;outline:none}
+td:focus{background:#fff8dc;box-shadow:inset 0 0 0 1px #1a6b56}
 tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
+.category-header-cell{background:#e8f5f0!important;font-weight:800;font-size:11px;padding:6px 10px;border:1px solid #1a6b56;color:#1a6b56}
 .no-col{width:36px;text-align:center;font-weight:700;color:#888}
 .qty-col{text-align:center;font-weight:700}
-.footer{margin-top:18px;display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid #ddd;font-size:9px;color:#999}
-.notes{margin-top:14px;font-size:9.5px;color:#555}.notes-title{font-weight:700;margin-bottom:4px}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.page{padding:0}}
-.print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:12px;font-size:13px;position:sticky;top:0;z-index:100}
-.print-bar button{background:#fff;color:#1a6b56;border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px}
+.summary-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f5f3;border:1px solid #c2ded6;padding:6px 12px;border-radius:4px;margin-top:8px;font-weight:700;font-size:10px;color:#1a6b56}
+.notes{margin-top:10px;font-size:9.5px;color:#555}.notes-title{font-weight:700;margin-bottom:3px}
+.notes-content{min-height:36px;border:1px solid #ddd;border-radius:4px;padding:6px;outline:none}
+.notes-content:focus{background:#fff8dc}
+.signature-section{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;page-break-inside:avoid}
+.sig-box{border:1px solid #c8c8c8;border-radius:6px;padding:8px 10px;background:#fafafa}
+.sig-title{font-weight:800;font-size:9.5px;color:#1a6b56;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #e0e0e0;padding-bottom:3px}
+.sig-line{font-size:9px;color:#444;margin-top:4px}
+.footer{margin-top:14px;display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid #ddd;font-size:9px;color:#999}
+/* Kompakt Mod Stilleri */
+.compact-mode table{font-size:9px}
+.compact-mode th{padding:3px 5px;font-size:8.5px}
+.compact-mode td{padding:2.5px 5px}
+.compact-mode .header{margin-bottom:6px;padding-bottom:4px}
+.compact-mode .signature-section{margin-top:8px;gap:8px}
+.compact-mode .sig-box{padding:4px 6px}
+/* Gizleme Sınıfları */
+.hide-categories .cat-row-tr{display:none!important}
+.hide-years .year-cell{display:none!important}
+.hide-desc .desc-cell{display:none!important}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .no-print{display:none!important}
+  .page{padding:0;max-width:100%}
+  td:focus{background:transparent!important;box-shadow:none!important}
+}
+.print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.print-bar button{background:#fff;color:#1a6b56;border:none;padding:5px 12px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11.5px}
 .print-bar button:hover{background:#e8f5f0}
-.print-bar label{font-size:11px}.print-bar input{padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:11px;width:50px}
+.print-bar label{font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.print-bar input[type="number"]{padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:11px;width:45px}
 </style></head><body>
 <div class="print-bar no-print">
-  <span>📄 BOM Önizleme</span>
+  <span>📄 BOM Çıktı & Önizleme</span>
   <button onclick="window.print()">🖨️ Yazdır / PDF</button>
-  <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay Yap' : '↕️ Dikey Yap'}</button>
+  <button onclick="exportToExcel('${esc(title)}')">📊 Excel İndir</button>
+  <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay' : '↕️ Dikey'}</button>
+  <button onclick="toggleCompact()">🔍 Kompakt Mod</button>
+  <button onclick="recalcNumbers()">🔢 Sıra No Yenile</button>
+  <label><input type="checkbox" onchange="toggleVis('hide-categories', this.checked)"> Kat. Gizle</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-years', this.checked)"> Yıl Gizle</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-desc', this.checked)"> Not Gizle</label>
   <label>Ekstra Satır: <input type="number" id="erInput" value="${extraRowCount}" min="0" max="50" onchange="reloadBOM()"></label>
   <label>Ekstra Sütun: <input type="number" id="ecInput" value="${extraColCount}" min="0" max="10" onchange="reloadBOM()"></label>
   <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)">✕ Kapat</button>
 </div>
-<div class="page">
+<div class="page" id="bomPageArea">
   <div class="header">
     <img src="/logo.png" class="logo" alt="Logo" onerror="this.style.display='none'">
     <div class="header-info">
-      <div class="header-title">${esc(title)}${esc(capacityStr)}</div>
-      <div class="header-sub">Malzeme Listesi (BOM)${machine.notes ? ' — ' + esc(machine.notes) : ''}</div>
+      <div class="header-title" contenteditable="true">${esc(title)}${esc(capacityStr)}</div>
+      <div class="header-sub" contenteditable="true">Malzeme Listesi (BOM)${machine.notes ? ' — ' + esc(machine.notes) : ''}</div>
     </div>
-    <div class="header-date"><div style="font-weight:700">${dateStr}</div><div>Toplam: ${items.length} kalem</div></div>
+    <div class="header-date">
+      <div style="font-weight:700">${dateStr}</div>
+      <div id="topHeaderStats">Toplam: ${itemCount} Kalem</div>
+    </div>
   </div>
-  <table>
+  <table id="bomMainTable">
     <thead><tr>${allHeaders.map(h => '<th>' + esc(h) + '</th>').join('')}</tr></thead>
     <tbody>${rowsHtml}${extraRowsHtml}</tbody>
   </table>
-  <div class="notes"><div class="notes-title">Notlar:</div><div style="min-height:40px;border:1px solid #ddd;border-radius:4px;padding:6px;margin-top:4px"></div></div>
+  <div class="summary-bar">
+    <span>📊 Reçete Özeti</span>
+    <span id="summaryText">Toplam: ${itemCount} Kalem Malzeme | Toplam Adet: ${totalQuantityCount}</span>
+  </div>
+  <div class="notes">
+    <div class="notes-title">Notlar:</div>
+    <div class="notes-content" contenteditable="true"></div>
+  </div>
+  <div class="signature-section">
+    <div class="sig-box">
+      <div class="sig-title">HAZIRLAYAN (ELEKTRİK / PROJE)</div>
+      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+      <div class="sig-line" contenteditable="true">İmza: </div>
+      <div class="sig-line">Tarih: ${dateStr}</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-title">KONTROL EDEN (ATÖLYE ŞEFİ)</div>
+      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+      <div class="sig-line" contenteditable="true">İmza: </div>
+      <div class="sig-line">Tarih: </div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-title">ONAY / TESLİM ALAN (YETKİLİ)</div>
+      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+      <div class="sig-line" contenteditable="true">İmza: </div>
+      <div class="sig-line">Tarih: </div>
+    </div>
+  </div>
   <div class="footer"><span>⚡ Elektrikhane Stok Takip Sistemi</span><span>Oluşturulma: ${dateStr}</span></div>
 </div>
 <script>
@@ -926,6 +991,44 @@ function toggleOrient(){
   var cur = u.searchParams.get('orientation') || '${orientation}';
   u.searchParams.set('orientation', cur === 'portrait' ? 'landscape' : 'portrait');
   window.location.href=u.toString();
+}
+function toggleCompact(){
+  document.body.classList.toggle('compact-mode');
+}
+function toggleVis(className, isHidden){
+  if(isHidden) document.body.classList.add(className);
+  else document.body.classList.remove(className);
+}
+function recalcNumbers(){
+  var rows = document.querySelectorAll('#bomMainTable tbody tr.item-row-tr');
+  var idx = 1;
+  var totalQty = 0;
+  rows.forEach(function(r){
+    var noCell = r.querySelector('.no-col');
+    if(noCell) { noCell.textContent = idx++; }
+    var qtyCell = r.querySelector('.qty-col');
+    if(qtyCell) {
+      var q = parseFloat(qtyCell.textContent.trim()) || 0;
+      totalQty += q;
+    }
+  });
+  document.getElementById('summaryText').textContent = 'Toplam: ' + (idx - 1) + ' Kalem Malzeme | Toplam Adet: ' + totalQty;
+  document.getElementById('topHeaderStats').textContent = 'Toplam: ' + (idx - 1) + ' Kalem';
+}
+function exportToExcel(filename){
+  var table = document.getElementById('bomMainTable');
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+  html += '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>BOM Listesi</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
+  html += '<h2>' + document.querySelector('.header-title').textContent + '</h2>';
+  html += '<h4>' + document.querySelector('.header-sub').textContent + '</h4>';
+  html += table.outerHTML;
+  html += '<br><p>' + document.getElementById('summaryText').textContent + '</p>';
+  html += '</body></html>';
+  var blob = new Blob(['\\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = (filename || 'BOM-Listesi') + '.xls';
+  link.click();
 }
 </script>
 </body></html>`);
