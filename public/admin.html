@@ -32,6 +32,10 @@
 .machine-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--surface2);cursor:pointer;}
 .order-btn-wrap{display:inline-flex;gap:2px;align-items:center;}
 .order-btn-wrap button{padding:2px 5px;font-size:.65rem;line-height:1;border-radius:3px;}
+.search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:240px;}
+.search-box-wrap input{width:100%;padding-right:24px;}
+.search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
+.search-clear-btn:hover{color:var(--accent);}
 </style>
 </head>
 <body>
@@ -47,6 +51,7 @@
     <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
     <div class="nav-section-label">Stok</div>
     <div class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span>Ürünler</div>
+    <div class="nav-section-label">Sütun Yönetimi</div>
     <div class="nav-item" onclick="showPage('columns')"><span class="nav-icon">⚙️</span>Sütun Yönetimi</div>
     <div class="nav-section-label">Tanımlar</div>
     <div class="nav-item" onclick="showPage('firms')"><span class="nav-icon">🏢</span>Firma Yönetimi</div>
@@ -111,7 +116,10 @@
     <div class="page" id="page-products">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." style="max-width:200px" oninput="filterProducts()">
+          <div class="search-box-wrap">
+            <input type="text" id="productSearch" placeholder="🔍 Ürün ara..." oninput="handleSearchInput(this, filterProducts)">
+            <button class="search-clear-btn" onclick="clearSearchInput('productSearch', filterProducts)">✕</button>
+          </div>
           <select id="productCatFilter" style="max-width:180px" onchange="filterProducts()">
             <option value="">📁 Tüm Kategoriler</option>
           </select>
@@ -126,7 +134,12 @@
     <!-- COLUMNS -->
     <div class="page" id="page-columns">
       <div class="toolbar">
-        <div class="toolbar-left"><input type="text" id="columnSearch" placeholder="🔍 Sütun ara..." style="max-width:260px" oninput="renderColumns()"></div>
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="columnSearch" placeholder="🔍 Sütun ara..." oninput="handleSearchInput(this, renderColumns)">
+            <button class="search-clear-btn" onclick="clearSearchInput('columnSearch', renderColumns)">✕</button>
+          </div>
+        </div>
         <button class="btn btn-primary" onclick="openColumnModal()">+ Yeni Sütun</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Sıra</th><th>Sütun Adı</th><th>Veri Tipi</th><th>Min. Stok</th><th>Sıralama</th><th>İşlem</th></tr></thead><tbody id="columnsTbody"></tbody></table></div></div>
@@ -135,7 +148,12 @@
     <!-- FIRMS -->
     <div class="page" id="page-firms">
       <div class="toolbar">
-        <div class="toolbar-left"><input type="text" id="firmSearch" placeholder="🔍 Firma ara..." style="max-width:260px" oninput="renderFirms()"></div>
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="firmSearch" placeholder="🔍 Firma ara..." oninput="handleSearchInput(this, renderFirms)">
+            <button class="search-clear-btn" onclick="clearSearchInput('firmSearch', renderFirms)">✕</button>
+          </div>
+        </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/firms')">↓ CSV</button>
         <button class="btn btn-primary" onclick="openFirmModal()">+ Yeni Firma</button>
       </div>
@@ -146,7 +164,10 @@
     <div class="page" id="page-machines">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <input type="text" id="machineSearchTxt" placeholder="🔍 Vinç veya Firma ara..." style="max-width:220px" oninput="renderMachines()">
+          <div class="search-box-wrap">
+            <input type="text" id="machineSearchTxt" placeholder="🔍 Vinç veya Firma ara..." oninput="handleSearchInput(this, renderMachines)">
+            <button class="search-clear-btn" onclick="clearSearchInput('machineSearchTxt', renderMachines)">✕</button>
+          </div>
           <select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select>
         </div>
         <button class="btn btn-primary" onclick="openMachineModal()">+ Yeni Vinç</button>
@@ -158,7 +179,10 @@
     <!-- TASKS -->
     <div class="page" id="page-tasks">
       <div class="toolbar">
-        <input type="text" id="taskSearch" placeholder="🔍 İş ara..." style="max-width:200px" oninput="renderTasks()">
+        <div class="search-box-wrap">
+          <input type="text" id="taskSearch" placeholder="🔍 İş ara..." oninput="handleSearchInput(this, renderTasks)">
+          <button class="search-clear-btn" onclick="clearSearchInput('taskSearch', renderTasks)">✕</button>
+        </div>
         <button class="btn btn-primary" onclick="openTaskModal()">+ Manuel İş Ekle</button>
         <select id="taskFirmFilter" style="max-width:160px" onchange="renderTasks()"><option value="">Tüm Firmalar</option></select>
         <select id="taskStatusFilter" style="max-width:140px" onchange="renderTasks()">
@@ -182,7 +206,10 @@
     <!-- TRANSACTIONS -->
     <div class="page" id="page-transactions">
       <div class="toolbar">
-        <input type="text" id="txSearch" placeholder="🔍 Ara..." style="max-width:220px" oninput="filterTx()">
+        <div class="search-box-wrap">
+          <input type="text" id="txSearch" placeholder="🔍 Ara..." oninput="handleSearchInput(this, filterTx)">
+          <button class="search-clear-btn" onclick="clearSearchInput('txSearch', filterTx)">✕</button>
+        </div>
         <select id="txTypeFilter" style="max-width:120px" onchange="filterTx()"><option value="">Tüm</option><option value="out">Çıkış</option><option value="return">İade</option></select>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/transactions')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
@@ -193,7 +220,10 @@
     <!-- PURCHASES -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
-        <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." style="max-width:200px" oninput="renderPurchases()">
+        <div class="search-box-wrap">
+          <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." oninput="handleSearchInput(this, renderPurchases)">
+          <button class="search-clear-btn" onclick="clearSearchInput('purchaseSearch', renderPurchases)">✕</button>
+        </div>
         <select id="prFilter" style="max-width:170px" onchange="renderPurchases()">
           <option value="">Tüm Durumlar</option>
           <option value="pending">⏳ Bekliyor</option>
@@ -214,7 +244,12 @@
     <!-- USERS -->
     <div class="page" id="page-users">
       <div class="toolbar">
-        <div class="toolbar-left"><input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." style="max-width:260px" oninput="renderUsers()"></div>
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." oninput="handleSearchInput(this, renderUsers)">
+            <button class="search-clear-btn" onclick="clearSearchInput('userSearch', renderUsers)">✕</button>
+          </div>
+        </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
         <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
       </div>
@@ -670,6 +705,38 @@ function downloadCSV(url) {
   window.location.href = url + '?token=' + encodeURIComponent(token);
 }
 
+// ── Hızlı Arama Temizleme ve ESC Kısayol Dinleyicisi ───────────────────────
+function handleSearchInput(inputEl, callbackFn) {
+  const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = inputEl.value ? 'block' : 'none';
+  }
+  if (callbackFn) callbackFn();
+}
+
+function clearSearchInput(inputId, callbackFn) {
+  const inputEl = document.getElementById(inputId);
+  if (inputEl) {
+    inputEl.value = '';
+    const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (callbackFn) callbackFn();
+    inputEl.focus();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl.tagName === 'INPUT' && activeEl.id && activeEl.id.includes('Search')) {
+      activeEl.value = '';
+      const clearBtn = activeEl.parentElement.querySelector('.search-clear-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      activeEl.dispatchEvent(new Event('input'));
+    }
+  }
+});
+
 const pageTitles = { dashboard: 'Gösterge Paneli', products: 'Ürün Yönetimi', columns: 'Sütun Yönetimi', firms: 'Firma Yönetimi', machines: 'Vinç Yönetimi', bom: 'BOM Sütunları', bom_categories: 'BOM Kategorileri', tasks: 'İş Panosu', performance: 'Performans', transactions: 'İşlem Geçmişi', users: 'Kullanıcı Yönetimi', purchases: 'Satın Alma Talepleri' };
 
 function showPage(name) {
@@ -721,7 +788,7 @@ function renderLiveBoard() {
     });
   });
   if (!active.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1rem">Aktif iş yok</div>'; return; }
-  el.innerHTML = active.map(({ task: t, stage: s }) => `
+  el.innerHTML = active.map(({ task: t, stage: s}) => `
     <div style="display:flex;align-items:center;gap:.6rem;padding:.45rem .65rem;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;margin-bottom:.35rem">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</div>
