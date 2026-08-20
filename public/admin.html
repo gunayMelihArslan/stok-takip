@@ -2,14 +2,14 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Yönetici — Elektrikhane</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
 .task-row{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.6rem;}
-.task-row-header{padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border);background:var(--surface2);}
+.task-row-header{padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;}
 .stages-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
 .stage-cell{padding:.75rem 1rem;border-right:1px solid var(--border);position:relative;}
 .stage-cell:last-child{border-right:none;}
@@ -29,13 +29,30 @@
 .firm-divider span{font-family:var(--mono);font-size:.72rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;font-weight:700;}
 .firm-divider div{height:1px;flex:1;background:var(--border);}
 .lot-row-item{display:grid;grid-template-columns:110px 100px 1fr 32px;gap:.5rem;align-items:center;margin-bottom:.4rem;}
-.machine-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--surface2);cursor:pointer;}
+.machine-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:var(--surface2);cursor:pointer;flex-wrap:wrap;}
 .order-btn-wrap{display:inline-flex;gap:2px;align-items:center;}
 .order-btn-wrap button{padding:2px 5px;font-size:.65rem;line-height:1;border-radius:3px;}
 .search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:240px;}
 .search-box-wrap input{width:100%;padding-right:24px;}
 .search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
 .search-clear-btn:hover{color:var(--accent);}
+
+/* ── MOBİL UYUMLULUK CSS ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .stages-grid { grid-template-columns: 1fr; }
+  .stage-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  .stage-cell:last-child { border-bottom: none; }
+  .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .toolbar-left { width: 100%; flex-direction: column; }
+  .search-box-wrap { max-width: 100%; width: 100%; }
+  .toolbar select, .toolbar button { width: 100%; max-width: 100% !important; }
+  .machine-accordion-head { flex-direction: column; align-items: flex-start; }
+  .machine-accordion-head > div:last-child { width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .35rem; margin-top: .4rem; }
+  .modal { width: 94% !important; max-height: 88vh !important; margin: 10px auto; padding: 1rem; }
+  .lot-row-item { grid-template-columns: 1fr 1fr; gap: .35rem; }
+  .lot-row-item input:nth-child(3) { grid-column: span 2; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 </style>
 </head>
 <body>
@@ -705,7 +722,6 @@ function downloadCSV(url) {
   window.location.href = url + '?token=' + encodeURIComponent(token);
 }
 
-// ── Hızlı Arama Temizleme ve ESC Kısayol Dinleyicisi ───────────────────────
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
   if (clearBtn) {
@@ -1799,7 +1815,7 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
 
-// ── SÜTUN SIRALAMA (TABLO BAŞLIKLARINA TIKLAYARAK SIRALAMA) ───────────────
+// ── SÜTUN SIRALAMA ────────────────────────────────────────────────────────
 var _sortState = {};
 function makeSortable(tblId) {
   var tbl = document.getElementById(tblId);
@@ -2190,7 +2206,7 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
       '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
       '<td><strong>' + esc(p.product_name) + '</strong></td>' +
       '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
