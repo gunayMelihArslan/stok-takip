@@ -26,6 +26,9 @@
 .search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
 .search-clear-btn:hover{color:var(--accent);}
 
+/* Malzeme Listeleri (BOM Görünüm) Başlıkları */
+.bom-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:var(--surface2);cursor:pointer;flex-wrap:wrap;}
+
 /* ── MOBİL DOKUNMATİK & UYUM STİLLERİ ───────────────────────────────────── */
 @media (max-width: 768px) {
   .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
@@ -34,6 +37,8 @@
   .stage-row > div:last-child { width: 100%; display: flex; justify-content: flex-end; gap: .35rem; margin-top: .3rem; }
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .modal { width: 94% !important; max-height: 88vh !important; margin: 10px auto; padding: 1rem; }
+  .bom-accordion-head { flex-direction: column; align-items: flex-start; }
+  .bom-accordion-head > div:last-child { width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .35rem; margin-top: .4rem; }
 }
 </style>
 </head>
@@ -48,6 +53,7 @@
   <div class="sidebar-nav">
     <div class="nav-item active" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
     <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
+    <div class="nav-item" onclick="showPage('bom_lists')"><span class="nav-icon">📋</span>Malzeme Listeleri</div>
     <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
     <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
     <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
@@ -95,6 +101,21 @@
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div id="openTaskList"></div>
+    </div>
+
+    <!-- MALZEME LİSTELERİ (BOM GÖRÜNTÜLEME) -->
+    <div class="page" id="page-bom_lists">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="bomListSearch" placeholder="🔍 Vinç veya Malzeme ara..." oninput="handleSearchInput(this, renderBomLists)">
+            <button class="search-clear-btn" onclick="clearSearchInput('bomListSearch', renderBomLists)">✕</button>
+          </div>
+          <select id="bomListFirmFilter" style="max-width:180px" onchange="renderBomLists()"><option value="">Tüm Firmalar</option></select>
+        </div>
+        <button class="btn btn-ghost" onclick="refresh()">↺ Yenile</button>
+      </div>
+      <div id="bomListContainer" style="display:grid;gap:.75rem"></div>
     </div>
 
     <!-- STOCK -->
@@ -215,6 +236,31 @@
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
+<!-- Düzenleme Talebi Modalı -->
+<div class="modal-overlay" id="bomEditReqModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="bomEditReqTitle">📝 Düzenleme Talebi İlet</h3>
+      <button class="modal-close" onclick="closeModal('bomEditReqModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="bomEditReqMachineId">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
+        <div>Vinç: <strong id="bomEditReqMachineName">—</strong></div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">Talebiniz sistem yöneticilerine bildirim olarak iletilecektir.</div>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Düzenleme Talebiniz / Açıklama *</label>
+        <textarea id="bomEditReqMessage" rows="4" placeholder="Hangi malzemede ne gibi bir değişiklik yapılması gerektiğini belirtiniz (Örn: Kontaktör 2 adet yerine 3 adet olmalı, 10mm kablo yerine 16mm eklenmeli vb.)..." style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bomEditReqModal')">İptal</button>
+      <button class="btn btn-primary" onclick="submitBomEditRequest()">📤 Talebi Gönder</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script>
 const _f = window.fetch.bind(window);
@@ -307,16 +353,19 @@ function connectSSE() {
     await loadProducts();
     if (currentPage === 'stock') renderStock();
     if (currentPage === 'bulktake' && document.getElementById('bulkMachine')?.value) loadMachinePreview();
+    if (currentPage === 'bom_lists') renderBomLists();
   });
   es.addEventListener('machine_update', async () => {
     machines = await api('/api/machines') || [];
     if (currentPage === 'bulktake') filterBulkMachines();
+    if (currentPage === 'bom_lists') renderBomLists();
   });
   es.addEventListener('firm_update', async () => {
     firms = await api('/api/firms') || [];
     renderFirmLists();
     if (currentPage === 'opentasks') renderOpenTasks();
     if (currentPage === 'bulktake') filterBulkMachines();
+    if (currentPage === 'bom_lists') renderBomLists();
   });
   es.addEventListener('user_update', async () => {
     allUsers = await api('/api/users') || [];
@@ -325,6 +374,7 @@ function connectSSE() {
     columns = await api('/api/columns') || [];
     products = await api('/api/products') || [];
     if (currentPage === 'stock') renderStock();
+    if (currentPage === 'bom_lists') renderBomLists();
   });
   es.addEventListener('tx_new', async () => {
     if (currentPage === 'history') await loadMyHistory();
@@ -384,7 +434,17 @@ document.addEventListener('keydown', function(e) {
 });
 
 let currentPage = 'mytasks';
-const pageTitles = { mytasks: 'İşlerim', opentasks: 'Açık İşler', stock: 'Stok Durumu', take: 'Ürün Al', bulktake: 'Vinç İçin Al', return: 'Ürün İade', history: 'İşlem Geçmişim', purchase: 'Satın Alma Talebi' };
+const pageTitles = { 
+  mytasks: 'İşlerim', 
+  opentasks: 'Açık İşler', 
+  bom_lists: 'Malzeme Listeleri',
+  stock: 'Stok Durumu', 
+  take: 'Ürün Al', 
+  bulktake: 'Vinç İçin Al', 
+  return: 'Ürün İade', 
+  history: 'İşlem Geçmişim', 
+  purchase: 'Satın Alma Talebi' 
+};
 
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -395,7 +455,8 @@ function showPage(name) {
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
   if (name === 'history') loadMyHistory();
-  if (['stock', 'take', 'bulktake', 'return'].includes(name)) loadAll();
+  if (['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
+  if (name === 'bom_lists') renderBomLists();
   if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
 }
 
@@ -504,6 +565,143 @@ function renderOpenTasks() {
   el.innerHTML = html;
 }
 
+// ── MALZEME LİSTELERİ (PERSONEL BOM GÖRÜNTÜLEME & PAYLAŞMA & TALEP) ───────
+function renderBomLists() {
+  const fsel = document.getElementById('bomListFirmFilter');
+  if (fsel) {
+    const cur = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}" ${String(f.id) === cur ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+    fsel.value = cur;
+  }
+  const curF = fsel?.value || '';
+  const sq = (document.getElementById('bomListSearch')?.value || '').toLowerCase();
+  const container = document.getElementById('bomListContainer');
+  if (!container) return;
+
+  let filtered = machines;
+  if (curF) filtered = filtered.filter(m => String(m.firm_id) === curF);
+  if (sq) {
+    filtered = filtered.filter(m => {
+      const matchHeader = (m.machine_name || '').toLowerCase().includes(sq) || (m.firm_name || '').toLowerCase().includes(sq);
+      const matchItem = (m.items || []).some(it => (it.product_name || '').toLowerCase().includes(sq));
+      return matchHeader || matchItem;
+    });
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="card empty"><div class="icon">📋</div>Malzeme listesi bulunamadı</div>';
+    return;
+  }
+
+  const grouped = {};
+  filtered.forEach(m => {
+    const k = m.firm_name || 'Tanımsız Firma';
+    if (!grouped[k]) grouped[k] = [];
+    grouped[k].push(m);
+  });
+
+  let html = '';
+  Object.entries(grouped).forEach(([fn, list]) => {
+    html += `<div class="firm-divider"><div></div><span>🏢 ${esc(fn)} (${list.length} Vinç)</span><div></div></div>`;
+    html += list.map(m => `
+      <div class="card" style="margin-bottom:.5rem;overflow:hidden">
+        <div class="bom-accordion-head" onclick="toggleBomItems(${m.id})">
+          <div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
+              ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
+              <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem</span>
+            </div>
+            ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:.35rem;align-items:center" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" onclick="openBOMView(${m.id})" title="Yazdır / Orijinal BOM Görünümü">📄 Gör / Yazdır</button>
+            <button class="btn btn-ghost btn-sm" onclick="shareBOM(${m.id})" title="Listeyi Paylaş (WhatsApp / Pano)">📲 Paylaş</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="openBomEditReqModal(${m.id})" title="Yöneticiye Düzenleme Talebi Gönder">📝 Düzenleme Talebi</button>
+          </div>
+        </div>
+        <div id="bom-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+          ${(m.items || []).length ? `
+            <table style="font-size:.8rem;width:100%">
+              <thead><tr><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
+              <tbody>${m.items.map(it => `<tr>
+                <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
+                <td><strong>${esc(it.product_name || '—')}</strong></td>
+                <td style="font-family:var(--mono);font-weight:700">${it.quantity}</td>
+                <td style="font-family:var(--mono);color:var(--text2)">${it.machine_year || '—'}</td>
+              </tr>`).join('')}</tbody>
+            </table>
+          ` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Malzeme tanımlanmamış</span>'}
+        </div>
+      </div>
+    `).join('');
+  });
+  container.innerHTML = html;
+}
+
+function toggleBomItems(mid) {
+  const el = document.getElementById('bom-items-' + mid);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function openBOMView(machineId) {
+  const token = localStorage.getItem('stok_token');
+  window.open(`/bom/${machineId}?token=${encodeURIComponent(token)}`, '_blank');
+}
+
+function shareBOM(machineId) {
+  const m = machines.find(x => x.id == machineId);
+  if (!m) return;
+  const token = localStorage.getItem('stok_token') || '';
+  const bomUrl = `${window.location.origin}/bom/${m.id}?token=${encodeURIComponent(token)}`;
+  
+  let summaryText = `🏗️ *${m.machine_name}* - Malzeme Listesi\n`;
+  if (m.firm_name) summaryText += `🏢 Firma: ${m.firm_name}\n`;
+  if (m.capacity) summaryText += `⚖️ Kapasite: ${m.capacity}\n`;
+  summaryText += `\n📦 *Malzemeler (${(m.items || []).length} Kalem):*\n`;
+  
+  (m.items || []).forEach((it, idx) => {
+    const yr = it.machine_year ? ` (Model: ${it.machine_year})` : '';
+    summaryText += `${idx + 1}. ${it.product_name || '—'} - ${it.quantity} adet${yr}\n`;
+  });
+  
+  summaryText += `\n🔗 Detaylı BOM: ${bomUrl}`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: `${m.machine_name} — Malzeme Listesi`,
+      text: summaryText,
+      url: bomUrl
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(summaryText).then(() => {
+      toast('Malzeme listesi panoya kopyalandı! Dilediğiniz yere yapıştırabilirsiniz ✓', 'success');
+    }).catch(() => {
+      window.prompt('Listeyi kopyalayabilirsiniz:', summaryText);
+    });
+  }
+}
+
+function openBomEditReqModal(machineId) {
+  const m = machines.find(x => x.id == machineId);
+  if (!m) return;
+  document.getElementById('bomEditReqMachineId').value = m.id;
+  document.getElementById('bomEditReqMachineName').textContent = m.machine_name + (m.firm_name ? ` (${m.firm_name})` : '');
+  document.getElementById('bomEditReqMessage').value = '';
+  openModal('bomEditReqModal');
+}
+
+async function submitBomEditRequest() {
+  const machine_id = document.getElementById('bomEditReqMachineId').value;
+  const message = document.getElementById('bomEditReqMessage').value.trim();
+  if (!message) { toast('Lütfen talep açıklamasını yazın', 'error'); return; }
+  
+  const r = await api('/api/bom-edit-request', 'POST', { machine_id, message });
+  if (!r) return;
+  closeModal('bomEditReqModal');
+  toast('Düzenleme talebiniz yöneticilere iletildi ✓', 'success');
+}
+
 async function takeStage(stageId) {
   if (!confirm('Bu aşamayı üstlenmek istiyor musunuz?')) return;
   await api('/api/task-stages/' + stageId + '/take', 'POST');
@@ -567,6 +765,7 @@ function renderFirmLists() {
   ['firmList', 'firmList2', 'firmList3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
   const fsel = document.getElementById('openFirmFilter'); if (fsel) fsel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
   const bsel = document.getElementById('bulkFirmFilter'); if (bsel) bsel.innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  const blf = document.getElementById('bomListFirmFilter'); if (blf) blf.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
 }
 
 // ── PRODUCT SEARCH DROPDOWN ───────────────────────────────────────────────
@@ -866,6 +1065,7 @@ async function refresh() {
   const fns = {
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
     opentasks: async () => { await loadTasks(); renderOpenTasks(); },
+    bom_lists: async () => { await loadMachines(); renderBomLists(); },
     stock: async () => { await loadProducts(); renderStock(); },
     take: loadAll,
     bulktake: loadAll,
