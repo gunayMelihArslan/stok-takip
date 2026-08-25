@@ -757,6 +757,29 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
+// ── BOM DÜZENLEME TALEBİ (Personelden Yöneticiye) ──────────────────────────
+app.post('/api/bom-edit-request', auth, async (req, res) => {
+  try {
+    const { machine_id, message } = req.body;
+    if (!machine_id) return res.status(400).json({ error: 'Vinç seçimi zorunlu' });
+    const m = (await query('SELECT * FROM machines WHERE id=$1', [machine_id])).rows[0];
+    if (!m) return res.status(404).json({ error: 'Vinç bulunamadı' });
+    const admins = (await query("SELECT id FROM users WHERE role='admin'")).rows;
+    const reqUser = req.user.display_name || req.user.username;
+    for (const a of admins) {
+      await createNotif(
+        a.id,
+        '📝 Malzeme Listesi Düzenleme Talebi: ' + m.machine_name,
+        reqUser + ': ' + (message ? message.trim() : 'Düzenleme talep edildi.'),
+        'warning'
+      );
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── BOM ÇIKTISI (Anlık Düzenleme, Excel, İmzalar, Kompakt Mod & Toplam Özeti) ──
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
