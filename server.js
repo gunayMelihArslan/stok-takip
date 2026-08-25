@@ -44,6 +44,20 @@ function broadcast(event, data) {
   sseClients.forEach(res => { try { res.write(msg); } catch {} });
 }
 
+// ── AKTİVİTE LOG HELPER (AUDIT TRAIL) ────────────────────────────────────
+async function logActivity(userId, action, entityType, entityId = null, details = {}, req = null) {
+  try {
+    const ip = req ? (req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '') : null;
+    await query(
+      'INSERT INTO activity_log(user_id, action, entity_type, entity_id, details, ip_address) VALUES($1, $2, $3, $4, $5, $6)',
+      [userId || null, action, entityType, entityId || null, JSON.stringify(details || {}), ip]
+    );
+    broadcast('activity_new', {});
+  } catch(e) {
+    console.error('logActivity error:', e.message);
+  }
+}
+
 function auth(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '') || req.query.token;
   if (!token) return res.status(401).json({ error: 'Giriş yapın' });
@@ -157,6 +171,7 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
     if (!user || !bcrypt.compareSync(password, user.password_hash))
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
+    await logActivity(user.id, 'Giriş Yapıldı', 'auth', user.id, { username: user.username }, req);
     res.json({ role: user.role, display_name: user.display_name, token });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -181,6 +196,45 @@ app.get('/api/events', (req, res) => {
 
 app.get('/api/gold', auth, async (req, res) => res.json(await fetchGold()));
 
+// ── AKTİVİTE LOGLARI API ──────────────────────────────────────────────────
+app.get('/api/activity-logs', auth, admin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 300;
+    const rows = (await query(`
+      SELECT a.*, u.username, u.display_name, u.role
+      FROM activity_log a
+      LEFT JOIN users u ON u.id = a.user_id
+      ORDER BY a.created_at DESC
+      LIMIT $1
+    `, [limit])).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/export/activity-logs', auth, admin, async (req, res) => {
+  try {
+    const rows = (await query(`
+      SELECT a.*, u.username, u.display_name
+      FROM activity_log a
+      LEFT JOIN users u ON u.id = a.user_id
+      ORDER BY a.created_at DESC LIMIT 1000
+    `)).rows;
+    const e = v => { const s = String(v || ''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="aktivite-gunlugu-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + [['Tarih', 'Kullanıcı', 'İşlem', 'Varlık Türü', 'Varlık ID', 'Detaylar', 'IP Adresi'].join(','),
+      ...rows.map(r => [
+        r.created_at?.toISOString().slice(0, 19),
+        r.display_name || r.username || 'Sistem',
+        r.action,
+        r.entity_type,
+        r.entity_id || '',
+        JSON.stringify(r.details || {}),
+        r.ip_address || ''
+      ].map(e).join(','))].join('\n'));
+  } catch(err) { res.status(500).send('CSV export error'); }
+});
+
 // ── COLUMNS ───────────────────────────────────────────────────────────────
 app.get('/api/columns', auth, async (req, res) => {
   try { res.json((await query('SELECT * FROM column_defs ORDER BY display_order ASC, id ASC')).rows); }
@@ -193,6 +247,7 @@ app.post('/api/columns', auth, admin, async (req, res) => {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM column_defs')).rows[0].m;
     const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO column_defs(name,data_type,display_order,min_stock) VALUES($1,$2,$3,$4) RETURNING *', [name, data_type || 'text', ord, min_stock || 5])).rows[0];
+    await logActivity(req.user.id, 'Sütun Eklendi', 'column', r.id, { name, data_type, min_stock }, req);
     broadcast('column_update', {});
     res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -201,6 +256,7 @@ app.put('/api/columns/:id', auth, admin, async (req, res) => {
   try {
     const { name, data_type, display_order, min_stock } = req.body;
     await query('UPDATE column_defs SET name=$1,data_type=$2,display_order=$3,min_stock=$4 WHERE id=$5', [name, data_type, parseInt(display_order) || 0, min_stock || 0, req.params.id]);
+    await logActivity(req.user.id, 'Sütun Güncellendi', 'column', parseInt(req.params.id), { name, data_type, min_stock, display_order }, req);
     broadcast('column_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -212,6 +268,7 @@ app.delete('/api/columns/:id', auth, admin, async (req, res) => {
       if (p.values?.[cid] !== undefined) { delete p.values[cid]; await query('UPDATE products SET "values"=$1 WHERE id=$2', [JSON.stringify(p.values), p.id]); }
     }
     await query('DELETE FROM column_defs WHERE id=$1', [cid]);
+    await logActivity(req.user.id, 'Sütun Silindi', 'column', parseInt(cid), {}, req);
     broadcast('column_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -227,6 +284,7 @@ app.post('/api/products', auth, admin, async (req, res) => {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM products')).rows[0].m;
     const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
     const r = await query('INSERT INTO products("values", display_order) VALUES($1, $2) RETURNING *', [JSON.stringify(req.body.values || {}), ord]);
+    await logActivity(req.user.id, 'Ürün Eklendi', 'product', r.rows[0].id, { values: req.body.values }, req);
     broadcast('stock_update', {}); res.json(r.rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -235,13 +293,17 @@ app.put('/api/products/:id', auth, admin, async (req, res) => {
     const cur = (await query('SELECT "values", display_order FROM products WHERE id=$1', [req.params.id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'Ürün bulunamadı' });
     const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : cur.display_order;
-    await query('UPDATE products SET "values"=$1, display_order=$2, updated_at=NOW() WHERE id=$3', [JSON.stringify({ ...cur.values, ...(req.body.values || {}) }), ord, req.params.id]);
+    const updatedValues = { ...cur.values, ...(req.body.values || {}) };
+    await query('UPDATE products SET "values"=$1, display_order=$2, updated_at=NOW() WHERE id=$3', [JSON.stringify(updatedValues), ord, req.params.id]);
+    await logActivity(req.user.id, 'Ürün Güncellendi', 'product', parseInt(req.params.id), { values: req.body.values }, req);
     broadcast('stock_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/products/:id', auth, admin, async (req, res) => {
   try {
-    await query('DELETE FROM products WHERE id=$1', [req.params.id]); broadcast('stock_update', {}); res.json({ ok: true });
+    await query('DELETE FROM products WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'Ürün Silindi', 'product', parseInt(req.params.id), {}, req);
+    broadcast('stock_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -256,6 +318,7 @@ app.post('/api/firms', auth, admin, async (req, res) => {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM firms')).rows[0].m;
     const ord = req.body.display_order !== undefined ? parseInt(req.body.display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO firms(name,notes,display_order) VALUES($1,$2,$3) RETURNING *', [req.body.name, req.body.notes || '', ord])).rows[0];
+    await logActivity(req.user.id, 'Firma Eklendi', 'firm', r.id, { name: req.body.name }, req);
     broadcast('firm_update', {});
     res.json(r); 
   }
@@ -265,6 +328,7 @@ app.put('/api/firms/:id', auth, admin, async (req, res) => {
   try {
     const { name, notes, display_order } = req.body;
     await query('UPDATE firms SET name=$1, notes=$2, display_order=$3 WHERE id=$4', [name, notes || '', parseInt(display_order) || 0, req.params.id]); 
+    await logActivity(req.user.id, 'Firma Güncellendi', 'firm', parseInt(req.params.id), { name, notes, display_order }, req);
     broadcast('firm_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -272,6 +336,7 @@ app.put('/api/firms/:id', auth, admin, async (req, res) => {
 app.delete('/api/firms/:id', auth, admin, async (req, res) => {
   try {
     await query('DELETE FROM firms WHERE id=$1', [req.params.id]); 
+    await logActivity(req.user.id, 'Firma Silindi', 'firm', parseInt(req.params.id), {}, req);
     broadcast('firm_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -309,6 +374,7 @@ app.post('/api/machines', auth, admin, async (req, res) => {
     const r = (await query('INSERT INTO machines(machine_name,firm_id,notes,items,display_order,capacity) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
       [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), ord, capacity || ''])).rows[0];
     await autoCreateTask(r.id, firm_id || null, machine_name);
+    await logActivity(req.user.id, 'Vinç / Reçete Oluşturuldu', 'machine', r.id, { machine_name, firm_id, capacity, itemCount: (items || []).length }, req);
     broadcast('task_update', { action: 'auto_created', machine: machine_name });
     broadcast('machine_update', {});
     res.json(r);
@@ -321,6 +387,7 @@ app.put('/api/machines/:id', auth, admin, async (req, res) => {
       [machine_name, firm_id || null, notes || '', JSON.stringify(items || []), parseInt(display_order) || 0, capacity || '', req.params.id]);
     await query('UPDATE tasks SET title=$1,firm_id=$2,updated_at=NOW() WHERE machine_id=$3 AND is_auto=TRUE',
       [machine_name, firm_id || null, req.params.id]);
+    await logActivity(req.user.id, 'Vinç / Reçete Güncellendi', 'machine', parseInt(req.params.id), { machine_name, firm_id, capacity, itemCount: (items || []).length }, req);
     broadcast('machine_update', {});
     broadcast('task_update', {});
     res.json({ ok: true });
@@ -329,6 +396,7 @@ app.put('/api/machines/:id', auth, admin, async (req, res) => {
 app.delete('/api/machines/:id', auth, admin, async (req, res) => {
   try {
     await query('DELETE FROM machines WHERE id=$1', [req.params.id]); 
+    await logActivity(req.user.id, 'Vinç Silindi', 'machine', parseInt(req.params.id), {}, req);
     broadcast('machine_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -363,6 +431,7 @@ app.post('/api/transactions', auth, async (req, res) => {
       if (hasLots) await restoreToLots(product_id, Number(quantity));
       else await restoreStock(product_id, Number(quantity), numCol);
     }
+    await logActivity(req.user.id, type === 'return' ? 'Ürün İade Edildi' : 'Stok Çıkışı Yapıldı', 'transaction', r.rows[0].id, { product_id, company, quantity, tx_type: type }, req);
     broadcast('tx_new', { user: req.user.display_name }); broadcast('stock_update', {});
     res.json({ id: r.rows[0].id });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -412,6 +481,7 @@ app.post('/api/transactions/bulk', auth, async (req, res) => {
       
       ids.push(r.rows[0].id);
     }
+    await logActivity(req.user.id, 'Vinç İçin Toplu Malzeme Alındı', 'transaction_bulk', parseInt(machine_id), { machine_name: machine.machine_name, company, itemCount: ids.length }, req);
     broadcast('tx_new', {}); broadcast('stock_update', {});
     res.json({ ids, count: ids.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -424,6 +494,7 @@ app.delete('/api/transactions/:id', auth, admin, async (req, res) => {
     if (tx.tx_type !== 'return') await restoreStock(tx.product_id, parseFloat(tx.quantity), numCol);
     else await deductStock(tx.product_id, parseFloat(tx.quantity), numCol);
     await query('DELETE FROM transactions WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'İşlem İptal Edildi (Stok Geri Yüklendi)', 'transaction', parseInt(req.params.id), { product_id: tx.product_id, quantity: tx.quantity, type: tx.tx_type }, req);
     broadcast('stock_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -452,6 +523,7 @@ app.post('/api/tasks', auth, async (req, res) => {
     for (let i = 0; i < stages.length; i++) {
       await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, stages[i]]);
     }
+    await logActivity(req.user.id, 'Manuel İş Oluşturuldu', 'task', t.id, { title, priority, stages: stages.length }, req);
     broadcast('task_update', { action: 'created' });
     res.json(await enrichTask(t));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -462,6 +534,7 @@ app.put('/api/tasks/:id', auth, admin, async (req, res) => {
     const { title, firm_id, machine_id, priority, notes } = req.body;
     await query('UPDATE tasks SET title=$1,firm_id=$2,machine_id=$3,priority=$4,notes=$5,updated_at=NOW() WHERE id=$6',
       [title, firm_id || null, machine_id || null, priority || 'normal', notes || '', req.params.id]);
+    await logActivity(req.user.id, 'İş Bilgileri Güncellendi', 'task', parseInt(req.params.id), { title, priority }, req);
     broadcast('task_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -470,6 +543,7 @@ app.delete('/api/tasks/:id', auth, admin, async (req, res) => {
   try {
     await query('DELETE FROM task_stages WHERE task_id=$1', [req.params.id]);
     await query('DELETE FROM tasks WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'İş Silindi', 'task', parseInt(req.params.id), {}, req);
     broadcast('task_update', {}); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -482,8 +556,10 @@ app.post('/api/task-stages/:id/assign', auth, admin, async (req, res) => {
     if (user_id) {
       await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [user_id, req.params.id]);
       try{const _s=(await query("SELECT ts.stage_name,t.title FROM task_stages ts JOIN tasks t ON t.id=ts.task_id WHERE ts.id=$1",[req.params.id])).rows[0];if(_s)await createNotif(user_id,'⚡ Aşama Atandı: '+_s.stage_name,_s.title,'task');}catch(e){}
+      await logActivity(req.user.id, 'Aşama Atandı', 'task_stage', parseInt(req.params.id), { stage_name: stage.stage_name, assigned_to: user_id }, req);
     } else {
       await query("UPDATE task_stages SET assigned_to=NULL,status='open',started_at=NULL WHERE id=$1", [req.params.id]);
+      await logActivity(req.user.id, 'Aşama Ataması Kaldırıldı', 'task_stage', parseInt(req.params.id), { stage_name: stage.stage_name }, req);
     }
     const t = (await query('SELECT * FROM tasks WHERE id=$1', [stage.task_id])).rows[0];
     broadcast('task_update', { action: 'assigned' });
@@ -497,6 +573,7 @@ app.post('/api/task-stages/:id/take', auth, async (req, res) => {
     if (!stage) return res.status(404).json({ error: 'Aşama bulunamadı' });
     if (stage.status !== 'open') return res.status(400).json({ error: 'Bu aşama zaten alınmış' });
     await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=NOW() WHERE id=$2", [req.user.id, req.params.id]);
+    await logActivity(req.user.id, 'Aşama Üstlenildi', 'task_stage', parseInt(req.params.id), { stage_name: stage.stage_name }, req);
     broadcast('task_update', { action: 'taken', user: req.user.display_name });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -509,6 +586,7 @@ app.post('/api/task-stages/:id/complete', auth, async (req, res) => {
     if (stage.assigned_to !== req.user.id && req.user.role !== 'admin')
       return res.status(403).json({ error: 'Bu aşama size ait değil' });
     await query("UPDATE task_stages SET status='completed',completed_at=NOW() WHERE id=$1", [req.params.id]);
+    await logActivity(req.user.id, 'Aşama Tamamlandı', 'task_stage', parseInt(req.params.id), { stage_name: stage.stage_name }, req);
     broadcast('task_update', { action: 'stage_completed', user: req.user.display_name });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -527,10 +605,12 @@ app.post('/api/task-stages/:id/transfer', auth, async (req, res) => {
       await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message,status,resolved_at) VALUES($1,$2,$3,$4,\'accepted\',NOW())',
         [req.params.id, req.user.id, to_user_id, message || 'Yönetici tarafından devredildi']);
       await query("UPDATE task_stages SET assigned_to=$1,status='in_progress',started_at=COALESCE(started_at,NOW()) WHERE id=$2", [to_user_id, req.params.id]);
+      await logActivity(req.user.id, 'Aşama Doğrudan Devredildi', 'task_stage', parseInt(req.params.id), { to_user_id, message }, req);
     } else {
       await query('INSERT INTO task_transfers(stage_id,from_user_id,to_user_id,message) VALUES($1,$2,$3,$4)',
         [req.params.id, req.user.id, to_user_id, message || '']);
       await query("UPDATE task_stages SET status='pending_transfer' WHERE id=$1", [req.params.id]);
+      await logActivity(req.user.id, 'Aşama Devir Talebi Açıldı', 'task_stage', parseInt(req.params.id), { to_user_id, message }, req);
     }
     broadcast('task_update', { action: 'transfer_requested', user: req.user.display_name });
     res.json({ ok: true });
@@ -549,6 +629,7 @@ app.post('/api/task-transfers/:id/respond', auth, async (req, res) => {
     } else {
       await query("UPDATE task_stages SET status='in_progress' WHERE id=$1", [tr.stage_id]);
     }
+    await logActivity(req.user.id, accept ? 'Devir Kabul Edildi' : 'Devir Reddedildi', 'task_transfer', parseInt(req.params.id), { accept, stage_id: tr.stage_id }, req);
     broadcast('task_update', { action: accept ? 'transfer_accepted' : 'transfer_rejected', user: req.user.display_name });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -600,6 +681,7 @@ app.post('/api/users', auth, admin, async (req, res) => {
   if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
   try { 
     const r = (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [username, bcrypt.hashSync(password, 10), role || 'personnel', display_name || username])).rows[0];
+    await logActivity(req.user.id, 'Kullanıcı Oluşturuldu', 'user', r.id, { username, role, display_name }, req);
     broadcast('user_update', {});
     res.json({ id: r.id }); 
   }
@@ -610,6 +692,7 @@ app.put('/api/users/:id', auth, admin, async (req, res) => {
     const { display_name, role, password } = req.body;
     if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password, 10), req.params.id]);
     else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [display_name, role, req.params.id]);
+    await logActivity(req.user.id, 'Kullanıcı Güncellendi', 'user', parseInt(req.params.id), { display_name, role, passwordChanged: !!password }, req);
     broadcast('user_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -618,6 +701,7 @@ app.delete('/api/users/:id', auth, admin, async (req, res) => {
   try {
     if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
     await query('DELETE FROM users WHERE id=$1', [req.params.id]); 
+    await logActivity(req.user.id, 'Kullanıcı Silindi', 'user', parseInt(req.params.id), {}, req);
     broadcast('user_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -707,6 +791,7 @@ app.post('/api/bom-categories', auth, admin, async (req, res) => {
     const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO bom_categories(name, display_order) VALUES($1,$2) RETURNING *',
       [name.trim(), ord])).rows[0];
+    await logActivity(req.user.id, 'BOM Kategorisi Eklendi', 'bom_category', r.id, { name: name.trim() }, req);
     broadcast('bom_category_update', {});
     res.json(r);
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -715,6 +800,7 @@ app.put('/api/bom-categories/:id', auth, admin, async (req, res) => {
   try {
     const { name, display_order } = req.body;
     await query('UPDATE bom_categories SET name=$1, display_order=$2 WHERE id=$3', [name, parseInt(display_order) || 0, req.params.id]);
+    await logActivity(req.user.id, 'BOM Kategorisi Güncellendi', 'bom_category', parseInt(req.params.id), { name, display_order }, req);
     broadcast('bom_category_update', {});
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -722,6 +808,7 @@ app.put('/api/bom-categories/:id', auth, admin, async (req, res) => {
 app.delete('/api/bom-categories/:id', auth, admin, async (req, res) => {
   try {
     await query('DELETE FROM bom_categories WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'BOM Kategorisi Silindi', 'bom_category', parseInt(req.params.id), {}, req);
     broadcast('bom_category_update', {});
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -740,6 +827,7 @@ app.post('/api/bom-columns', auth, admin, async (req, res) => {
     const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query('INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES($1,$2,false,$3) RETURNING *',
       [name.trim(), ord, mapped_field || null])).rows[0];
+    await logActivity(req.user.id, 'BOM Sütunu Eklendi', 'bom_column', r.id, { name: name.trim(), mapped_field }, req);
     res.json(r);
   } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -747,12 +835,14 @@ app.put('/api/bom-columns/:id', auth, admin, async (req, res) => {
   try {
     const { name, display_order, mapped_field } = req.body;
     await query('UPDATE bom_columns SET name=$1, display_order=$2, mapped_field=$3 WHERE id=$4', [name, parseInt(display_order) || 0, mapped_field || null, req.params.id]);
+    await logActivity(req.user.id, 'BOM Sütunu Güncellendi', 'bom_column', parseInt(req.params.id), { name, mapped_field }, req);
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   try {
     await query('DELETE FROM bom_columns WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'BOM Sütunu Silindi', 'bom_column', parseInt(req.params.id), {}, req);
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -774,6 +864,7 @@ app.post('/api/bom-edit-request', auth, async (req, res) => {
         'warning'
       );
     }
+    await logActivity(req.user.id, 'Malzeme Listesi Düzenleme Talebi Gönderildi', 'machine', parseInt(machine_id), { message: message?.trim() }, req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1141,6 +1232,7 @@ app.post('/api/products/:id/lots', auth, admin, async (req, res) => {
     }
 
     await syncLotTotal(req.params.id);
+    await logActivity(req.user.id, 'Model Yılı (Lot) Güncellendi', 'product_lot', parseInt(req.params.id), { production_year, quantity: qty, notes }, req);
     broadcast('stock_update', {});
     res.json({ok: true});
   } catch(e) {
@@ -1155,6 +1247,7 @@ app.delete('/api/lots/:id', auth, admin, async (req, res) => {
     if (!lot) return res.status(404).json({error: 'Bulunamadı'});
     await query('DELETE FROM product_lots WHERE id=$1', [req.params.id]);
     await syncLotTotal(lot.product_id);
+    await logActivity(req.user.id, 'Model Yılı (Lot) Silindi', 'product_lot', parseInt(req.params.id), { product_id: lot.product_id }, req);
     broadcast('stock_update', {});
     res.json({ok: true});
   } catch(e) { res.status(500).json({error: e.message}); }
@@ -1251,6 +1344,7 @@ app.post('/api/purchase-requests',auth,async(req,res)=>{
     const r=(await query(`INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id)VALUES($1,$2,$3,$4,$5,$6)RETURNING *`,[req.user.id,product_name.trim(),qty,unit||'adet',reason||'',task_id||null])).rows[0];
     const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
     for(const a of admins)await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
+    await logActivity(req.user.id, 'Satın Alma Talebi Açıldı', 'purchase_request', r.id, { product_name: product_name.trim(), quantity: qty, unit }, req);
     broadcast('purchase_new',{});res.json(r);
   }catch(e){console.error('purchase POST:',e.message);res.status(500).json({error:e.message});}
 });
@@ -1262,11 +1356,16 @@ app.put('/api/purchase-requests/:id/status',auth,admin,async(req,res)=>{
     await query("UPDATE purchase_requests SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3",[status,admin_note||'',req.params.id]);
     const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',received:'📦 Teslim Alındı'};
     if(labels[status])await createNotif(pr.requested_by,'Satın Alma: '+labels[status],pr.product_name+(admin_note?' — '+admin_note:''),'purchase');
+    await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note }, req);
     broadcast('purchase_new',{});res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
 app.delete('/api/purchase-requests/:id',auth,admin,async(req,res)=>{
-  try{await query("DELETE FROM purchase_requests WHERE id=$1",[req.params.id]);broadcast('purchase_new',{});res.json({ok:true});}catch(e){res.status(500).json({error:e.message});}
+  try{
+    await query("DELETE FROM purchase_requests WHERE id=$1",[req.params.id]);
+    await logActivity(req.user.id, 'Satın Alma Talebi Silindi', 'purchase_request', parseInt(req.params.id), {}, req);
+    broadcast('purchase_new',{});res.json({ok:true});
+  }catch(e){res.status(500).json({error:e.message});}
 });
 app.put('/api/users/change-password',auth,async(req,res)=>{
   try{
@@ -1276,6 +1375,7 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
     const user=(await query("SELECT * FROM users WHERE id=$1",[req.user.id])).rows[0];
     if(!user||!bcrypt.compareSync(current_password,user.password_hash))return res.status(401).json({error:'Mevcut şifre yanlış'});
     await query("UPDATE users SET password_hash=$1 WHERE id=$2",[bcrypt.hashSync(new_password,10),req.user.id]);
+    await logActivity(req.user.id, 'Şifre Değiştirildi', 'user', req.user.id, {}, req);
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
