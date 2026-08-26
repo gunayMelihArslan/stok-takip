@@ -1349,8 +1349,8 @@ app.post('/api/task-stages/:id/comments',auth,async(req,res)=>{
 });
 
 // ── Satın Alma (Rol Bazlı Akış: Admin & Purchase) ─────────────
-app.get('/api/purchase-requests',auth,async(req,res)=>{
-  try{
+app.get('/api/purchase-requests', auth, async (req, res) => {
+  try {
     const isManager = req.user.role === 'admin' || req.user.role === 'purchase';
     res.json((await query(
       isManager
@@ -1358,49 +1358,99 @@ app.get('/api/purchase-requests',auth,async(req,res)=>{
         : `SELECT pr.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`,
       isManager ? [] : [req.user.id]
     )).rows);
-  }catch(e){res.status(500).json({error:e.message});}
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/purchase-requests',auth,async(req,res)=>{
-  try{
-    const{product_name,quantity,unit,reason,task_id}=req.body;
-    if(!product_name||!product_name.trim())return res.status(400).json({error:'Ürün adı zorunlu'});
-    const qty=parseFloat(quantity);
-    if(isNaN(qty)||qty<=0)return res.status(400).json({error:'Geçerli miktar girin'});
-    const r=(await query(`INSERT INTO purchase_requests(requested_by,product_name,quantity,unit,reason,task_id)VALUES($1,$2,$3,$4,$5,$6)RETURNING *`,[req.user.id,product_name.trim(),qty,unit||'adet',reason||'',task_id||null])).rows[0];
-    const admins=(await query("SELECT id FROM users WHERE role='admin'")).rows;
-    for(const a of admins)await createNotif(a.id,'📦 Satın Alma: '+product_name.trim(),(req.user.display_name||req.user.username)+' talep etti','purchase');
-    await logActivity(req.user.id, 'Satın Alma Talebi Açıldı', 'purchase_request', r.id, { product_name: product_name.trim(), quantity: qty, unit }, req);
-    broadcast('purchase_new',{});res.json(r);
-  }catch(e){console.error('purchase POST:',e.message);res.status(500).json({error:e.message});}
-});
-app.put('/api/purchase-requests/:id/status',auth,async(req,res)=>{
-  try{
-    const{status,admin_note}=req.body;
-    const pr=(await query("SELECT * FROM purchase_requests WHERE id=$1",[req.params.id])).rows[0];
-    if(!pr)return res.status(404).json({error:'Bulunamadı'});
 
-    // Onay ve red yetkisi sadece yöneticide (admin) kalır
+app.post('/api/purchase-requests', auth, async (req, res) => {
+  try {
+    const { product_name, quantity, unit, reason, task_id, product_values, status } = req.body;
+    if (!product_name || !product_name.trim()) return res.status(400).json({ error: 'Ürün adı zorunlu' });
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Geçerli miktar girin' });
+
+    // Yönetici doğrudan onaylı (approved) olarak açabilir, personel için pending başlar
+    const initialStatus = (req.user.role === 'admin' && status) ? status : (req.user.role === 'admin' ? 'approved' : 'pending');
+
+    const r = (await query(
+      `INSERT INTO purchase_requests(requested_by, product_name, quantity, unit, reason, task_id, product_values, status)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.user.id, product_name.trim(), qty, unit || 'adet', reason || '', task_id || null, JSON.stringify(product_values || {}), initialStatus]
+    )).rows[0];
+
+    const admins = (await query("SELECT id FROM users WHERE role='admin'")).rows;
+    for (const a of admins) {
+      if (a.id !== req.user.id) {
+        await createNotif(a.id, '📦 Satın Alma: ' + product_name.trim(), (req.user.display_name || req.user.username) + ' talep etti', 'purchase');
+      }
+    }
+    await logActivity(req.user.id, 'Satın Alma Talebi Açıldı', 'purchase_request', r.id, { product_name: product_name.trim(), quantity: qty, unit, status: initialStatus }, req);
+    broadcast('purchase_new', {});
+    res.json(r);
+  } catch(e) {
+    console.error('purchase POST:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Yönetici Talebi Düzenleme Endpoint'i (Ürün adı, miktar, birim, iş, stok detayları)
+app.put('/api/purchase-requests/:id', auth, admin, async (req, res) => {
+  try {
+    const { product_name, quantity, unit, reason, task_id, product_values, status, admin_note } = req.body;
+    const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
+    if (!pr) return res.status(404).json({ error: 'Talep bulunamadı' });
+
+    await query(
+      `UPDATE purchase_requests 
+       SET product_name=$1, quantity=$2, unit=$3, reason=$4, task_id=$5, product_values=$6, status=$7, admin_note=$8, updated_at=NOW() 
+       WHERE id=$9`,
+      [
+        product_name ? product_name.trim() : pr.product_name,
+        quantity !== undefined ? parseFloat(quantity) : pr.quantity,
+        unit || pr.unit,
+        reason !== undefined ? reason : pr.reason,
+        task_id !== undefined ? (task_id || null) : pr.task_id,
+        product_values ? JSON.stringify(product_values) : (pr.product_values || '{}'),
+        status || pr.status,
+        admin_note !== undefined ? admin_note : pr.admin_note,
+        req.params.id
+      ]
+    );
+
+    await logActivity(req.user.id, 'Satın Alma Talebi Düzenlendi', 'purchase_request', parseInt(req.params.id), { product_name, quantity }, req);
+    broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
+  try {
+    const { status, admin_note } = req.body;
+    const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
+    if (!pr) return res.status(404).json({ error: 'Bulunamadı' });
+
     if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Bu durum değişikliği için yönetici yetkisi gerekli' });
     }
-    // Sipariş ve sevkiyat durumları admin veya satın alma rolü tarafından güncellenebilir
     if ((status === 'ordered' || status === 'shipping') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
       return res.status(403).json({ error: 'Tedarik yetkisi gerekli' });
     }
 
-    await query("UPDATE purchase_requests SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3",[status,admin_note||'',req.params.id]);
-    const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',shipping:'🚢 Sevkiyatta (Yolda)',received:'📦 Teslim Alındı'};
-    if(labels[status])await createNotif(pr.requested_by,'Satın Alma: '+labels[status],pr.product_name+(admin_note?' — '+admin_note:''),'purchase');
+    await query("UPDATE purchase_requests SET status=$1, admin_note=$2, updated_at=NOW() WHERE id=$3", [status, admin_note || '', req.params.id]);
+    const labels = { approved: '✅ Onaylandı', rejected: '❌ Reddedildi', ordered: '🚚 Sipariş Verildi', shipping: '🚢 Sevkiyatta (Yolda)', received: '📦 Teslim Alındı' };
+    if (labels[status]) await createNotif(pr.requested_by, 'Satın Alma: ' + labels[status], pr.product_name + (admin_note ? ' — ' + admin_note : ''), 'purchase');
     await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note }, req);
-    broadcast('purchase_new',{});res.json({ok:true});
-  }catch(e){res.status(500).json({error:e.message});}
+    broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/purchase-requests/:id',auth,admin,async(req,res)=>{
-  try{
-    await query("DELETE FROM purchase_requests WHERE id=$1",[req.params.id]);
+
+app.delete('/api/purchase-requests/:id', auth, admin, async (req, res) => {
+  try {
+    await query("DELETE FROM purchase_requests WHERE id=$1", [req.params.id]);
     await logActivity(req.user.id, 'Satın Alma Talebi Silindi', 'purchase_request', parseInt(req.params.id), {}, req);
-    broadcast('purchase_new',{});res.json({ok:true});
-  }catch(e){res.status(500).json({error:e.message});}
+    broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/users/change-password',auth,async(req,res)=>{
   try{
