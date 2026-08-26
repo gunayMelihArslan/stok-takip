@@ -58,6 +58,9 @@
 .act-task{background:rgba(138,109,26,.2);color:#ffd452;border:1px solid rgba(138,109,26,.4)}
 .act-user{background:rgba(100,149,237,.15);color:#87cefa;border:1px solid rgba(100,149,237,.3)}
 
+/* Rol Rozeti - Satın Alma */
+.badge-purchase{background:#e8f5f0;color:#1a6b56;border:1px solid rgba(26,107,86,.3);font-weight:700}
+
 /* ── MOBİL UYUMLULUK CSS ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .stages-grid { grid-template-columns: 1fr; }
@@ -121,8 +124,8 @@
     <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     
     <div class="nav-section-label">Sistem & Güvenlik</div>
-    <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
     <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
+    <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">A</div><div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div></div>
@@ -357,26 +360,44 @@
     <!-- PURCHASES -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
-        <div class="search-box-wrap">
-          <input type="text" id="purchaseSearch" placeholder="🔍 Talep ara..." oninput="handleSearchInput(this, renderPurchases)">
-          <button class="search-clear-btn" onclick="clearSearchInput('purchaseSearch', renderPurchases)">✕</button>
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="purchaseSearch" placeholder="🔍 Talep / Ürün / İş ara..." oninput="handleSearchInput(this, renderPurchases)">
+            <button class="search-clear-btn" onclick="clearSearchInput('purchaseSearch', renderPurchases)">✕</button>
+          </div>
+          <select id="prFilter" style="max-width:170px" onchange="renderPurchases()">
+            <option value="">Tüm Durumlar</option>
+            <option value="pending">⏳ Bekliyor</option>
+            <option value="approved">✅ Onaylandı</option>
+            <option value="ordered">🚚 Sipariş</option>
+            <option value="shipping">🚢 Sevkiyatta</option>
+            <option value="received">📦 Teslim</option>
+            <option value="rejected">❌ Reddedildi</option>
+          </select>
         </div>
-        <select id="prFilter" style="max-width:170px" onchange="renderPurchases()">
-          <option value="">Tüm Durumlar</option>
-          <option value="pending">⏳ Bekliyor</option>
-          <option value="approved">✅ Onaylandı</option>
-          <option value="ordered">🚚 Sipariş</option>
-          <option value="shipping">🚢 Sevkiyatta</option>
-          <option value="received">📦 Teslim</option>
-          <option value="rejected">❌ Reddedildi</option>
-        </select>
+        <button class="btn btn-primary" onclick="openPurchaseModal()">+ Yeni Sipariş / Talep Oluştur</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderPurchases()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table id="purchaseTable">
-        <thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Miktar</th><th>Neden</th><th>İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>Neden</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="purchaseTbody"></tbody>
       </table></div></div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." oninput="handleSearchInput(this, renderUsers)">
+            <button class="search-clear-btn" onclick="clearSearchInput('userSearch', renderUsers)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
+        <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
     <!-- AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) -->
@@ -414,21 +435,6 @@
         <thead><tr><th>Tarih</th><th>Kullanıcı</th><th>İşlem</th><th>Kategori</th><th>Varlık ID</th><th>Detay</th><th>IP Adresi</th></tr></thead>
         <tbody id="activityTbody"></tbody>
       </table></div></div>
-    </div>
-
-    <!-- USERS -->
-    <div class="page" id="page-users">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <div class="search-box-wrap">
-            <input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." oninput="handleSearchInput(this, renderUsers)">
-            <button class="search-clear-btn" onclick="clearSearchInput('userSearch', renderUsers)">✕</button>
-          </div>
-        </div>
-        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
-        <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
-      </div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
     <!-- BOM SETTINGS -->
@@ -645,7 +651,7 @@
   <div class="modal">
     <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
     <div class="modal-body"><input type="hidden" id="assignStageId">
-      <div class="form-group"><label>Personel / Yönetici</label>
+      <div class="form-group"><label>Personel / Satın Alma / Yönetici</label>
         <select id="assignUser"><option value="">— Atamayı Kaldır —</option></select>
       </div>
     </div>
@@ -733,7 +739,7 @@
 <div class="modal-overlay" id="transferModal">
   <div class="modal"><div class="modal-header"><h3 id="transferModalTitle">Aşamayı Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
   <div class="modal-body"><input type="hidden" id="transferStageId">
-    <div class="form-group"><label>Devredilecek Personel / Yönetici</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div>
+    <div class="form-group"><label>Devredilecek Personel / Satın Alma / Yönetici</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div>
     <div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
@@ -762,6 +768,76 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('actDetailModal')">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- 16. YÖNETİCİ SATIN ALMA / SİPARİŞ OLUŞTURMA & DÜZENLEME MODALI -->
+<div class="modal-overlay" id="purchaseModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h3 id="purchaseModalTitle">🛒 Satın Alma / Sipariş Talebi</h3>
+      <button class="modal-close" onclick="closeModal('purchaseModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="editPurchaseId">
+      
+      <div class="form-group">
+        <label>Malzeme / Ürün Adı *</label>
+        <input type="text" id="prModalName" placeholder="Örn: 10mm² NYY Kablo">
+      </div>
+      
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group">
+          <label>Miktar *</label>
+          <input type="number" id="prModalQty" min="0.01" step="any" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Birim</label>
+          <input type="text" id="prModalUnit" value="adet" placeholder="adet">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>İlgili İş / Vinç (Opsiyonel)</label>
+        <select id="prModalTask" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select>
+      </div>
+
+      <div class="form-group">
+        <label>Talep / Sipariş Nedeni</label>
+        <textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Sipariş Durumu</label>
+        <select id="prModalStatus" style="width:100%">
+          <option value="approved">✅ Onaylandı (Satın Alma Hemen İşleme Alabilir)</option>
+          <option value="pending">⏳ Beklemede (Onay Bekleyen Taslak)</option>
+          <option value="ordered">🚚 Sipariş Verildi</option>
+          <option value="shipping">🚢 Sevkiyatta (Yolda)</option>
+          <option value="received">📦 Teslim Alındı</option>
+        </select>
+      </div>
+
+      <!-- DİNAMİK STOK SÜTUNLARI BÖLÜMÜ -->
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;margin-top:.75rem">
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.5rem">
+          📦 Stok / Ürün Özellik Bilgileri (Satın Alma İçin Detaylar)
+        </div>
+        <div style="font-size:.65rem;color:var(--muted);margin-bottom:.65rem">
+          Tedarikçiye bildirilecek marka, model, stok kodu veya teknik özellikleri tanımlı sütunlara göre girebilirsiniz:
+        </div>
+        <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:.75rem">
+        <label>Tedarikçi / Kargo / Yönetici Notu</label>
+        <input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, takip no veya özel not...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button>
+      <button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Siparişi Kaydet</button>
     </div>
   </div>
 </div>
@@ -889,7 +965,10 @@ async function loadProducts() {
   if (lc) products.forEach(p => { p._lc = lc[p.id] || 0; });
 }
 async function loadTransactions() { transactions = await api('/api/transactions?limit=300') || []; }
-async function loadUsers() { users = await api('/api/users') || []; }
+async function loadUsers() { 
+  users = await api('/api/users') || []; 
+  if (currentPage === 'users') renderUsers();
+}
 async function loadActivityLogs() { activityLogs = await api('/api/activity-logs?limit=300') || []; }
 async function loadMachines() { machines = await api('/api/machines') || []; }
 async function loadFirms() { firms = await api('/api/firms') || []; }
@@ -2352,6 +2431,90 @@ async function submitReturn() {
   toast(`${quantity} adet iade kaydedildi ✓`, 'success');
 }
 
+// ── USERS ─────────────────────────────────────────────────────────────────
+function renderUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
+  let usrs = users;
+  if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
+  const tbody = document.getElementById('usersTbody');
+  if (!tbody) return;
+  if (!usrs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>';
+    return;
+  }
+  const roleNames = {
+    admin: 'Yönetici',
+    purchase: 'Satın Alma',
+    personnel: 'Personel'
+  };
+  const roleBadges = {
+    admin: 'badge-admin',
+    purchase: 'badge-purchase',
+    personnel: 'badge-personnel'
+  };
+  tbody.innerHTML = usrs.map(u => `<tr>
+    <td><strong>${esc(u.display_name || u.username)}</strong></td>
+    <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
+    <td><span class="badge ${roleBadges[u.role] || 'badge-personnel'}">${roleNames[u.role] || esc(u.role)}</span></td>
+    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button>
+    </td>
+  </tr>`).join('');
+}
+
+function openUserModal() {
+  document.getElementById('editUserId').value = '';
+  document.getElementById('userDisplayName').value = '';
+  document.getElementById('userUsername').value = '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = 'personnel';
+  document.getElementById('userUsername').disabled = false;
+  document.getElementById('passOptional').style.display = 'none';
+  document.getElementById('userModalTitle').textContent = 'Yeni Kullanıcı';
+  openModal('userModal');
+}
+
+function editUser(id) {
+  const u = users.find(x => x.id == id);
+  if (!u) return;
+  document.getElementById('editUserId').value = id;
+  document.getElementById('userDisplayName').value = u.display_name || '';
+  document.getElementById('userUsername').value = u.username || '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = u.role || 'personnel';
+  document.getElementById('userUsername').disabled = true;
+  document.getElementById('passOptional').style.display = 'inline';
+  document.getElementById('userModalTitle').textContent = 'Kullanıcı Düzenle';
+  openModal('userModal');
+}
+
+async function saveUser() {
+  const id = document.getElementById('editUserId').value;
+  const display_name = document.getElementById('userDisplayName').value.trim();
+  const username = document.getElementById('userUsername').value.trim();
+  const password = document.getElementById('userPassword').value;
+  const role = document.getElementById('userRole').value;
+  if (!display_name || (!id && !username) || (!id && !password)) { toast('Tüm alanları doldurun', 'error'); return; }
+  let r;
+  if (id) r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
+  else r = await api('/api/users', 'POST', { username, password, role, display_name });
+  if (!r) return;
+  closeModal('userModal');
+  await loadUsers();
+  renderUsers();
+  toast('Kaydedildi ✓', 'success');
+}
+
+async function deleteUser(id) {
+  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  await api('/api/users/' + id, 'DELETE');
+  await loadUsers();
+  renderUsers();
+  toast('Silindi ✓', 'success');
+}
+
 // ── AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) ─────────────────────────────────────────
 function getEntityBadge(type) {
   const map = {
@@ -2490,94 +2653,246 @@ async function deleteTx(id) {
   toast('İptal edildi ✓', 'success');
 }
 
-// ── USERS ─────────────────────────────────────────────────────────────────
-function renderUsers() {
-  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
-  let usrs = users;
-  if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
-  const tbody = document.getElementById('usersTbody');
-  if (!tbody) return;
-  if (!usrs.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>';
+// ── BİLDİRİMLER, YORUMLAR VE SATIN ALMA ──────────────────────────────────
+var _notifs = []; var _notifOpen = false;
+async function loadNotifs() { _notifs = await api('/api/notifications') || []; renderNotifBadge(); }
+function renderNotifBadge() {
+  var n = _notifs.filter(function(x) { return !x.is_read; }).length;
+  var b = document.getElementById('notifBadge');
+  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none'; }
+}
+
+function toggleNotifPanel() {
+  _notifOpen = !_notifOpen;
+  var p = document.getElementById('notifPanel');
+  if (p) p.style.display = _notifOpen ? 'block' : 'none';
+  if (_notifOpen) renderNotifPanel();
+}
+
+function renderNotifPanel() {
+  var list = document.getElementById('notifList'); if (!list) return;
+  var ic = { task: '⚡', transfer: '🔄', comment: '💬', purchase: '📦', warning: '⚠️', info: 'ℹ️' };
+  list.innerHTML = _notifs.length ? _notifs.slice(0, 20).map(function(n) {
+    return '<div onclick="markRead(' + n.id + ')" style="display:flex;gap:.6rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);cursor:pointer;background:' + (n.is_read ? 'transparent' : 'rgba(232,184,75,.05)') + '">' +
+      '<span style="font-size:1rem;flex-shrink:0">' + (ic[n.type] || 'ℹ️') + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read ? 400 : 700) + '">' + esc(n.title) + '</div>' +
+      (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
+      (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
+      '</div>';
+  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
+}
+
+async function markRead(id) {
+  await api('/api/notifications/' + id + '/read', 'POST');
+  _notifs = _notifs.map(function(n) { return n.id === id ? Object.assign({}, n, { is_read: true }) : n; });
+  renderNotifBadge(); renderNotifPanel();
+}
+
+async function markAllRead() {
+  await api('/api/notifications/read-all', 'POST');
+  _notifs = _notifs.map(function(n) { return Object.assign({}, n, { is_read: true }); });
+  renderNotifBadge(); renderNotifPanel();
+}
+
+var _commentSid = null;
+async function openComments(sid, sname) {
+  _commentSid = sid;
+  document.getElementById('commentTitle').textContent = sname + ' — Notlar';
+  document.getElementById('commentBody').value = '';
+  await loadComments(); openModal('commentModal');
+}
+
+async function loadComments() {
+  var c = await api('/api/task-stages/' + _commentSid + '/comments') || [];
+  var list = document.getElementById('commentList'); if (!list) return;
+  list.innerHTML = c.length ? c.map(function(x) {
+    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
+      '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
+      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : x.role === 'purchase' ? 'rgba(26,107,86,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
+      '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
+      '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
+  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
+}
+
+async function saveComment() {
+  var b = document.getElementById('commentBody').value;
+  if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
+  var r = await api('/api/task-stages/' + _commentSid + '/comments', 'POST', { body: b.trim() });
+  if (!r) return;
+  document.getElementById('commentBody').value = '';
+  await loadComments(); toast('Not eklendi ✓', 'success');
+}
+
+// ── SATIN ALMA TALEP / SİPARİŞ YÖNETİMİ ──────────────────────────────────
+var _purchases = [];
+async function loadPurchases() { _purchases = await api('/api/purchase-requests') || []; renderPurchaseBadge(); }
+function renderPurchaseBadge() {
+  var n = _purchases.filter(function(p) { return p.status === 'pending'; }).length;
+  var b = document.getElementById('purchaseBadge');
+  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline' : 'none'; }
+}
+
+var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
+
+function renderPurchases() {
+  var sq = (document.getElementById('purchaseSearch')?.value || '').toLowerCase();
+  var f = (document.getElementById('prFilter') || {}).value || '';
+  var list = _purchases;
+  if (f) list = list.filter(function(p) { return p.status === f; });
+  if (sq) {
+    list = list.filter(function(p) {
+      const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
+      return (p.product_name || '').toLowerCase().includes(sq) ||
+             (p.requester_name || '').toLowerCase().includes(sq) ||
+             (p.task_title || '').toLowerCase().includes(sq) ||
+             (p.reason || '').toLowerCase().includes(sq) ||
+             pVals.includes(sq);
+    });
+  }
+  var tbody = document.getElementById('purchaseTbody'); if (!tbody) return;
+  tbody.innerHTML = list.length ? list.map(function(p) {
+    var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    
+    // Ürün için eklenen dinamik stok sütunları rozetleri
+    var pVals = p.product_values || {};
+    var extraTags = Object.entries(pVals).map(function([cid, val]) {
+      if (!val) return '';
+      var col = columns.find(c => String(c.id) === String(cid));
+      var colName = col ? col.name : 'Sütun';
+      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
+    }).filter(Boolean).join('');
+
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
+      <td><strong>${esc(p.requester_name || '?')}</strong></td>
+      <td>
+        <strong>${esc(p.product_name)}</strong>
+        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${extraTags}</div>` : ''}
+      </td>
+      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || '')}</td>
+      <td style="font-size:.8rem;color:var(--text2)">${esc(p.reason || '—')}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
+      ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏️</button>
+        ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Reddet">✗</button> ` : ''}
+        ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Sipariş Ver">🚚</button> ` : ''}
+        ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Kargoya Ver">🚢</button> ` : ''}
+        ${p.status === 'shipping' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'received')" title="Teslim Al">📦</button> ` : ''}
+        <button class="btn btn-danger btn-sm" onclick="delPR(${p.id})" title="Sil">×</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">Talep yok</td></tr>';
+}
+
+function openPurchaseModal() {
+  document.getElementById('editPurchaseId').value = '';
+  document.getElementById('prModalName').value = '';
+  document.getElementById('prModalQty').value = '';
+  document.getElementById('prModalUnit').value = 'adet';
+  document.getElementById('prModalReason').value = '';
+  document.getElementById('prModalStatus').value = 'approved';
+  document.getElementById('prModalAdminNote').value = '';
+  document.getElementById('purchaseModalTitle').textContent = '🛒 Yeni Satın Alma / Sipariş Oluştur';
+
+  // İş listesini doldur
+  const tsel = document.getElementById('prModalTask');
+  tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.filter(t => t.status !== 'completed').map(t => `<option value="${t.id}">${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
+
+  // Dinamik stok sütunlarını modal içine oluştur
+  renderPurchaseColFields({});
+  openModal('purchaseModal');
+}
+
+function editPurchaseModal(id) {
+  const p = _purchases.find(x => x.id == id);
+  if (!p) return;
+  document.getElementById('editPurchaseId').value = p.id;
+  document.getElementById('prModalName').value = p.product_name || '';
+  document.getElementById('prModalQty').value = p.quantity || '';
+  document.getElementById('prModalUnit').value = p.unit || 'adet';
+  document.getElementById('prModalReason').value = p.reason || '';
+  document.getElementById('prModalStatus').value = p.status || 'approved';
+  document.getElementById('prModalAdminNote').value = p.admin_note || '';
+  document.getElementById('purchaseModalTitle').textContent = '✏️ Satın Alma Talebini Düzenle';
+
+  const tsel = document.getElementById('prModalTask');
+  tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.map(t => `<option value="${t.id}" ${t.id == p.task_id ? 'selected' : ''}>${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
+
+  renderPurchaseColFields(p.product_values || {});
+  openModal('purchaseModal');
+}
+
+function renderPurchaseColFields(existingVals) {
+  const cont = document.getElementById('prModalColFields');
+  if (!cont) return;
+  existingVals = existingVals || {};
+
+  // Stoktaki sayısal miktar veya kategori dışındaki özel sütunları getir
+  const relevantCols = columns.filter(c => (c.name || '').toLowerCase() !== 'ürün adı' && (c.name || '').toLowerCase() !== 'kategori' && c.data_type !== 'number');
+  if (!relevantCols.length) {
+    cont.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Tanımlı ek özellik sütunu yok.</span>';
     return;
   }
-  const roleBadges = {
-    admin: '<span class="badge badge-admin">Yönetici</span>',
-    purchase: '<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">Satın Alma</span>',
-    personnel: '<span class="badge badge-personnel">Personel</span>'
-  };
-  tbody.innerHTML = usrs.map(u => `<tr>
-    <td><strong>${esc(u.display_name || u.username)}</strong></td>
-    <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
-    <td>${roleBadges[u.role] || `<span class="badge">${esc(u.role)}</span>`}</td>
-    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
-    <td style="display:flex;gap:.4rem">
-      <button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button>
-    </td>
-  </tr>`).join('');
+
+  cont.innerHTML = relevantCols.map(c => `
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:.5rem;align-items:center">
+      <span style="font-size:.72rem;color:var(--text2);font-weight:700">${esc(c.name)}:</span>
+      <input type="text" class="pr-col-input" data-cid="${c.id}" value="${esc(existingVals[c.id] || '')}" placeholder="${esc(c.name)} giriniz..." style="padding:.35rem .6rem;font-size:.8rem">
+    </div>
+  `).join('');
 }
 
-function openUserModal() {
-  document.getElementById('editUserId').value = '';
-  document.getElementById('userDisplayName').value = '';
-  document.getElementById('userUsername').value = '';
-  document.getElementById('userPassword').value = '';
-  document.getElementById('userRole').value = 'personnel';
-  document.getElementById('userUsername').disabled = false;
-  document.getElementById('passOptional').style.display = 'none';
-  document.getElementById('userModalTitle').textContent = 'Yeni Kullanıcı';
-  openModal('userModal');
-}
+async function savePurchaseRequest() {
+  const id = document.getElementById('editPurchaseId').value;
+  const product_name = document.getElementById('prModalName').value.trim();
+  const quantity = parseFloat(document.getElementById('prModalQty').value);
+  const unit = document.getElementById('prModalUnit').value.trim() || 'adet';
+  const task_id = document.getElementById('prModalTask').value || null;
+  const reason = document.getElementById('prModalReason').value.trim();
+  const status = document.getElementById('prModalStatus').value;
+  const admin_note = document.getElementById('prModalAdminNote').value.trim();
 
-function editUser(id) {
-  const u = users.find(x => x.id == id);
-  if (!u) return;
-  document.getElementById('editUserId').value = id;
-  document.getElementById('userDisplayName').value = u.display_name || '';
-  document.getElementById('userUsername').value = u.username || '';
-  document.getElementById('userPassword').value = '';
-  document.getElementById('userRole').value = u.role || 'personnel';
-  document.getElementById('userUsername').disabled = true;
-  document.getElementById('passOptional').style.display = 'inline';
-  document.getElementById('userModalTitle').textContent = 'Kullanıcı Düzenle';
-  openModal('userModal');
-}
+  if (!product_name) { toast('Ürün / Malzeme adı gerekli', 'error'); return; }
+  if (isNaN(quantity) || quantity <= 0) { toast('Geçerli bir miktar giriniz', 'error'); return; }
 
-async function saveUser() {
-  const id = document.getElementById('editUserId').value;
-  const display_name = document.getElementById('userDisplayName').value.trim();
-  const username = document.getElementById('userUsername').value.trim();
-  const password = document.getElementById('userPassword').value;
-  const role = document.getElementById('userRole').value;
+  // Ek sütun değerlerini topla
+  const product_values = {};
+  document.querySelectorAll('#prModalColFields .pr-col-input').forEach(inp => {
+    const cid = inp.getAttribute('data-cid');
+    if (cid && inp.value.trim()) {
+      product_values[cid] = inp.value.trim();
+    }
+  });
 
-  if (!display_name || (!id && !username) || (!id && !password)) {
-    toast('Tüm alanları doldurun', 'error');
-    return;
-  }
-
+  const payload = { product_name, quantity, unit, task_id, reason, status, admin_note, product_values };
   let r;
   if (id) {
-    r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
+    r = await api('/api/purchase-requests/' + id, 'PUT', payload);
   } else {
-    r = await api('/api/users', 'POST', { username, password, role, display_name });
+    r = await api('/api/purchase-requests', 'POST', payload);
   }
 
-  // EĞER BACKEND'DEN BAŞARILI CEVAP GELMEDİYSE İŞLEMİ DURDUR
   if (!r) return;
-
-  closeModal('userModal');
-  await loadUsers();
-  renderUsers();
-  toast('Kaydedildi ✓', 'success');
+  closeModal('purchaseModal');
+  await loadPurchases();
+  renderPurchases();
+  toast(id ? 'Sipariş güncellendi ✓' : 'Yeni sipariş oluşturuldu ✓', 'success');
 }
 
-async function deleteUser(id) {
+async function setPR(id, status) {
+  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Red' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Sipariş') + ' notu:') || '') : '';
+  await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: status, admin_note: note });
+  await loadPurchases(); renderPurchases(); toast('Güncellendi ✓', 'success');
+}
+
+async function delPR(id) {
   if (!confirm('Silmek istediğinizden emin misiniz?')) return;
-  await api('/api/users/' + id, 'DELETE');
-  await loadUsers();
-  renderUsers();
-  toast('Silindi ✓', 'success');
+  await api('/api/purchase-requests/' + id, 'DELETE');
+  await loadPurchases(); renderPurchases(); toast('Silindi ✓', 'success');
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -2732,7 +3047,7 @@ async function lotSave() {
   if (!yr || yr < 1980 || yr > 2099) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli yıl girin (1980-2099)'; return; }
   if (isNaN(qty) || qty < 0) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli adet girin'; return; }
   msg.style.color = 'var(--muted)'; msg.textContent = 'Kaydediliyor...';
-  const r = await api('/api/products/' + pid + '/lots', 'POST', { production_year: yr, quantity: qty, notes: notes });
+  const r = await api('/api/products/' + pid, 'POST', { production_year: yr, quantity: qty, notes: notes });
   if (!r) { msg.style.color = 'var(--danger)'; msg.textContent = 'Kaydedilemedi'; return; }
   document.getElementById('lotYear').value = '';
   document.getElementById('lotQty').value = '';
@@ -2910,126 +3225,6 @@ async function deleteBomCol(id) {
 function openBOM(machineId) {
   const token = localStorage.getItem('stok_token');
   window.open(`/bom/${machineId}?token=${encodeURIComponent(token)}`, '_blank');
-}
-
-// ── BİLDİRİMLER, YORUMLAR VE SATIN ALMA ──────────────────────────────────
-var _notifs = []; var _notifOpen = false;
-async function loadNotifs() { _notifs = await api('/api/notifications') || []; renderNotifBadge(); }
-function renderNotifBadge() {
-  var n = _notifs.filter(function(x) { return !x.is_read; }).length;
-  var b = document.getElementById('notifBadge');
-  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none'; }
-}
-
-function toggleNotifPanel() {
-  _notifOpen = !_notifOpen;
-  var p = document.getElementById('notifPanel');
-  if (p) p.style.display = _notifOpen ? 'block' : 'none';
-  if (_notifOpen) renderNotifPanel();
-}
-
-function renderNotifPanel() {
-  var list = document.getElementById('notifList'); if (!list) return;
-  var ic = { task: '⚡', transfer: '🔄', comment: '💬', purchase: '📦', warning: '⚠️', info: 'ℹ️' };
-  list.innerHTML = _notifs.length ? _notifs.slice(0, 20).map(function(n) {
-    return '<div onclick="markRead(' + n.id + ')" style="display:flex;gap:.6rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);cursor:pointer;background:' + (n.is_read ? 'transparent' : 'rgba(232,184,75,.05)') + '">' +
-      '<span style="font-size:1rem;flex-shrink:0">' + (ic[n.type] || 'ℹ️') + '</span>' +
-      '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read ? 400 : 700) + '">' + esc(n.title) + '</div>' +
-      (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
-      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
-      (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
-      '</div>';
-  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
-}
-
-async function markRead(id) {
-  await api('/api/notifications/' + id + '/read', 'POST');
-  _notifs = _notifs.map(function(n) { return n.id === id ? Object.assign({}, n, { is_read: true }) : n; });
-  renderNotifBadge(); renderNotifPanel();
-}
-
-async function markAllRead() {
-  await api('/api/notifications/read-all', 'POST');
-  _notifs = _notifs.map(function(n) { return Object.assign({}, n, { is_read: true }); });
-  renderNotifBadge(); renderNotifPanel();
-}
-
-var _commentSid = null;
-async function openComments(sid, sname) {
-  _commentSid = sid;
-  document.getElementById('commentTitle').textContent = sname + ' — Notlar';
-  document.getElementById('commentBody').value = '';
-  await loadComments(); openModal('commentModal');
-}
-
-async function loadComments() {
-  var c = await api('/api/task-stages/' + _commentSid + '/comments') || [];
-  var list = document.getElementById('commentList'); if (!list) return;
-  list.innerHTML = c.length ? c.map(function(x) {
-    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
-      '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
-      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
-      '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
-      '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
-  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
-}
-
-async function saveComment() {
-  var b = document.getElementById('commentBody').value;
-  if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
-  var r = await api('/api/task-stages/' + _commentSid + '/comments', 'POST', { body: b.trim() });
-  if (!r) return;
-  document.getElementById('commentBody').value = '';
-  await loadComments(); toast('Not eklendi ✓', 'success');
-}
-
-var _purchases = [];
-async function loadPurchases() { _purchases = await api('/api/purchase-requests') || []; renderPurchaseBadge(); }
-function renderPurchaseBadge() {
-  var n = _purchases.filter(function(p) { return p.status === 'pending'; }).length;
-  var b = document.getElementById('purchaseBadge');
-  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline' : 'none'; }
-}
-
-var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
-function renderPurchases() {
-  var sq = (document.getElementById('purchaseSearch')?.value || '').toLowerCase();
-  var f = (document.getElementById('prFilter') || {}).value || '';
-  var list = _purchases;
-  if (f) list = list.filter(function(p) { return p.status === f; });
-  if (sq) list = list.filter(function(p) { return (p.product_name || '').toLowerCase().includes(sq) || (p.requester_name || '').toLowerCase().includes(sq) || (p.task_title || '').toLowerCase().includes(sq); });
-  var tbody = document.getElementById('purchaseTbody'); if (!tbody) return;
-  tbody.innerHTML = list.length ? list.map(function(p) {
-    var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
-      '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
-      '<td><strong>' + esc(p.product_name) + '</strong></td>' +
-      '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
-      '<td style="font-size:.8rem;color:var(--text2)">' + esc(p.reason || '—') + '</td>' +
-      '<td style="font-size:.78rem;color:var(--text2)">' + esc(p.task_title || '—') + '</td>' +
-      '<td><span style="font-family:var(--mono);font-size:.7rem;color:' + st.c + '">' + st.l + '</span>' +
-      (p.admin_note ? '<div style="font-size:.63rem;color:var(--muted)">' + esc(p.admin_note) + '</div>' : '') + '</td>' +
-      '<td style="white-space:nowrap">' +
-      (p.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="setPR(' + p.id + ',\'approved\')">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(' + p.id + ',\'rejected\')">✗</button> ' : '') +
-      (p.status === 'approved' ? '<button class="btn btn-ghost btn-sm" onclick="setPR(' + p.id + ',\'ordered\')">🚚</button> ' : '') +
-      (p.status === 'ordered' ? '<button class="btn btn-ghost btn-sm" onclick="setPR(' + p.id + ',\'shipping\')">🚢</button> ' : '') +
-      (p.status === 'shipping' ? '<button class="btn btn-success btn-sm" onclick="setPR(' + p.id + ',\'received\')">📦</button> ' : '') +
-      '<button class="btn btn-danger btn-sm" onclick="delPR(' + p.id + ')">×</button></td></tr>';
-  }).join('') : '<tr><td colspan="8" class="empty">Talep yok</td></tr>';
-}
-
-async function setPR(id, status) {
-  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Red' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Sipariş') + ' notu:') || '') : '';
-  await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: status, admin_note: note });
-  await loadPurchases(); renderPurchases(); toast('Güncellendi ✓', 'success');
-}
-
-async function delPR(id) {
-  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
-  await api('/api/purchase-requests/' + id, 'DELETE');
-  await loadPurchases(); renderPurchases(); toast('Silindi ✓', 'success');
 }
 
 // ── INIT EXTRAS ───────────────────────────────────────────────────────────
