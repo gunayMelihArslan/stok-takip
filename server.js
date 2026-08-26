@@ -1337,7 +1337,6 @@ app.post('/api/task-stages/:id/comments',auth,async(req,res)=>{
 // ── Satın Alma (Rol Bazlı Akış: Admin & Purchase & Personel) ─────────────
 app.get('/api/purchase-requests', auth, async (req, res) => {
   try {
-    // Madde 3: Personel de tüm havuzu görebilsin
     res.json((await query(
       `SELECT pr.*, u.display_name as requester_name, t.title as task_title 
        FROM purchase_requests pr 
@@ -1361,7 +1360,6 @@ app.post('/api/purchase-requests', auth, async (req, res) => {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Geçerli miktar girin' });
 
-    // Yönetici doğrudan onaylı (approved) olarak açabilir, personel için pending başlar
     const initialStatus = (req.user.role === 'admin' && status) ? status : (req.user.role === 'admin' ? 'approved' : 'pending');
 
     const r = (await query(
@@ -1415,29 +1413,47 @@ app.put('/api/purchase-requests/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Satın Alma & Personel Teslimat ve Durum Güncelleme
 app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
   try {
-    const { status, admin_note } = req.body;
+    const { status, admin_note, actual_qty, delivery_status, delivery_note } = req.body;
     const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
     if (!pr) return res.status(404).json({ error: 'Bulunamadı' });
 
-    // Onay ve red yetkisi sadece yöneticide
-    if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin') {
+    if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
       return res.status(403).json({ error: 'Bu durum değişikliği için yönetici yetkisi gerekli' });
     }
-    // Sipariş ve sevkiyat durumları admin veya satın alma rolü tarafından güncellenebilir
     if ((status === 'ordered' || status === 'shipping') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
       return res.status(403).json({ error: 'Tedarik yetkisi gerekli' });
     }
-    // Madde 4: Personel, Admin ve Satın Alma 'received' (Teslim Alındı) yapabilir
     if (status === 'received' && req.user.role !== 'admin' && req.user.role !== 'purchase' && req.user.role !== 'personnel') {
       return res.status(403).json({ error: 'Yetkisiz işlem' });
     }
 
-    await query("UPDATE purchase_requests SET status=$1, admin_note=$2, updated_at=NOW() WHERE id=$3", [status, admin_note || '', req.params.id]);
-    const labels = { approved: '✅ Onaylandı', rejected: '❌ Reddedildi', ordered: '🚚 Sipariş Verildi', shipping: '🚢 Sevkiyatta (Yolda)', received: '📦 Teslim Alındı' };
-    if (labels[status]) await createNotif(pr.requested_by, 'Satın Alma: ' + labels[status], pr.product_name + (admin_note ? ' — ' + admin_note : ''), 'purchase');
-    await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note }, req);
+    const pVals = pr.product_values || {};
+    if (actual_qty !== undefined) pVals.actual_qty = actual_qty;
+    if (delivery_status !== undefined) pVals.delivery_status = delivery_status;
+    if (delivery_note !== undefined) pVals.delivery_note = delivery_note;
+
+    await query("UPDATE purchase_requests SET status=$1, admin_note=$2, product_values=$3, updated_at=NOW() WHERE id=$4", 
+      [status, admin_note !== undefined ? admin_note : (pr.admin_note || ''), JSON.stringify(pVals), req.params.id]);
+
+    const uName = req.user.display_name || req.user.username;
+
+    // Farklı/Eksik teslimat veya alım bildirimi varsa bildirim fırlat
+    if (delivery_status && delivery_status !== 'exact') {
+      const managers = (await query("SELECT id FROM users WHERE role IN ('admin', 'purchase')")).rows;
+      for (const m of managers) {
+        if (m.id !== req.user.id) {
+          await createNotif(m.id, '⚠️ Teslimat Farkı: ' + pr.product_name, `${uName}: ${delivery_note || 'Farklı/Eksik miktar teslim alındı.'} (${actual_qty || pr.quantity} ${pr.unit || 'adet'})`, 'warning');
+        }
+      }
+    } else {
+      const labels = { approved: '✅ İşleme Alındı', rejected: '❌ Reddedildi', ordered: '🚚 Sipariş Verildi', shipping: '🚚 Sipariş Edildi', received: '📦 Teslim Alındı' };
+      if (labels[status]) await createNotif(pr.requested_by, 'Satın Alma: ' + labels[status], pr.product_name + (admin_note ? ' — ' + admin_note : ''), 'purchase');
+    }
+
+    await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note, delivery_status, actual_qty }, req);
     broadcast('purchase_new', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
