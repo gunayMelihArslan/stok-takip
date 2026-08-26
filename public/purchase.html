@@ -92,7 +92,7 @@
           <select id="orderStatusFilter" style="max-width:180px" onchange="renderOrders()">
             <option value="">Tüm Aktif Durumlar</option>
             <option value="approved">⏳ Satın Alım Aşamasında</option>
-            <option value="ordered">🚚 Sipariş Edildi / Alındı</option>
+            <option value="ordered">🚚 Sipariş Edildi / Alım Yapıldı</option>
           </select>
         </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
@@ -101,7 +101,7 @@
       <div id="ordersContainer"></div>
     </div>
 
-    <!-- 3. SİPARİŞ EDİLENLER / YOLDA (SHIPPING) -->
+    <!-- 3. SİPARİŞ EDİLENLER (SHIPPING) -->
     <div class="page" id="page-shipping">
       <div class="toolbar">
         <div class="search-box-wrap">
@@ -111,7 +111,7 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Tedarikçi / Kargo Detayı</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Tarih</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Alım & Tedarik Notu</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="shippingTbody"></tbody>
       </table></div></div>
     </div>
@@ -126,7 +126,7 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderCompleted()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün & Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Tedarikçi Notu</th><th>Son Durum</th></tr></thead>
+        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün & Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Alım Notu</th><th>Son Durum</th></tr></thead>
         <tbody id="completedTbody"></tbody>
       </table></div></div>
     </div>
@@ -145,9 +145,15 @@
       <input type="hidden" id="processOrderId">
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
         <div>Ürün: <strong id="processProdName">—</strong></div>
-        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="processReqInfo">Miktar: —</div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="processReqInfo">Talep Edilen Miktar: —</div>
         <div id="processExtraDetails" style="margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem"></div>
       </div>
+      
+      <div class="form-group">
+        <label>Gerçek Gelen / Alınan Miktar</label>
+        <input type="number" id="processActualQty" min="0.01" step="any" placeholder="Farklı miktar geldiyse yazın (Opsiyonel)">
+      </div>
+
       <div class="form-group">
         <label>Tedarik Aşaması *</label>
         <select id="processStatusSelect" style="width:100%">
@@ -156,8 +162,8 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Tedarikçi Firma / Kargo Takip / Not</label>
-        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından alım yapıldı. Tahmini varış Cuma."></textarea>
+        <label>Tedarikçi / Alım Notu</label>
+        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından şu kadar alındı, fatura no vb..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -253,7 +259,7 @@ async function loadPurchases() {
 
 function updateBadges() {
   const pending = purchases.filter(p => p.status === 'approved').length;
-  const shipping = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping').length;
+  const shipping = purchases.filter(p => p.status === 'ordered').length;
   
   const pb = document.getElementById('pendingBadge');
   if (pb) { pb.textContent = pending; pb.style.display = pending > 0 ? 'inline' : 'none'; }
@@ -263,10 +269,9 @@ function updateBadges() {
 }
 
 const PRST = {
-  pending: { l: '⏳ Admin Onayı Bekliyor', c: 'var(--muted)' },
+  pending: { l: '⏳ Onay Bekliyor', c: 'var(--muted)' },
   approved: { l: '⏳ Satın Alım Aşamasında', c: 'var(--warning)' },
   ordered: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' },
-  shipping: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' },
   received: { l: '📦 Depoya Ulaştı (Teslim)', c: 'var(--success)' },
   rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
 };
@@ -296,20 +301,25 @@ function showPage(name) {
   renderers[name]?.();
 }
 
-function renderExtraTags(product_values) {
-  if (!product_values) return '';
-  return Object.entries(product_values).map(([cid, val]) => {
-    if (!val) return '';
+function renderExtraTags(p) {
+  const product_values = p.product_values || {};
+  let html = Object.entries(product_values).map(([cid, val]) => {
+    if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note') return '';
     const col = columns.find(c => String(c.id) === String(cid));
     const colName = col ? col.name : 'Özellik';
     return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
   }).filter(Boolean).join('');
+
+  if (product_values.actual_qty && parseFloat(product_values.actual_qty) !== parseFloat(p.quantity)) {
+    html += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gerçek Alınan:</strong> ${product_values.actual_qty} ${esc(p.unit || 'adet')}</span>`;
+  }
+  return html;
 }
 
 // ── 1. DASHBOARD ──────────────────────────────────────────────────────────
 function renderDashboard() {
   const pending = purchases.filter(p => p.status === 'approved').length;
-  const shipping = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping').length;
+  const shipping = purchases.filter(p => p.status === 'ordered').length;
   const received = purchases.filter(p => p.status === 'received').length;
 
   document.getElementById('dashPending').textContent = pending;
@@ -326,7 +336,7 @@ function renderDashboard() {
   }
   tbody.innerHTML = urgent.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    const extraTags = renderExtraTags(p.product_values);
+    const extraTags = renderExtraTags(p);
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
       <td>
@@ -368,9 +378,9 @@ function renderOrders() {
   cont.innerHTML = list.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     const isApproved = p.status === 'approved';
-    const isOrdered = p.status === 'ordered' || p.status === 'shipping';
+    const isOrdered = p.status === 'ordered';
     const isReceived = p.status === 'received';
-    const extraTags = renderExtraTags(p.product_values);
+    const extraTags = renderExtraTags(p);
 
     return `
       <div class="purchase-card">
@@ -411,7 +421,7 @@ function renderOrders() {
 // ── 3. SİPARİŞ EDİLENLER (SHIPPING) ───────────────────────────────────────
 function renderShipping() {
   const q = (document.getElementById('shippingSearch')?.value || '').toLowerCase();
-  let list = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping');
+  let list = purchases.filter(p => p.status === 'ordered');
   if (q) {
     list = list.filter(p => {
       const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
@@ -431,7 +441,7 @@ function renderShipping() {
 
   tbody.innerHTML = list.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    const extraTags = renderExtraTags(p.product_values);
+    const extraTags = renderExtraTags(p);
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
       <td>
@@ -468,7 +478,7 @@ function renderCompleted() {
   }
 
   tbody.innerHTML = list.map(p => {
-    const extraTags = renderExtraTags(p.product_values);
+    const extraTags = renderExtraTags(p);
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
       <td>
@@ -489,8 +499,9 @@ function openProcessModal(id) {
   if (!p) return;
   document.getElementById('processOrderId').value = p.id;
   document.getElementById('processProdName').textContent = p.product_name;
-  document.getElementById('processReqInfo').textContent = `Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
-  document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p.product_values);
+  document.getElementById('processReqInfo').textContent = `Talep Edilen Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
+  document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p);
+  document.getElementById('processActualQty').value = p.product_values?.actual_qty || p.quantity;
   document.getElementById('processStatusSelect').value = p.status === 'approved' ? 'ordered' : p.status;
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
@@ -500,8 +511,9 @@ async function saveProcessOrder() {
   const id = document.getElementById('processOrderId').value;
   const status = document.getElementById('processStatusSelect').value;
   const admin_note = document.getElementById('processAdminNote').value.trim();
+  const actual_qty = parseFloat(document.getElementById('processActualQty').value) || null;
 
-  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status, admin_note });
+  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status, admin_note, actual_qty });
   if (!r) return;
 
   closeModal('processModal');
