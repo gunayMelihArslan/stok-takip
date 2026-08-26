@@ -2550,9 +2550,22 @@ async function saveUser() {
   const username = document.getElementById('userUsername').value.trim();
   const password = document.getElementById('userPassword').value;
   const role = document.getElementById('userRole').value;
-  if (!display_name || (!id && !username) || (!id && !password)) { toast('Tüm alanları doldurun', 'error'); return; }
-  if (id) await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
-  else await api('/api/users', 'POST', { username, password, role, display_name });
+
+  if (!display_name || (!id && !username) || (!id && !password)) {
+    toast('Tüm alanları doldurun', 'error');
+    return;
+  }
+
+  let r;
+  if (id) {
+    r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
+  } else {
+    r = await api('/api/users', 'POST', { username, password, role, display_name });
+  }
+
+  // EĞER BACKEND'DEN BAŞARILI CEVAP GELMEDİYSE İŞLEMİ DURDUR
+  if (!r) return;
+
   closeModal('userModal');
   await loadUsers();
   renderUsers();
