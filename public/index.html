@@ -63,11 +63,23 @@ async function login(){
     const data=await res.json();
     if(!res.ok)throw new Error(data.error);
     localStorage.setItem('stok_token',data.token);
-    window.location.href=data.role==='admin'?'/admin.html':'/personnel.html';
+    if(data.role === 'admin') window.location.href = '/admin.html';
+    else if(data.role === 'purchase') window.location.href = '/purchase.html';
+    else window.location.href = '/personnel.html';
   }catch(e){err.textContent=e.message;err.style.display='block';btn.disabled=false;btn.textContent='Giriş Yap';}
 }
 const t=localStorage.getItem('stok_token');
-if(t){fetch('/api/me',{headers:{'Authorization':'Bearer '+t}}).then(r=>r.ok?r.json():null).then(u=>{if(u)window.location.href=u.role==='admin'?'/admin.html':'/personnel.html';});}
+if(t){
+  fetch('/api/me',{headers:{'Authorization':'Bearer '+t}})
+    .then(r=>r.ok?r.json():null)
+    .then(u=>{
+      if(u){
+        if(u.role === 'admin') window.location.href = '/admin.html';
+        else if(u.role === 'purchase') window.location.href = '/purchase.html';
+        else window.location.href = '/personnel.html';
+      }
+    });
+}
 </script>
 </body>
 </html>
