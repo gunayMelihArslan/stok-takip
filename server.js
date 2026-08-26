@@ -172,10 +172,13 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gereklidir' });
+    
     const cleanUsername = String(username).trim();
-    const user = (await query('SELECT * FROM users WHERE LOWER(username)=LOWER($1)', [cleanUsername])).rows[0];
+    const user = (await query('SELECT * FROM users WHERE LOWER(TRIM(username)) = LOWER($1)', [cleanUsername])).rows[0];
+    
     if (!user || !bcrypt.compareSync(password, user.password_hash))
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
+      
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
     await logActivity(user.id, 'Giriş Yapıldı', 'auth', user.id, { username: user.username, role: user.role }, req);
     res.json({ role: user.role, display_name: user.display_name, token });
@@ -689,12 +692,23 @@ app.post('/api/users', auth, admin, async (req, res) => {
     const cleanUsername = String(username).trim();
     const cleanDisplayName = display_name ? String(display_name).trim() : cleanUsername;
     const cleanRole = role ? String(role).trim() : 'personnel';
-    const r = (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [cleanUsername, bcrypt.hashSync(password, 10), cleanRole, cleanDisplayName])).rows[0];
+    
+    const r = (await query(
+      'INSERT INTO users(username, password_hash, role, display_name) VALUES($1, $2, $3, $4) RETURNING id',
+      [cleanUsername, bcrypt.hashSync(password, 10), cleanRole, cleanDisplayName]
+    )).rows[0];
+
     await logActivity(req.user.id, 'Kullanıcı Oluşturuldu', 'user', r.id, { username: cleanUsername, role: cleanRole, display_name: cleanDisplayName }, req);
     broadcast('user_update', {});
     res.json({ id: r.id }); 
   }
-  catch (err) { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
+  catch (err) {
+    console.error('Kullanıcı ekleme hatası:', err.message);
+    if (err.code === '23505') { // Benzersizlik (Unique) hatası
+      return res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' });
+    }
+    res.status(500).json({ error: 'Kullanıcı oluşturulamadı: ' + err.message });
+  }
 });
 app.put('/api/users/:id', auth, admin, async (req, res) => {
   try {
