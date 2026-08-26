@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Satın Alma & Tedarik — Elektrikhane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.purchase-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.65rem;}
+.purchase-header{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
+.purchase-body{padding:1rem;display:grid;grid-template-columns:2fr 1fr;gap:1rem;}
+.status-timeline{display:flex;align-items:center;gap:.35rem;margin-top:.5rem;flex-wrap:wrap;}
+.timeline-step{font-family:var(--mono);font-size:.65rem;padding:.2rem .55rem;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);display:flex;align-items:center;gap:.3rem;}
+.timeline-step.active{border-color:var(--accent);color:var(--accent);font-weight:700;background:rgba(240,216,0,.08);}
+.timeline-step.completed{border-color:var(--success);color:var(--success);font-weight:700;background:rgba(75,232,160,.08);}
+.search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:240px;}
+.search-box-wrap input{width:100%;padding-right:24px;}
+.search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
+.search-clear-btn:hover{color:var(--accent);}
+
+@media (max-width: 768px) {
+  .purchase-body { grid-template-columns: 1fr; }
+  .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .toolbar-left { width: 100%; flex-direction: column; }
+  .search-box-wrap { max-width: 100%; width: 100%; }
+  .toolbar select, .toolbar button, .toolbar input { width: 100%; max-width: 100% !important; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .modal { width: 94% !important; max-height: 88vh !important; margin: 10px auto; padding: 1rem; }
+}
+</style>
+</head>
+<body>
+<div class="mobile-bar"><div class="brand"><div class="icon">🛒</div><span>Satın Alma</span></div><button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand" style="padding:.75rem .85rem;flex-direction:column;align-items:flex-start;gap:.4rem">
+    <div style="background:#fff;border-radius:6px;padding:.3rem .6rem;display:inline-block"><img src="/logo.png" alt="Sekizli" style="height:22px;width:auto;display:block;"></div>
+    <div style="display:flex;align-items:center;gap:.5rem"><span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span><span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Satın Alma</span></div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Genel</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Tedarik Paneli</div>
+    
+    <div class="nav-section-label">Sipariş Akışı</div>
+    <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+    <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sevkiyattakiler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+    <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
+    
+    <div class="nav-section-label">Envanter & Referans</div>
+    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Kataloğu</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-chip"><div class="avatar" id="avatarInit">S</div><div class="info"><div class="name" id="userName">Satın Alma</div><div class="role">Tedarikçi</div></div></div>
+    <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">Tedarik Paneli</h2>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span id="liveInd" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);display:flex;align-items:center;gap:.35rem"><span style="width:7px;height:7px;border-radius:50%;background:var(--success);display:inline-block;animation:pulse 2s infinite"></span>canlı</span>
+      <span class="meta" id="pageTime"></span>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- 1. DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="label">Bekleyen Onaylı Talep</div><div class="value" id="dashPending" style="color:var(--warning)">0</div><div class="sub">sipariş açılacak</div></div>
+        <div class="stat-card"><div class="label">Sipariş Edilen / Yolda</div><div class="value" id="dashShipping" style="color:var(--accent)">0</div><div class="sub">sevkiyat bekliyor</div></div>
+        <div class="stat-card"><div class="label">Atölyeye Ulaşan</div><div class="value" id="dashReceived" style="color:var(--success)">0</div><div class="sub">teslim tamamlandı</div></div>
+        <div class="stat-card"><div class="label">Toplam İşlem</div><div class="value" id="dashTotal">0</div><div class="sub">kayıt</div></div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">⚡ Öncelikli İşlem Bekleyen Siparişler</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Tarih</th><th>Ürün / Malzeme</th><th>Miktar</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
+          <tbody id="dashUrgentTbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- 2. SİPARİŞ HAVUZU (ORDERS) -->
+    <div class="page" id="page-orders">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="orderSearch" placeholder="🔍 Sipariş veya iş ara..." oninput="handleSearchInput(this, renderOrders)">
+            <button class="search-clear-btn" onclick="clearSearchInput('orderSearch', renderOrders)">✕</button>
+          </div>
+          <select id="orderStatusFilter" style="max-width:180px" onchange="renderOrders()">
+            <option value="">Tüm Aktif Durumlar</option>
+            <option value="approved">✅ Onaylandı (Sipariş Aç)</option>
+            <option value="ordered">🚚 Sipariş Verildi</option>
+            <option value="shipping">🚢 Sevkiyatta (Yolda)</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="loadPurchases();renderOrders()">↺ Yenile</button>
+      </div>
+      <div id="ordersContainer"></div>
+    </div>
+
+    <!-- 3. SEVKİYATTAKİLER (SHIPPING) -->
+    <div class="page" id="page-shipping">
+      <div class="toolbar">
+        <div class="search-box-wrap">
+          <input type="text" id="shippingSearch" placeholder="🔍 Kargo/Ürün ara..." oninput="handleSearchInput(this, renderShipping)">
+          <button class="search-clear-btn" onclick="clearSearchInput('shippingSearch', renderShipping)">✕</button>
+        </div>
+        <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Ürün Adı</th><th>Miktar</th><th>Tedarikçi / Kargo Detayı</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <tbody id="shippingTbody"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- 4. TESLİM ALINANLAR (COMPLETED) -->
+    <div class="page" id="page-completed">
+      <div class="toolbar">
+        <div class="search-box-wrap">
+          <input type="text" id="completedSearch" placeholder="🔍 Arşivde ara..." oninput="handleSearchInput(this, renderCompleted)">
+          <button class="search-clear-btn" onclick="clearSearchInput('completedSearch', renderCompleted)">✕</button>
+        </div>
+        <button class="btn btn-ghost" onclick="loadPurchases();renderCompleted()">↺</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün</th><th>Miktar</th><th>İlgili İş</th><th>Tedarikçi Notu</th><th>Son Durum</th></tr></thead>
+        <tbody id="completedTbody"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- 5. STOK KATALOĞU (READ-ONLY STOCK) -->
+    <div class="page" id="page-stock">
+      <div class="toolbar">
+        <div class="search-box-wrap" style="max-width:280px">
+          <input type="text" id="stockSearch" placeholder="🔍 Stokta ara..." oninput="handleSearchInput(this, filterStock)">
+          <button class="search-clear-btn" onclick="clearSearchInput('stockSearch', filterStock)">✕</button>
+        </div>
+        <button class="btn btn-ghost" onclick="loadStock();renderStock()">↺</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SİPARİŞ DURUMU GÜNCELLEME MODALI -->
+<div class="modal-overlay" id="processModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3 id="processModalTitle">🚚 Tedarik Bilgilerini Güncelle</h3>
+      <button class="modal-close" onclick="closeModal('processModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="processOrderId">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
+        <div>Ürün: <strong id="processProdName">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="processReqInfo">Miktar: —</div>
+      </div>
+      <div class="form-group">
+        <label>Yeni Tedarik Aşaması *</label>
+        <select id="processStatusSelect" style="width:100%">
+          <option value="ordered">🚚 Sipariş Verildi (Tedarikçiye Geçildi)</option>
+          <option value="shipping">🚢 Sevkiyatta (Kargoya Verildi / Yolda)</option>
+          <option value="approved">⏳ Onaylandı (Hazırlanıyor)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tedarikçi Firma / Kargo Takip / Not</label>
+        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından sipariş geçildi. Yurtiçi Kargo Takip: 123456789. Tahmini varış Cuma."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('processModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveProcessOrder()">💾 Kaydet & Bildir</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const _f = window.fetch.bind(window);
+window.fetch = function(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    var t = localStorage.getItem('stok_token');
+    if (t) opts.headers['Authorization'] = 'Bearer ' + t;
+  }
+  return _f(url, opts);
+};
+
+let purchases = [], products = [], columns = [], me = null;
+let currentPage = 'dashboard';
+
+async function init() {
+  me = await api('/api/me');
+  if (!me) return window.location.href = '/';
+  document.getElementById('userName').textContent = me.display_name || me.username;
+  document.getElementById('avatarInit').textContent = (me.display_name || me.username)[0].toUpperCase();
+  updateTime(); setInterval(updateTime, 30000);
+  await loadAll();
+  showPage('dashboard');
+  connectSSE();
+}
+
+function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+async function api(url, method = 'GET', body = null) {
+  try {
+    const token = localStorage.getItem('stok_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      if (res.status === 401) {
+        localStorage.removeItem('stok_token');
+        window.location.href = '/';
+        return null;
+      }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
+      return null;
+    }
+    if (!res.ok) {
+      toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error');
+      return null;
+    }
+    return data;
+  } catch (e) {
+    toast('Bağlantı sorunu oluştu', 'error');
+    return null;
+  }
+}
+
+function connectSSE() {
+  const _sseToken = localStorage.getItem('stok_token') || '';
+  const es = new EventSource('/api/events?token=' + encodeURIComponent(_sseToken));
+  es.addEventListener('purchase_new', async () => {
+    await loadPurchases();
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'orders') renderOrders();
+    if (currentPage === 'shipping') renderShipping();
+    if (currentPage === 'completed') renderCompleted();
+  });
+  es.addEventListener('stock_update', async () => {
+    await loadStock();
+    if (currentPage === 'stock') renderStock();
+  });
+}
+
+async function loadAll() {
+  await Promise.all([loadPurchases(), loadStock()]);
+}
+
+async function loadPurchases() {
+  purchases = await api('/api/purchase-requests') || [];
+  updateBadges();
+}
+
+async function loadStock() {
+  [columns, products] = await Promise.all([api('/api/columns'), api('/api/products')]);
+  columns = columns || [];
+  products = products || [];
+}
+
+function updateBadges() {
+  const pending = purchases.filter(p => p.status === 'approved').length;
+  const shipping = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping').length;
+  
+  const pb = document.getElementById('pendingBadge');
+  if (pb) { pb.textContent = pending; pb.style.display = pending > 0 ? 'inline' : 'none'; }
+  
+  const sb = document.getElementById('shippingBadge');
+  if (sb) { sb.textContent = shipping; sb.style.display = shipping > 0 ? 'inline' : 'none'; }
+}
+
+const PRST = {
+  pending: { l: '⏳ Admin Onayı Bekliyor', c: 'var(--muted)' },
+  approved: { l: '✅ Onaylandı (Sipariş Aç)', c: 'var(--warning)' },
+  ordered: { l: '🚚 Sipariş Verildi', c: 'var(--accent)' },
+  shipping: { l: '🚢 Sevkiyatta (Yolda)', c: '#4ba0e8' },
+  received: { l: '📦 Depoya Ulaştı (Teslim)', c: 'var(--success)' },
+  rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
+};
+
+const pageTitles = {
+  dashboard: 'Tedarik Paneli',
+  orders: 'Sipariş & Tedarik Havuzu',
+  shipping: 'Sevkiyattaki Siparişler',
+  completed: 'Teslim Alınanlar Arşivi',
+  stock: 'Stok & Malzeme Kataloğu'
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const targetPage = document.getElementById('page-' + name);
+  if (targetPage) targetPage.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  document.getElementById('pageTitle').textContent = pageTitles[name] || name;
+  currentPage = name;
+
+  const renderers = {
+    dashboard: renderDashboard,
+    orders: renderOrders,
+    shipping: renderShipping,
+    completed: renderCompleted,
+    stock: renderStock
+  };
+  renderers[name]?.();
+}
+
+// ── 1. DASHBOARD ──────────────────────────────────────────────────────────
+function renderDashboard() {
+  const pending = purchases.filter(p => p.status === 'approved').length;
+  const shipping = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping').length;
+  const received = purchases.filter(p => p.status === 'received').length;
+
+  document.getElementById('dashPending').textContent = pending;
+  document.getElementById('dashShipping').textContent = shipping;
+  document.getElementById('dashReceived').textContent = received;
+  document.getElementById('dashTotal').textContent = purchases.length;
+
+  const urgent = purchases.filter(p => p.status === 'approved' || p.status === 'ordered').slice(0, 8);
+  const tbody = document.getElementById('dashUrgentTbody');
+  if (!tbody) return;
+  if (!urgent.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">İşlem bekleyen sipariş yok</td></tr>';
+    return;
+  }
+  tbody.innerHTML = urgent.map(p => {
+    const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
+      <td><strong>${esc(p.product_name)}</strong></td>
+      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c}">${st.l}</span></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ İşle</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 2. ORDERS ─────────────────────────────────────────────────────────────
+function renderOrders() {
+  const q = (document.getElementById('orderSearch')?.value || '').toLowerCase();
+  const f = document.getElementById('orderStatusFilter')?.value || '';
+  
+  let list = purchases.filter(p => p.status !== 'pending' && p.status !== 'rejected');
+  if (f) list = list.filter(p => p.status === f);
+  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q) || (p.admin_note || '').toLowerCase().includes(q));
+
+  const cont = document.getElementById('ordersContainer');
+  if (!cont) return;
+  if (!list.length) {
+    cont.innerHTML = '<div class="card empty"><div class="icon">🛒</div>Sipariş havuzunda ürün bulunamadı</div>';
+    return;
+  }
+
+  cont.innerHTML = list.map(p => {
+    const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    const isApproved = p.status === 'approved';
+    const isOrdered = p.status === 'ordered';
+    const isShipping = p.status === 'shipping';
+    const isReceived = p.status === 'received';
+
+    return `
+      <div class="purchase-card">
+        <div class="purchase-header">
+          <div>
+            <span style="font-size:1rem;margin-right:.3rem">📦</span>
+            <strong style="font-size:.92rem">${esc(p.product_name)}</strong>
+            <span style="font-family:var(--mono);color:var(--accent);font-weight:700;margin-left:.4rem">${p.quantity} ${esc(p.unit || 'adet')}</span>
+          </div>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <span style="font-family:var(--mono);font-size:.72rem;color:${st.c};font-weight:700">${st.l}</span>
+            <button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Güncelle</button>
+          </div>
+        </div>
+        <div class="purchase-body">
+          <div>
+            <div style="font-size:.82rem;color:var(--text2)">${p.reason ? `<strong>Talep Açıklaması:</strong> ${esc(p.reason)}` : 'Açıklama girilmedi.'}</div>
+            <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">İlgili İş / Vinç: <strong>${esc(p.task_title || 'Genel Atölye İhtiyacı')}</strong></div>
+            <div class="status-timeline">
+              <div class="timeline-step completed">✓ 1. Admin Onayı</div>
+              <div class="timeline-step ${isOrdered || isShipping || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Sipariş Verildi</div>
+              <div class="timeline-step ${isShipping || isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Sevkiyatta</div>
+              <div class="timeline-step ${isReceived ? 'completed' : ''}">4. Depoya Teslim</div>
+            </div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;font-size:.75rem">
+            <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Kargo Notu:</div>
+            <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz kargo/tedarikçi bilgisi girilmedi.</span>'}</div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.4rem">Talep Tarihi: ${fmtDate(p.created_at)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── 3. SHIPPING ───────────────────────────────────────────────────────────
+function renderShipping() {
+  const q = (document.getElementById('shippingSearch')?.value || '').toLowerCase();
+  let list = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping');
+  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.admin_note || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q));
+
+  const tbody = document.getElementById('shippingTbody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Yolda / Sevkiyatta olan sipariş bulunmuyor</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
+      <td><strong>${esc(p.product_name)}</strong></td>
+      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
+      <td style="font-size:.82rem;color:var(--accent)">${p.admin_note ? esc(p.admin_note) : '—'}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c}">${st.l}</span></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">✏️ Güncelle</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 4. COMPLETED ──────────────────────────────────────────────────────────
+function renderCompleted() {
+  const q = (document.getElementById('completedSearch')?.value || '').toLowerCase();
+  let list = purchases.filter(p => p.status === 'received');
+  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q));
+
+  const tbody = document.getElementById('completedTbody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Arşivde teslim kaydı bulunmuyor</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => `<tr>
+    <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
+    <td><strong>${esc(p.product_name)}</strong></td>
+    <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
+    <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+    <td style="font-size:.8rem;color:var(--text2)">${esc(p.admin_note || '—')}</td>
+    <td><span class="badge badge-ok">✅ Depoya Ulaştı</span></td>
+  </tr>`).join('');
+}
+
+// ── 5. READ-ONLY STOCK ───────────────────────────────────────────────────
+function renderStock() {
+  const theadTr = document.getElementById('stockThead')?.querySelector('tr');
+  if (theadTr) {
+    theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Stok Durumu</th>';
+  }
+  filterStock();
+}
+
+function filterStock() {
+  const q = (document.getElementById('stockSearch')?.value || '').toLowerCase();
+  const numCol = columns.find(c => c.data_type === 'number');
+  const tbody = document.getElementById('stockTbody');
+  if (!tbody) return;
+
+  let prods = products;
+  if (q) prods = prods.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
+
+  if (!prods.length) {
+    tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="empty">Ürün bulunamadı</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = prods.map(p => {
+    const cells = columns.map(c => `<td>${esc(p.values?.[c.id] || '')}</td>`).join('');
+    const qty = numCol ? parseFloat(p.values?.[numCol.id] || 0) : null;
+    const minS = numCol?.min_stock || 5;
+    const status = qty !== null ? (qty <= 0 ? '<span class="badge badge-low">Stok Yok</span>' : qty < minS ? `<span class="badge badge-low">Kritik: ${qty}</span>` : `<span class="badge badge-ok">Mevcut: ${qty}</span>`) : '—';
+    return `<tr>${cells}<td>${status}</td></tr>`;
+  }).join('');
+}
+
+// ── PROCESS MODAL ACTIONS ─────────────────────────────────────────────────
+function openProcessModal(id) {
+  const p = purchases.find(x => x.id == id);
+  if (!p) return;
+  document.getElementById('processOrderId').value = p.id;
+  document.getElementById('processProdName').textContent = p.product_name;
+  document.getElementById('processReqInfo').textContent = `Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
+  document.getElementById('processStatusSelect').value = p.status === 'approved' ? 'ordered' : p.status;
+  document.getElementById('processAdminNote').value = p.admin_note || '';
+  openModal('processModal');
+}
+
+async function saveProcessOrder() {
+  const id = document.getElementById('processOrderId').value;
+  const status = document.getElementById('processStatusSelect').value;
+  const admin_note = document.getElementById('processAdminNote').value.trim();
+
+  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status, admin_note });
+  if (!r) return;
+
+  closeModal('processModal');
+  await loadPurchases();
+  showPage(currentPage);
+  toast('Tedarik aşaması güncellendi ✓', 'success');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function openModal(id) { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+function handleSearchInput(inputEl, callbackFn) {
+  const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+  if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
+  if (callbackFn) callbackFn();
+}
+
+function clearSearchInput(inputId, callbackFn) {
+  const inputEl = document.getElementById(inputId);
+  if (inputEl) {
+    inputEl.value = '';
+    const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (callbackFn) callbackFn();
+    inputEl.focus();
+  }
+}
+
+async function logout() {
+  localStorage.removeItem('stok_token');
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/';
+}
+
+function downloadCSV(url) {
+  const token = localStorage.getItem('stok_token') || '';
+  window.location.href = url + '?token=' + encodeURIComponent(token);
+}
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
