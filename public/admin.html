@@ -2494,9 +2494,13 @@ async function deleteTx(id) {
 function renderUsers() {
   const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
   let usrs = users;
-  if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q));
+  if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
   const tbody = document.getElementById('usersTbody');
   if (!tbody) return;
+  if (!usrs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>';
+    return;
+  }
   const roleBadges = {
     admin: '<span class="badge badge-admin">Yönetici</span>',
     purchase: '<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">Satın Alma</span>',
