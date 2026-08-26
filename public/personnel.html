@@ -59,7 +59,7 @@
     <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
     <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
     <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📑</span>İşlem Geçmişim</div>
-    <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Satın Alma Talebi</div>
+    <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Satın Alma & Siparişler</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">P</div><div class="info"><div class="name" id="userName">Personel</div><div class="role">Personel</div></div></div>
@@ -184,13 +184,13 @@
       </div></div>
     </div>
 
-    <!-- PURCHASE -->
+    <!-- PURCHASE (Satın Alma & Tüm Sipariş Havuzu) -->
     <div class="page" id="page-purchase">
       <div style="max-width:540px;margin-bottom:1.25rem">
         <div class="card">
           <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.92rem;font-weight:800">📦 Satın Alma Talebi</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Talep yöneticiye iletilir, yönetici onaylar</p>
+            <h3 style="font-size:.92rem;font-weight:800">📦 Yeni Satın Alma Talebi</h3>
+            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">İhtiyaç duyulan malzemeyi yazın, yönetici onayına iletilecektir</p>
           </div>
           <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.75rem">
             <div class="form-group" style="margin:0"><label>Ürün / Malzeme Adı *</label><input type="text" id="prName" placeholder="Örn: 10mm² NYY Kablo"></div>
@@ -198,15 +198,21 @@
               <div class="form-group" style="margin:0"><label>Miktar *</label><input type="number" id="prQty" min="0.01" step="any" placeholder="0"></div>
               <div class="form-group" style="margin:0"><label>Birim</label><input type="text" id="prUnit" value="adet" placeholder="adet"></div>
             </div>
-            <div class="form-group" style="margin:0"><label>Hangi İş İçin?</label><select id="prTaskSel"><option value="">— Opsiyonel —</option></select></div>
+            <div class="form-group" style="margin:0"><label>Hangi İş İçin?</label><select id="prTaskSel"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
             <div class="form-group" style="margin:0"><label>Neden Gerekiyor?</label><textarea id="prReason" rows="2" placeholder="Kısa açıklama..."></textarea></div>
             <button type="button" class="btn btn-primary btn-full" onclick="submitPR()">📤 Talebi Gönder</button>
           </div>
         </div>
       </div>
       <div class="card">
-        <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">Taleplerim</div>
-        <div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Ürün</th><th>Miktar</th><th>İş</th><th>Durum</th></tr></thead>
+        <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+          <div>
+            <div style="font-weight:800;font-size:.88rem">🛒 Atölye Sipariş & Tedarik Havuzu</div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.15rem">Tüm siparişlerin durumunu görebilir, gelen malzemeleri teslim alabilirsiniz</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadMyPurchases();renderMyPurchases()">↺ Yenile</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
           <tbody id="myPurchaseTbody"></tbody></table></div>
       </div>
     </div>
@@ -443,7 +449,7 @@ const pageTitles = {
   bulktake: 'Vinç İçin Al', 
   return: 'Ürün İade', 
   history: 'İşlem Geçmişim', 
-  purchase: 'Satın Alma Talebi' 
+  purchase: 'Satın Alma & Siparişler' 
 };
 
 function showPage(name) {
@@ -1070,7 +1076,8 @@ async function refresh() {
     take: loadAll,
     bulktake: loadAll,
     return: loadAll,
-    history: loadMyHistory
+    history: loadMyHistory,
+    purchase: async () => { await loadMyPurchases(); renderMyPurchases(); }
   };
   const fn = fns[currentPage];
   if (fn) { await fn(); toast('Güncellendi ✓', 'success'); }
@@ -1177,7 +1184,7 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA ────────────────────────────────────────────────────────────
+// ── SATIN ALMA (TÜM ATÖLYE HAVUZU & TESLİM ALMA) ──────────────────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1188,19 +1195,61 @@ function renderMyPurchases() {
       o.textContent = t.title + (t.firm_name ? ' — ' + t.firm_name : ''); tsel.appendChild(o);
     });
   }
-  var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
+  var PRST = { 
+    pending: { l: '⏳ Onay Bekliyor', c: 'var(--warning)' }, 
+    approved: { l: '✅ Onaylandı (Sipariş Açılacak)', c: 'var(--success)' }, 
+    rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, 
+    ordered: { l: '🚚 Sipariş Verildi', c: 'var(--accent)' }, 
+    shipping: { l: '🚢 Sevkiyatta (Yolda)', c: '#4ba0e8' }, 
+    received: { l: '📦 Teslim Alındı', c: '#1a6b56' } 
+  };
+  
   var tbody = document.getElementById('myPurchaseTbody'); if (!tbody) return;
   tbody.innerHTML = _myPR.length ? _myPR.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    return '<tr><td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
-      '<td><strong>' + esc(p.product_name) + '</strong></td>' +
-      '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
-      '<td style="font-size:.78rem;color:var(--text2)">' + esc(p.task_title || '—') + '</td>' +
-      '<td><span style="font-family:var(--mono);font-size:.7rem;color:' + st.c + '">' + st.l + '</span>' +
-      (p.admin_note ? '<div style="font-size:.63rem;color:var(--muted)">' + esc(p.admin_note) + '</div>' : '') + '</td></tr>';
-  }).join('') : '<tr><td colspan="5" class="empty">Talep kaydınız yok</td></tr>';
+    
+    // Stok sütunları etiketleri
+    var pVals = p.product_values || {};
+    var extraTags = Object.entries(pVals).map(function([cid, val]) {
+      if (!val) return '';
+      var col = columns.find(c => String(c.id) === String(cid));
+      var colName = col ? col.name : 'Sütun';
+      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
+    }).filter(Boolean).join('');
+
+    // Teslim al butonu (Kargoda veya Sipariş Edilmiş ürünler için)
+    var canReceive = p.status === 'shipping' || p.status === 'ordered';
+
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
+      <td><strong>${esc(p.requester_name || '?')}</strong></td>
+      <td>
+        <strong>${esc(p.product_name)}</strong>
+        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${extraTags}</div>` : ''}
+      </td>
+      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || '')}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td>
+        <span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
+        ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}
+      </td>
+      <td style="white-space:nowrap">
+        ${canReceive ? `<button class="btn btn-success btn-sm" onclick="setReceived(${p.id})">📦 Teslim Alındı</button>` : p.status === 'received' ? '<span class="badge badge-ok">✅ Depoda</span>' : '—'}
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">Sipariş havuzu boş</td></tr>';
   setTimeout(pAutoSort, 50);
 }
+
+async function setReceived(id) {
+  if (!confirm('Bu malzemeyi teslim aldığınızı onaylıyor musunuz?')) return;
+  var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: 'received' });
+  if (!r) return;
+  await loadMyPurchases(); 
+  renderMyPurchases(); 
+  toast('Malzeme teslim alındı olarak işaretlendi ✓', 'success');
+}
+
 async function submitPR() {
   var name = document.getElementById('prName').value;
   var qty = parseFloat(document.getElementById('prQty').value);
