@@ -121,8 +121,8 @@
     <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     
     <div class="nav-section-label">Sistem & Güvenlik</div>
-    <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
     <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
+    <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">A</div><div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div></div>
@@ -366,6 +366,7 @@
           <option value="pending">⏳ Bekliyor</option>
           <option value="approved">✅ Onaylandı</option>
           <option value="ordered">🚚 Sipariş</option>
+          <option value="shipping">🚢 Sevkiyatta</option>
           <option value="received">📦 Teslim</option>
           <option value="rejected">❌ Reddedildi</option>
         </select>
@@ -376,21 +377,6 @@
         <thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Miktar</th><th>Neden</th><th>İş</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="purchaseTbody"></tbody>
       </table></div></div>
-    </div>
-
-    <!-- USERS -->
-    <div class="page" id="page-users">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <div class="search-box-wrap">
-            <input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." oninput="handleSearchInput(this, renderUsers)">
-            <button class="search-clear-btn" onclick="clearSearchInput('userSearch', renderUsers)">✕</button>
-          </div>
-        </div>
-        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
-        <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
-      </div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
     <!-- AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) -->
@@ -406,7 +392,7 @@
           </select>
           <select id="actTypeFilter" style="max-width:160px" onchange="filterActivityLogs()">
             <option value="">Tüm Varlık Türleri</option>
-            <option value="auth">Giriş / Kimlik</option>
+            <option value="auth">Giriş / Auth</option>
             <option value="product">Ürün / Stok</option>
             <option value="product_lot">Model Yılı (Lot)</option>
             <option value="machine">Vinç / Reçete</option>
@@ -428,6 +414,21 @@
         <thead><tr><th>Tarih</th><th>Kullanıcı</th><th>İşlem</th><th>Kategori</th><th>Varlık ID</th><th>Detay</th><th>IP Adresi</th></tr></thead>
         <tbody id="activityTbody"></tbody>
       </table></div></div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="userSearch" placeholder="🔍 Kullanıcı ara..." oninput="handleSearchInput(this, renderUsers)">
+            <button class="search-clear-btn" onclick="clearSearchInput('userSearch', renderUsers)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/users')">↓ CSV</button>
+        <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
     </div>
 
     <!-- BOM SETTINGS -->
@@ -668,7 +669,13 @@
       <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
       <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
       <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
-      <div class="form-group"><label>Rol</label><select id="userRole"><option value="personnel">Personel</option><option value="admin">Yönetici</option></select></div>
+      <div class="form-group"><label>Rol</label>
+        <select id="userRole">
+          <option value="personnel">Personel</option>
+          <option value="purchase">Satın Alma (Tedarik)</option>
+          <option value="admin">Yönetici</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div>
   </div>
@@ -1859,7 +1866,7 @@ function renderTasks() {
 function openAssignModal(stageId, stageName) {
   document.getElementById('assignStageId').value = stageId;
   document.getElementById('assignModalTitle').textContent = 'Ata: ' + stageName;
-  document.getElementById('assignUser').innerHTML = '<option value="">— Atamayı Kaldır —</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : 'Personel'})</option>`).join('');
+  document.getElementById('assignUser').innerHTML = '<option value="">— Atamayı Kaldır —</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : 'Personel'})</option>`).join('');
   openModal('assignModal');
 }
 
@@ -2056,7 +2063,7 @@ function openTransferModal(stageId, stageName) {
   document.getElementById('transferStageId').value = stageId;
   document.getElementById('transferModalTitle').textContent = 'Devret: ' + stageName;
   const targetUsers = users.filter(u => u.id !== me?.id);
-  document.getElementById('transferTo').innerHTML = '<option value="">— Kullanıcı Seçin —</option>' + targetUsers.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : 'Personel'})</option>`).join('');
+  document.getElementById('transferTo').innerHTML = '<option value="">— Kullanıcı Seçin —</option>' + targetUsers.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : 'Personel'})</option>`).join('');
   document.getElementById('transferMsg').value = '';
   openModal('transferModal');
 }
@@ -2405,7 +2412,7 @@ function filterActivityLogs() {
 
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(a.created_at)}</td>
-      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : ''}</td>
+      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : a.role === 'purchase' ? '<span style="font-size:.65rem;color:#1a6b56">[Satın Alma]</span>' : ''}</td>
       <td><strong style="color:var(--text)">${esc(a.action)}</strong></td>
       <td>${getEntityBadge(a.entity_type)}</td>
       <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${a.entity_id ? '#' + a.entity_id : '—'}</td>
@@ -2490,10 +2497,15 @@ function renderUsers() {
   if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q));
   const tbody = document.getElementById('usersTbody');
   if (!tbody) return;
+  const roleBadges = {
+    admin: '<span class="badge badge-admin">Yönetici</span>',
+    purchase: '<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">Satın Alma</span>',
+    personnel: '<span class="badge badge-personnel">Personel</span>'
+  };
   tbody.innerHTML = usrs.map(u => `<tr>
     <td><strong>${esc(u.display_name || u.username)}</strong></td>
     <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
-    <td><span class="badge badge-${u.role}">${u.role === 'admin' ? 'Yönetici' : 'Personel'}</span></td>
+    <td>${roleBadges[u.role] || `<span class="badge">${esc(u.role)}</span>`}</td>
     <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
     <td style="display:flex;gap:.4rem">
       <button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button>
@@ -2940,7 +2952,7 @@ async function loadComments() {
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
       '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
-      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
+      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : x.role === 'purchase' ? 'rgba(26,107,86,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
       '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
       '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
   }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
@@ -2963,7 +2975,7 @@ function renderPurchaseBadge() {
   if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline' : 'none'; }
 }
 
-var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
+var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
 function renderPurchases() {
   var sq = (document.getElementById('purchaseSearch')?.value || '').toLowerCase();
   var f = (document.getElementById('prFilter') || {}).value || '';
@@ -2974,7 +2986,7 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
       '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
       '<td><strong>' + esc(p.product_name) + '</strong></td>' +
       '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
@@ -2985,13 +2997,14 @@ function renderPurchases() {
       '<td style="white-space:nowrap">' +
       (p.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="setPR(' + p.id + ',\'approved\')">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(' + p.id + ',\'rejected\')">✗</button> ' : '') +
       (p.status === 'approved' ? '<button class="btn btn-ghost btn-sm" onclick="setPR(' + p.id + ',\'ordered\')">🚚</button> ' : '') +
-      (p.status === 'ordered' ? '<button class="btn btn-success btn-sm" onclick="setPR(' + p.id + ',\'received\')">📦</button> ' : '') +
+      (p.status === 'ordered' ? '<button class="btn btn-ghost btn-sm" onclick="setPR(' + p.id + ',\'shipping\')">🚢</button> ' : '') +
+      (p.status === 'shipping' ? '<button class="btn btn-success btn-sm" onclick="setPR(' + p.id + ',\'received\')">📦</button> ' : '') +
       '<button class="btn btn-danger btn-sm" onclick="delPR(' + p.id + ')">×</button></td></tr>';
   }).join('') : '<tr><td colspan="8" class="empty">Talep yok</td></tr>';
 }
 
 async function setPR(id, status) {
-  var note = (status === 'rejected' || status === 'ordered') ? (prompt((status === 'rejected' ? 'Red' : 'Sipariş') + ' notu:') || '') : '';
+  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Red' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Sipariş') + ' notu:') || '') : '';
   await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: status, admin_note: note });
   await loadPurchases(); renderPurchases(); toast('Güncellendi ✓', 'success');
 }
