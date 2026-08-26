@@ -49,6 +49,15 @@
 .dot-completed{background:var(--accent);}
 .transfer-alert{background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.25);border-radius:8px;padding:.75rem 1rem;display:flex;align-items:center;gap:.65rem;margin-bottom:.6rem;flex-wrap:wrap;}
 
+/* Aktivite Log Tablo & Rozet Stilleri */
+.act-badge{font-family:var(--mono);font-size:.65rem;padding:.15rem .45rem;border-radius:4px;font-weight:700;display:inline-block;white-space:nowrap}
+.act-auth{background:rgba(75,232,160,.15);color:var(--success);border:1px solid rgba(75,232,160,.3)}
+.act-product{background:rgba(232,184,75,.15);color:var(--accent);border:1px solid rgba(232,184,75,.3)}
+.act-machine{background:rgba(26,107,86,.2);color:#3cd4a0;border:1px solid rgba(26,107,86,.4)}
+.act-tx{background:rgba(232,75,75,.15);color:var(--danger);border:1px solid rgba(232,75,75,.3)}
+.act-task{background:rgba(138,109,26,.2);color:#ffd452;border:1px solid rgba(138,109,26,.4)}
+.act-user{background:rgba(100,149,237,.15);color:#87cefa;border:1px solid rgba(100,149,237,.3)}
+
 /* ── MOBİL UYUMLULUK CSS ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .stages-grid { grid-template-columns: 1fr; }
@@ -111,8 +120,9 @@
     <div class="nav-section-label">Tedarik</div>
     <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     
-    <div class="nav-section-label">Sistem</div>
+    <div class="nav-section-label">Sistem & Güvenlik</div>
     <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
+    <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">A</div><div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div></div>
@@ -381,6 +391,43 @@
         <button class="btn btn-primary" onclick="openUserModal()">+ Yeni Kullanıcı</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Ad</th><th>Kullanıcı Adı</th><th>Rol</th><th>Oluşturulma</th><th>İşlem</th></tr></thead><tbody id="usersTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) -->
+    <div class="page" id="page-activity">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="actSearch" placeholder="🔍 İşlem, kullanıcı veya detay ara..." oninput="handleSearchInput(this, filterActivityLogs)">
+            <button class="search-clear-btn" onclick="clearSearchInput('actSearch', filterActivityLogs)">✕</button>
+          </div>
+          <select id="actUserFilter" style="max-width:160px" onchange="filterActivityLogs()">
+            <option value="">Tüm Kullanıcılar</option>
+          </select>
+          <select id="actTypeFilter" style="max-width:160px" onchange="filterActivityLogs()">
+            <option value="">Tüm Varlık Türleri</option>
+            <option value="auth">Giriş / Kimlik</option>
+            <option value="product">Ürün / Stok</option>
+            <option value="product_lot">Model Yılı (Lot)</option>
+            <option value="machine">Vinç / Reçete</option>
+            <option value="transaction">Stok Çıkış / İade</option>
+            <option value="transaction_bulk">Toplu Malzeme Alımı</option>
+            <option value="task">İş Panosu</option>
+            <option value="task_stage">İş Aşamaları</option>
+            <option value="purchase_request">Satın Alma Talebi</option>
+            <option value="user">Kullanıcı Yönetimi</option>
+            <option value="column">Sütun Yönetimi</option>
+            <option value="bom_column">BOM Sütunları</option>
+            <option value="bom_category">BOM Kategorileri</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" onclick="downloadCSV('/api/export/activity-logs')">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="loadActivityLogs();renderActivityLogs()">↺ Yenile</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Kullanıcı</th><th>İşlem</th><th>Kategori</th><th>Varlık ID</th><th>Detay</th><th>IP Adresi</th></tr></thead>
+        <tbody id="activityTbody"></tbody>
+      </table></div></div>
     </div>
 
     <!-- BOM SETTINGS -->
@@ -685,6 +732,33 @@
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
+<!-- 15. AKTİVİTE DETAY MODALI (AUDIT TRAIL) -->
+<div class="modal-overlay" id="actDetailModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h3 id="actDetailTitle">🛡️ İşlem / Denetim Detayı</h3>
+      <button class="modal-close" onclick="closeModal('actDetailModal')">×</button>
+    </div>
+    <div class="modal-body" style="font-size:.83rem">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.3rem">
+          <span>Kullanıcı: <strong id="actDetailUser">—</strong></span>
+          <span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)" id="actDetailDate">—</span>
+        </div>
+        <div>İşlem: <strong id="actDetailAction" style="color:var(--accent)">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-top:.2rem">Varlık: <span id="actDetailEntity">—</span> | IP: <span id="actDetailIP">—</span></div>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Kayıt Değişiklik Detayları (JSON / Veri):</label>
+        <pre id="actDetailJson" style="background:#000;color:#3cd4a0;padding:.75rem;border-radius:6px;font-family:var(--mono);font-size:.72rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('actDetailModal')">Kapat</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -700,7 +774,7 @@ window.fetch = function(url, opts) {
 };
 
 let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
-let pendingTransfers = [], me = null;
+let pendingTransfers = [], activityLogs = [], me = null;
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
 let firmCollapsed = {};
 
@@ -763,12 +837,18 @@ function connectSSE() {
     await loadUsers();
     if (currentPage === 'users') renderUsers();
     if (currentPage === 'tasks') renderTasks();
+    if (currentPage === 'activity') renderActivityLogs();
   });
   es.addEventListener('column_update', async () => {
     await loadColumns(); await loadProducts();
     if (currentPage === 'columns') renderColumns();
     if (currentPage === 'products') renderProducts();
     if (currentPage === 'dashboard') renderDashboard();
+  });
+  es.addEventListener('activity_new', function() {
+    if (currentPage === 'activity') {
+      loadActivityLogs().then(renderActivityLogs);
+    }
   });
   es.addEventListener('notif_new', function() { loadNotifs(); });
   es.addEventListener('purchase_new', function() { loadPurchases().then(function() { if (currentPage === 'purchases') renderPurchases(); }); });
@@ -790,7 +870,7 @@ function connectSSE() {
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories()]);
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs()]);
   renderFirmLists();
 }
 async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
@@ -803,6 +883,7 @@ async function loadProducts() {
 }
 async function loadTransactions() { transactions = await api('/api/transactions?limit=300') || []; }
 async function loadUsers() { users = await api('/api/users') || []; }
+async function loadActivityLogs() { activityLogs = await api('/api/activity-logs?limit=300') || []; }
 async function loadMachines() { machines = await api('/api/machines') || []; }
 async function loadFirms() { firms = await api('/api/firms') || []; }
 async function loadTasks() { 
@@ -909,6 +990,7 @@ const pageTitles = {
   performance: 'Performans', 
   transactions: 'İşlem Geçmişi', 
   users: 'Kullanıcı Yönetimi', 
+  activity: 'Aktivite Günlüğü (Audit Trail)',
   purchases: 'Satın Alma Talepleri' 
 };
 
@@ -938,7 +1020,8 @@ function showPage(name) {
     bulktake: () => { renderFirmLists(); filterBulkMachines(); },
     return: () => { renderFirmLists(); },
     transactions: renderTransactions, 
-    users: renderUsers, 
+    users: renderUsers,
+    activity: renderActivityLogs,
     purchases: renderPurchases 
   };
   renderNow[name]?.();
@@ -2262,6 +2345,90 @@ async function submitReturn() {
   toast(`${quantity} adet iade kaydedildi ✓`, 'success');
 }
 
+// ── AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) ─────────────────────────────────────────
+function getEntityBadge(type) {
+  const map = {
+    auth: '<span class="act-badge act-auth">Giriş / Auth</span>',
+    product: '<span class="act-badge act-product">Ürün / Stok</span>',
+    product_lot: '<span class="act-badge act-product">Model Yılı</span>',
+    machine: '<span class="act-badge act-machine">Vinç / Reçete</span>',
+    transaction: '<span class="act-badge act-tx">Stok Hareketi</span>',
+    transaction_bulk: '<span class="act-badge act-tx">Toplu Alım</span>',
+    task: '<span class="act-badge act-task">İş Panosu</span>',
+    task_stage: '<span class="act-badge act-task">Aşama</span>',
+    purchase_request: '<span class="act-badge act-auth">Satın Alma</span>',
+    user: '<span class="act-badge act-user">Kullanıcı</span>',
+    column: '<span class="act-badge act-user">Sütun Tanımı</span>',
+    bom_column: '<span class="act-badge act-user">BOM Sütun</span>',
+    bom_category: '<span class="act-badge act-user">BOM Kategori</span>'
+  };
+  return map[type] || `<span class="act-badge" style="background:var(--border2);color:var(--text)">${esc(type)}</span>`;
+}
+
+function renderActivityLogs() {
+  const uSel = document.getElementById('actUserFilter');
+  if (uSel && uSel.options.length <= 1) {
+    uSel.innerHTML = '<option value="">Tüm Kullanıcılar</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)}</option>`).join('');
+  }
+  filterActivityLogs();
+}
+
+function filterActivityLogs() {
+  const sq = (document.getElementById('actSearch')?.value || '').toLowerCase();
+  const uid = document.getElementById('actUserFilter')?.value || '';
+  const etype = document.getElementById('actTypeFilter')?.value || '';
+
+  let filtered = activityLogs;
+  if (uid) filtered = filtered.filter(a => String(a.user_id) === uid);
+  if (etype) filtered = filtered.filter(a => a.entity_type === etype);
+  if (sq) {
+    filtered = filtered.filter(a => {
+      const uName = (a.display_name || a.username || '').toLowerCase();
+      const action = (a.action || '').toLowerCase();
+      const details = JSON.stringify(a.details || {}).toLowerCase();
+      const ip = (a.ip_address || '').toLowerCase();
+      return uName.includes(sq) || action.includes(sq) || details.includes(sq) || ip.includes(sq);
+    });
+  }
+
+  const tbody = document.getElementById('activityTbody');
+  if (!tbody) return;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="icon">🛡️</div>Aktivite kaydı bulunamadı</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(a => {
+    const uName = a.display_name || a.username || 'Sistem';
+    const detailStr = JSON.stringify(a.details || {});
+    const shortDetail = detailStr.length > 50 ? detailStr.slice(0, 50) + '...' : detailStr;
+
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(a.created_at)}</td>
+      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : ''}</td>
+      <td><strong style="color:var(--text)">${esc(a.action)}</strong></td>
+      <td>${getEntityBadge(a.entity_type)}</td>
+      <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${a.entity_id ? '#' + a.entity_id : '—'}</td>
+      <td style="font-family:var(--mono);font-size:.68rem;color:var(--text2);cursor:pointer" onclick="openActivityDetail(${a.id})" title="Detayları İncele">
+        <span style="text-decoration:underline">${esc(shortDetail)}</span>
+      </td>
+      <td style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">${esc(a.ip_address || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openActivityDetail(id) {
+  const log = activityLogs.find(x => x.id == id);
+  if (!log) return;
+  document.getElementById('actDetailUser').textContent = (log.display_name || log.username || 'Sistem') + (log.role ? ` (${log.role})` : '');
+  document.getElementById('actDetailDate').textContent = fmtDate(log.created_at);
+  document.getElementById('actDetailAction').textContent = log.action;
+  document.getElementById('actDetailEntity').textContent = `${log.entity_type} ${log.entity_id ? '#' + log.entity_id : ''}`;
+  document.getElementById('actDetailIP').textContent = log.ip_address || '—';
+  document.getElementById('actDetailJson').textContent = JSON.stringify(log.details || {}, null, 2);
+  openModal('actDetailModal');
+}
+
 // ── PERFORMANCE ───────────────────────────────────────────────────────────
 function renderPerformance() {
   const cont = document.getElementById('perfContent');
@@ -2450,7 +2617,7 @@ function makeSortable(tblId) {
 }
 
 function autoSort() {
-  ['productTbody', 'txTbody', 'firmsTbody', 'usersTbody', 'purchaseTbody', 'bomColsTbody', 'bomCatsTbody', 'columnsTbody'].forEach(function(id) {
+  ['productTbody', 'txTbody', 'firmsTbody', 'usersTbody', 'purchaseTbody', 'bomColsTbody', 'bomCatsTbody', 'columnsTbody', 'activityTbody'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     var t = el.closest('table'); if (!t) return;
     if (!t.id) t.id = id + 'T';
@@ -2474,6 +2641,7 @@ async function refresh() {
     return: loadAll,
     transactions: async () => { await loadTransactions(); renderTransactions(); },
     users: async () => { await loadUsers(); renderUsers(); },
+    activity: async () => { await loadActivityLogs(); renderActivityLogs(); },
     performance: loadPerformance,
     purchases: async () => { await loadPurchases(); renderPurchases(); }
   };
@@ -2806,7 +2974,7 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
       '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
       '<td><strong>' + esc(p.product_name) + '</strong></td>' +
       '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
