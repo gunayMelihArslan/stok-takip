@@ -47,9 +47,6 @@
     <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sevkiyattakiler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
-    
-    <div class="nav-section-label">Envanter & Referans</div>
-    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Kataloğu</div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">S</div><div class="info"><div class="name" id="userName">Satın Alma</div><div class="role">Tedarikçi</div></div></div>
@@ -76,9 +73,9 @@
         <div class="stat-card"><div class="label">Toplam İşlem</div><div class="value" id="dashTotal">0</div><div class="sub">kayıt</div></div>
       </div>
       <div class="card" style="margin-top:1rem">
-        <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">⚡ Öncelikli İşlem Bekleyen Siparişler</div>
+        <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">⚡ İşlem Bekleyen Siparişler</div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Tarih</th><th>Ürün / Malzeme</th><th>Miktar</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
+          <thead><tr><th>Tarih</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
           <tbody id="dashUrgentTbody"></tbody>
         </table></div>
       </div>
@@ -94,8 +91,8 @@
           </div>
           <select id="orderStatusFilter" style="max-width:180px" onchange="renderOrders()">
             <option value="">Tüm Aktif Durumlar</option>
-            <option value="approved">✅ Onaylandı (Sipariş Aç)</option>
-            <option value="ordered">🚚 Sipariş Verildi</option>
+            <option value="approved">✅ Onaylandı (İşleme Al)</option>
+            <option value="ordered">🚚 Sipariş Verildi / Alındı</option>
             <option value="shipping">🚢 Sevkiyatta (Yolda)</option>
           </select>
         </div>
@@ -115,7 +112,7 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Ürün Adı</th><th>Miktar</th><th>Tedarikçi / Kargo Detayı</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Tarih</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Tedarikçi / Kargo Detayı</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="shippingTbody"></tbody>
       </table></div></div>
     </div>
@@ -130,21 +127,9 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderCompleted()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün</th><th>Miktar</th><th>İlgili İş</th><th>Tedarikçi Notu</th><th>Son Durum</th></tr></thead>
+        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün & Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Tedarikçi Notu</th><th>Son Durum</th></tr></thead>
         <tbody id="completedTbody"></tbody>
       </table></div></div>
-    </div>
-
-    <!-- 5. STOK KATALOĞU (READ-ONLY STOCK) -->
-    <div class="page" id="page-stock">
-      <div class="toolbar">
-        <div class="search-box-wrap" style="max-width:280px">
-          <input type="text" id="stockSearch" placeholder="🔍 Stokta ara..." oninput="handleSearchInput(this, filterStock)">
-          <button class="search-clear-btn" onclick="clearSearchInput('stockSearch', filterStock)">✕</button>
-        </div>
-        <button class="btn btn-ghost" onclick="loadStock();renderStock()">↺</button>
-      </div>
-      <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
     </div>
 
   </div>
@@ -162,13 +147,14 @@
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
         <div>Ürün: <strong id="processProdName">—</strong></div>
         <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="processReqInfo">Miktar: —</div>
+        <div id="processExtraDetails" style="margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem"></div>
       </div>
       <div class="form-group">
-        <label>Yeni Tedarik Aşaması *</label>
+        <label>Tedarik Aşaması *</label>
         <select id="processStatusSelect" style="width:100%">
-          <option value="ordered">🚚 Sipariş Verildi (Tedarikçiye Geçildi)</option>
+          <option value="ordered">🚚 Sipariş Verildi / Alındı</option>
           <option value="shipping">🚢 Sevkiyatta (Kargoya Verildi / Yolda)</option>
-          <option value="approved">⏳ Onaylandı (Hazırlanıyor)</option>
+          <option value="approved">✅ Onaylandı (İşleme Alındı / Hazırlanıyor)</option>
         </select>
       </div>
       <div class="form-group">
@@ -197,7 +183,7 @@ window.fetch = function(url, opts) {
   return _f(url, opts);
 };
 
-let purchases = [], products = [], columns = [], me = null;
+let purchases = [], columns = [], me = null;
 let currentPage = 'dashboard';
 
 async function init() {
@@ -255,25 +241,16 @@ function connectSSE() {
     if (currentPage === 'shipping') renderShipping();
     if (currentPage === 'completed') renderCompleted();
   });
-  es.addEventListener('stock_update', async () => {
-    await loadStock();
-    if (currentPage === 'stock') renderStock();
-  });
 }
 
 async function loadAll() {
-  await Promise.all([loadPurchases(), loadStock()]);
+  columns = await api('/api/columns') || [];
+  await loadPurchases();
 }
 
 async function loadPurchases() {
   purchases = await api('/api/purchase-requests') || [];
   updateBadges();
-}
-
-async function loadStock() {
-  [columns, products] = await Promise.all([api('/api/columns'), api('/api/products')]);
-  columns = columns || [];
-  products = products || [];
 }
 
 function updateBadges() {
@@ -289,8 +266,8 @@ function updateBadges() {
 
 const PRST = {
   pending: { l: '⏳ Admin Onayı Bekliyor', c: 'var(--muted)' },
-  approved: { l: '✅ Onaylandı (Sipariş Aç)', c: 'var(--warning)' },
-  ordered: { l: '🚚 Sipariş Verildi', c: 'var(--accent)' },
+  approved: { l: '✅ Onaylandı (İşleme Al)', c: 'var(--warning)' },
+  ordered: { l: '🚚 Sipariş Verildi / Alındı', c: 'var(--accent)' },
   shipping: { l: '🚢 Sevkiyatta (Yolda)', c: '#4ba0e8' },
   received: { l: '📦 Depoya Ulaştı (Teslim)', c: 'var(--success)' },
   rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
@@ -300,8 +277,7 @@ const pageTitles = {
   dashboard: 'Tedarik Paneli',
   orders: 'Sipariş & Tedarik Havuzu',
   shipping: 'Sevkiyattaki Siparişler',
-  completed: 'Teslim Alınanlar Arşivi',
-  stock: 'Stok & Malzeme Kataloğu'
+  completed: 'Teslim Alınanlar Arşivi'
 };
 
 function showPage(name) {
@@ -317,10 +293,19 @@ function showPage(name) {
     dashboard: renderDashboard,
     orders: renderOrders,
     shipping: renderShipping,
-    completed: renderCompleted,
-    stock: renderStock
+    completed: renderCompleted
   };
   renderers[name]?.();
+}
+
+function renderExtraTags(product_values) {
+  if (!product_values) return '';
+  return Object.entries(product_values).map(([cid, val]) => {
+    if (!val) return '';
+    const col = columns.find(c => String(c.id) === String(cid));
+    const colName = col ? col.name : 'Özellik';
+    return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
+  }).filter(Boolean).join('');
 }
 
 // ── 1. DASHBOARD ──────────────────────────────────────────────────────────
@@ -343,9 +328,13 @@ function renderDashboard() {
   }
   tbody.innerHTML = urgent.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    const extraTags = renderExtraTags(p.product_values);
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
-      <td><strong>${esc(p.product_name)}</strong></td>
+      <td>
+        <strong>${esc(p.product_name)}</strong>
+        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.2rem">${extraTags}</div>` : ''}
+      </td>
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c}">${st.l}</span></td>
@@ -361,7 +350,15 @@ function renderOrders() {
   
   let list = purchases.filter(p => p.status !== 'pending' && p.status !== 'rejected');
   if (f) list = list.filter(p => p.status === f);
-  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q) || (p.admin_note || '').toLowerCase().includes(q));
+  if (q) {
+    list = list.filter(p => {
+      const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
+      return (p.product_name || '').toLowerCase().includes(q) ||
+             (p.task_title || '').toLowerCase().includes(q) ||
+             (p.admin_note || '').toLowerCase().includes(q) ||
+             pVals.includes(q);
+    });
+  }
 
   const cont = document.getElementById('ordersContainer');
   if (!cont) return;
@@ -376,6 +373,7 @@ function renderOrders() {
     const isOrdered = p.status === 'ordered';
     const isShipping = p.status === 'shipping';
     const isReceived = p.status === 'received';
+    const extraTags = renderExtraTags(p.product_values);
 
     return `
       <div class="purchase-card">
@@ -392,11 +390,12 @@ function renderOrders() {
         </div>
         <div class="purchase-body">
           <div>
+            ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-bottom:.4rem">${extraTags}</div>` : ''}
             <div style="font-size:.82rem;color:var(--text2)">${p.reason ? `<strong>Talep Açıklaması:</strong> ${esc(p.reason)}` : 'Açıklama girilmedi.'}</div>
             <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">İlgili İş / Vinç: <strong>${esc(p.task_title || 'Genel Atölye İhtiyacı')}</strong></div>
             <div class="status-timeline">
               <div class="timeline-step completed">✓ 1. Admin Onayı</div>
-              <div class="timeline-step ${isOrdered || isShipping || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Sipariş Verildi</div>
+              <div class="timeline-step ${isOrdered || isShipping || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Sipariş Verildi / Alındı</div>
               <div class="timeline-step ${isShipping || isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Sevkiyatta</div>
               <div class="timeline-step ${isReceived ? 'completed' : ''}">4. Depoya Teslim</div>
             </div>
@@ -404,7 +403,7 @@ function renderOrders() {
           <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;font-size:.75rem">
             <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Kargo Notu:</div>
             <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz kargo/tedarikçi bilgisi girilmedi.</span>'}</div>
-            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.4rem">Talep Tarihi: ${fmtDate(p.created_at)}</div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.4rem">Kayıt: ${fmtDate(p.created_at)}</div>
           </div>
         </div>
       </div>
@@ -416,7 +415,15 @@ function renderOrders() {
 function renderShipping() {
   const q = (document.getElementById('shippingSearch')?.value || '').toLowerCase();
   let list = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping');
-  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.admin_note || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q));
+  if (q) {
+    list = list.filter(p => {
+      const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
+      return (p.product_name || '').toLowerCase().includes(q) ||
+             (p.admin_note || '').toLowerCase().includes(q) ||
+             (p.task_title || '').toLowerCase().includes(q) ||
+             pVals.includes(q);
+    });
+  }
 
   const tbody = document.getElementById('shippingTbody');
   if (!tbody) return;
@@ -427,9 +434,13 @@ function renderShipping() {
 
   tbody.innerHTML = list.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    const extraTags = renderExtraTags(p.product_values);
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
-      <td><strong>${esc(p.product_name)}</strong></td>
+      <td>
+        <strong>${esc(p.product_name)}</strong>
+        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.2rem">${extraTags}</div>` : ''}
+      </td>
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.82rem;color:var(--accent)">${p.admin_note ? esc(p.admin_note) : '—'}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
@@ -443,7 +454,14 @@ function renderShipping() {
 function renderCompleted() {
   const q = (document.getElementById('completedSearch')?.value || '').toLowerCase();
   let list = purchases.filter(p => p.status === 'received');
-  if (q) list = list.filter(p => (p.product_name || '').toLowerCase().includes(q) || (p.task_title || '').toLowerCase().includes(q));
+  if (q) {
+    list = list.filter(p => {
+      const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
+      return (p.product_name || '').toLowerCase().includes(q) ||
+             (p.task_title || '').toLowerCase().includes(q) ||
+             pVals.includes(q);
+    });
+  }
 
   const tbody = document.getElementById('completedTbody');
   if (!tbody) return;
@@ -452,45 +470,19 @@ function renderCompleted() {
     return;
   }
 
-  tbody.innerHTML = list.map(p => `<tr>
-    <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
-    <td><strong>${esc(p.product_name)}</strong></td>
-    <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
-    <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
-    <td style="font-size:.8rem;color:var(--text2)">${esc(p.admin_note || '—')}</td>
-    <td><span class="badge badge-ok">✅ Depoya Ulaştı</span></td>
-  </tr>`).join('');
-}
-
-// ── 5. READ-ONLY STOCK ───────────────────────────────────────────────────
-function renderStock() {
-  const theadTr = document.getElementById('stockThead')?.querySelector('tr');
-  if (theadTr) {
-    theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Stok Durumu</th>';
-  }
-  filterStock();
-}
-
-function filterStock() {
-  const q = (document.getElementById('stockSearch')?.value || '').toLowerCase();
-  const numCol = columns.find(c => c.data_type === 'number');
-  const tbody = document.getElementById('stockTbody');
-  if (!tbody) return;
-
-  let prods = products;
-  if (q) prods = prods.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
-
-  if (!prods.length) {
-    tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="empty">Ürün bulunamadı</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = prods.map(p => {
-    const cells = columns.map(c => `<td>${esc(p.values?.[c.id] || '')}</td>`).join('');
-    const qty = numCol ? parseFloat(p.values?.[numCol.id] || 0) : null;
-    const minS = numCol?.min_stock || 5;
-    const status = qty !== null ? (qty <= 0 ? '<span class="badge badge-low">Stok Yok</span>' : qty < minS ? `<span class="badge badge-low">Kritik: ${qty}</span>` : `<span class="badge badge-ok">Mevcut: ${qty}</span>`) : '—';
-    return `<tr>${cells}<td>${status}</td></tr>`;
+  tbody.innerHTML = list.map(p => {
+    const extraTags = renderExtraTags(p.product_values);
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem">${fmtDate(p.created_at)}</td>
+      <td>
+        <strong>${esc(p.product_name)}</strong>
+        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.2rem">${extraTags}</div>` : ''}
+      </td>
+      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td style="font-size:.8rem;color:var(--text2)">${esc(p.admin_note || '—')}</td>
+      <td><span class="badge badge-ok">✅ Depoya Ulaştı</span></td>
+    </tr>`;
   }).join('');
 }
 
@@ -501,6 +493,7 @@ function openProcessModal(id) {
   document.getElementById('processOrderId').value = p.id;
   document.getElementById('processProdName').textContent = p.product_name;
   document.getElementById('processReqInfo').textContent = `Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
+  document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p.product_values);
   document.getElementById('processStatusSelect').value = p.status === 'approved' ? 'ordered' : p.status;
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
