@@ -171,7 +171,9 @@ setInterval(() => { loginAttempts.forEach((v, k) => { if (!v.length || Date.now(
 app.post('/api/login', loginRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = (await query('SELECT * FROM users WHERE username=$1', [username])).rows[0];
+    if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gereklidir' });
+    const cleanUsername = String(username).trim();
+    const user = (await query('SELECT * FROM users WHERE LOWER(username)=LOWER($1)', [cleanUsername])).rows[0];
     if (!user || !bcrypt.compareSync(password, user.password_hash))
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
@@ -677,26 +679,31 @@ app.get('/api/active-sessions', auth, admin, (req, res) => {
 
 // ── USERS ─────────────────────────────────────────────────────────────────
 app.get('/api/users', auth, async (req, res) => {
-  try { res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at')).rows); }
+  try { res.json((await query('SELECT id,username,role,display_name,created_at FROM users ORDER BY created_at ASC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/users', auth, admin, async (req, res) => {
   const { username, password, role, display_name } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
   try { 
-    const r = (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [username, bcrypt.hashSync(password, 10), role || 'personnel', display_name || username])).rows[0];
-    await logActivity(req.user.id, 'Kullanıcı Oluşturuldu', 'user', r.id, { username, role, display_name }, req);
+    const cleanUsername = String(username).trim();
+    const cleanDisplayName = display_name ? String(display_name).trim() : cleanUsername;
+    const cleanRole = role ? String(role).trim() : 'personnel';
+    const r = (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [cleanUsername, bcrypt.hashSync(password, 10), cleanRole, cleanDisplayName])).rows[0];
+    await logActivity(req.user.id, 'Kullanıcı Oluşturuldu', 'user', r.id, { username: cleanUsername, role: cleanRole, display_name: cleanDisplayName }, req);
     broadcast('user_update', {});
     res.json({ id: r.id }); 
   }
-  catch { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
+  catch (err) { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
 });
 app.put('/api/users/:id', auth, admin, async (req, res) => {
   try {
     const { display_name, role, password } = req.body;
-    if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [display_name, role, bcrypt.hashSync(password, 10), req.params.id]);
-    else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [display_name, role, req.params.id]);
-    await logActivity(req.user.id, 'Kullanıcı Güncellendi', 'user', parseInt(req.params.id), { display_name, role, passwordChanged: !!password }, req);
+    const cleanDisplayName = display_name ? String(display_name).trim() : '';
+    const cleanRole = role ? String(role).trim() : 'personnel';
+    if (password) await query('UPDATE users SET display_name=$1,role=$2,password_hash=$3 WHERE id=$4', [cleanDisplayName, cleanRole, bcrypt.hashSync(password, 10), req.params.id]);
+    else await query('UPDATE users SET display_name=$1,role=$2 WHERE id=$3', [cleanDisplayName, cleanRole, req.params.id]);
+    await logActivity(req.user.id, 'Kullanıcı Güncellendi', 'user', parseInt(req.params.id), { display_name: cleanDisplayName, role: cleanRole, passwordChanged: !!password }, req);
     broadcast('user_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
