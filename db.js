@@ -128,6 +128,10 @@ async function init() {
                 EXECUTE format('ALTER TABLE products ALTER COLUMN %I DROP NOT NULL', r.column_name);
             END IF;
         END LOOP;
+
+        -- USERS TABLOSUNDAKİ ESKİ ROL KISITLAMASINI (CHECK CONSTRAINT) KALDIRMA
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS check_role;
     END $$;
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS "values" JSONB NOT NULL DEFAULT '{}';
