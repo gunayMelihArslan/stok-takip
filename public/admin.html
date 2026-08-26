@@ -2952,7 +2952,7 @@ async function loadComments() {
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
       '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
-      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : x.role === 'purchase' ? 'rgba(26,107,86,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
+      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
       '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
       '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
   }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
@@ -2986,7 +2986,7 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">' + fmtDate(p.created_at) + '</td>' +
+      '<td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>' +
       '<td><strong>' + esc(p.requester_name || '?') + '</strong></td>' +
       '<td><strong>' + esc(p.product_name) + '</strong></td>' +
       '<td style="font-family:var(--mono)">' + p.quantity + ' ' + esc(p.unit || '') + '</td>' +
