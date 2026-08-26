@@ -242,6 +242,42 @@
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
+<!-- TESLİM ALMA & FARK BİLDİRİM MODALI -->
+<div class="modal-overlay" id="receiveModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h3>📦 Malzeme Teslim Alma & Kontrol</h3>
+      <button class="modal-close" onclick="closeModal('receiveModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="receiveOrderId">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
+        <div>Ürün: <strong id="receiveProdName">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="receiveReqInfo">Sipariş Miktar: —</div>
+      </div>
+      <div class="form-group">
+        <label>Gelen / Teslim Alınan Gerçek Miktar *</label>
+        <input type="number" id="receiveActualQty" min="0.01" step="any" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Teslimat Durumu</label>
+        <select id="receiveStatusType" style="width:100%" onchange="toggleReceiveNote(this.value)">
+          <option value="exact">✅ Tam ve Eksiksiz Teslim Alındı</option>
+          <option value="discrepancy">⚠️ Eksik / Fazla veya Farklı Ürün Geldi</option>
+        </select>
+      </div>
+      <div class="form-group" id="receiveNoteGroup" style="display:none">
+        <label>Fark / Sorun Açıklaması *</label>
+        <textarea id="receiveDeliveryNote" rows="3" placeholder="Örn: 10 adet yerine 8 adet kolisiz/kırık geldi..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('receiveModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveReceiveModal()">📦 Teslimatı Onayla</button>
+    </div>
+  </div>
+</div>
+
 <!-- Düzenleme Talebi Modalı -->
 <div class="modal-overlay" id="bomEditReqModal">
   <div class="modal" style="max-width:480px">
@@ -257,7 +293,7 @@
       </div>
       <div class="form-group" style="margin:0">
         <label>Düzenleme Talebiniz / Açıklama *</label>
-        <textarea id="bomEditReqMessage" rows="4" placeholder="Hangi malzemede ne gibi bir değişiklik yapılması gerektiğini belirtiniz (Örn: Kontaktör 2 adet yerine 3 adet olmalı, 10mm kablo yerine 16mm eklenmeli vb.)..." style="resize:vertical"></textarea>
+        <textarea id="bomEditReqMessage" rows="4" placeholder="Hangi malzemede ne gibi bir değişiklik yapılması gerektiğini belirtiniz..." style="resize:vertical"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -1003,7 +1039,7 @@ async function submitBulkTake() {
   document.getElementById('bulkNote').value = '';
   await loadMachinePreview();
   await loadProducts();
-  renderStock();
+  renderProducts();
   toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
 }
 
@@ -1184,7 +1220,7 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA (TÜM ATÖLYE HAVUZU & TESLİM ALMA) ──────────────────────────
+// ── SATIN ALMA (TÜM ATÖLYE HAVUZU & TESLİM ALMA MODALI) ────────────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1197,28 +1233,32 @@ function renderMyPurchases() {
   }
   var PRST = { 
     pending: { l: '⏳ Onay Bekliyor', c: 'var(--warning)' }, 
-    approved: { l: '✅ Onaylandı (Sipariş Açılacak)', c: 'var(--success)' }, 
-    rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, 
-    ordered: { l: '🚚 Sipariş Verildi', c: 'var(--accent)' }, 
-    shipping: { l: '🚢 Sevkiyatta (Yolda)', c: '#4ba0e8' }, 
-    received: { l: '📦 Teslim Alındı', c: '#1a6b56' } 
+    approved: { l: '⏳ Satın Alım Aşamasında', c: 'var(--warning)' }, 
+    ordered: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' }, 
+    received: { l: '📦 Teslim Alındı', c: '#1a6b56' },
+    rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
   };
   
   var tbody = document.getElementById('myPurchaseTbody'); if (!tbody) return;
   tbody.innerHTML = _myPR.length ? _myPR.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     
-    // Stok sütunları etiketleri
     var pVals = p.product_values || {};
     var extraTags = Object.entries(pVals).map(function([cid, val]) {
-      if (!val) return '';
+      if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note') return '';
       var col = columns.find(c => String(c.id) === String(cid));
-      var colName = col ? col.name : 'Sütun';
+      var colName = col ? col.name : 'Özellik';
       return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
     }).filter(Boolean).join('');
 
-    // Teslim al butonu (Kargoda veya Sipariş Edilmiş ürünler için)
-    var canReceive = p.status === 'shipping' || p.status === 'ordered';
+    if (pVals.actual_qty && parseFloat(pVals.actual_qty) !== parseFloat(p.quantity)) {
+      extraTags += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gelen:</strong> ${pVals.actual_qty}</span>`;
+    }
+    if (pVals.delivery_status === 'discrepancy') {
+      extraTags += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,75,75,.15);border:1px solid rgba(232,75,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--danger)" title="${esc(pVals.delivery_note)}">⚠️ Fark Bildirildi</span>`;
+    }
+
+    var canReceive = p.status === 'ordered';
 
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
@@ -1234,20 +1274,57 @@ function renderMyPurchases() {
         ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}
       </td>
       <td style="white-space:nowrap">
-        ${canReceive ? `<button class="btn btn-success btn-sm" onclick="setReceived(${p.id})">📦 Teslim Alındı</button>` : p.status === 'received' ? '<span class="badge badge-ok">✅ Depoda</span>' : '—'}
+        ${canReceive ? `<button class="btn btn-success btn-sm" onclick="openReceiveModal(${p.id})">📦 Teslim Al</button>` : p.status === 'received' ? '<span class="badge badge-ok">✅ Depoda</span>' : '—'}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty">Sipariş havuzu boş</td></tr>';
   setTimeout(pAutoSort, 50);
 }
 
-async function setReceived(id) {
-  if (!confirm('Bu malzemeyi teslim aldığınızı onaylıyor musunuz?')) return;
-  var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: 'received' });
+function openReceiveModal(id) {
+  var p = _myPR.find(x => x.id == id);
+  if (!p) return;
+  document.getElementById('receiveOrderId').value = p.id;
+  document.getElementById('receiveProdName').textContent = p.product_name;
+  document.getElementById('receiveReqInfo').textContent = `Sipariş Edilen: ${p.quantity} ${p.unit || 'adet'}`;
+  document.getElementById('receiveActualQty').value = p.product_values?.actual_qty || p.quantity;
+  document.getElementById('receiveStatusType').value = 'exact';
+  document.getElementById('receiveDeliveryNote').value = '';
+  document.getElementById('receiveNoteGroup').style.display = 'none';
+  openModal('receiveModal');
+}
+
+function toggleReceiveNote(val) {
+  document.getElementById('receiveNoteGroup').style.display = (val === 'discrepancy') ? 'block' : 'none';
+}
+
+async function saveReceiveModal() {
+  var id = document.getElementById('receiveOrderId').value;
+  var actual_qty = parseFloat(document.getElementById('receiveActualQty').value);
+  var delivery_status = document.getElementById('receiveStatusType').value;
+  var delivery_note = document.getElementById('receiveDeliveryNote').value.trim();
+
+  if (isNaN(actual_qty) || actual_qty <= 0) {
+    toast('Lütfen geçerli bir miktar girin', 'error');
+    return;
+  }
+  if (delivery_status === 'discrepancy' && !delivery_note) {
+    toast('Lütfen fark açıklamasını girin', 'error');
+    return;
+  }
+
+  var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', {
+    status: 'received',
+    actual_qty: actual_qty,
+    delivery_status: delivery_status,
+    delivery_note: delivery_note
+  });
+
   if (!r) return;
-  await loadMyPurchases(); 
-  renderMyPurchases(); 
-  toast('Malzeme teslim alındı olarak işaretlendi ✓', 'success');
+  closeModal('receiveModal');
+  await loadMyPurchases();
+  renderMyPurchases();
+  toast('Teslimat başarıyla kaydedildi ✓', 'success');
 }
 
 async function submitPR() {
