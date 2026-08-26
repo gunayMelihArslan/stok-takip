@@ -45,7 +45,7 @@
     
     <div class="nav-section-label">Sipariş Akışı</div>
     <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
-    <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sevkiyattakiler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+    <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
   </div>
   <div class="sidebar-footer">
@@ -67,8 +67,8 @@
     <!-- 1. DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow">
-        <div class="stat-card"><div class="label">Bekleyen Onaylı Talep</div><div class="value" id="dashPending" style="color:var(--warning)">0</div><div class="sub">sipariş açılacak</div></div>
-        <div class="stat-card"><div class="label">Sipariş Edilen / Yolda</div><div class="value" id="dashShipping" style="color:var(--accent)">0</div><div class="sub">sevkiyat bekliyor</div></div>
+        <div class="stat-card"><div class="label">Satın Alım Aşamasında</div><div class="value" id="dashPending" style="color:var(--warning)">0</div><div class="sub">işleme alınacak</div></div>
+        <div class="stat-card"><div class="label">Sipariş Edilen / Alınan</div><div class="value" id="dashShipping" style="color:var(--accent)">0</div><div class="sub">alım tamamlandı</div></div>
         <div class="stat-card"><div class="label">Atölyeye Ulaşan</div><div class="value" id="dashReceived" style="color:var(--success)">0</div><div class="sub">teslim tamamlandı</div></div>
         <div class="stat-card"><div class="label">Toplam İşlem</div><div class="value" id="dashTotal">0</div><div class="sub">kayıt</div></div>
       </div>
@@ -91,9 +91,8 @@
           </div>
           <select id="orderStatusFilter" style="max-width:180px" onchange="renderOrders()">
             <option value="">Tüm Aktif Durumlar</option>
-            <option value="approved">✅ Onaylandı (İşleme Al)</option>
-            <option value="ordered">🚚 Sipariş Verildi / Alındı</option>
-            <option value="shipping">🚢 Sevkiyatta (Yolda)</option>
+            <option value="approved">⏳ Satın Alım Aşamasında</option>
+            <option value="ordered">🚚 Sipariş Edildi / Alındı</option>
           </select>
         </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
@@ -102,11 +101,11 @@
       <div id="ordersContainer"></div>
     </div>
 
-    <!-- 3. SEVKİYATTAKİLER (SHIPPING) -->
+    <!-- 3. SİPARİŞ EDİLENLER / YOLDA (SHIPPING) -->
     <div class="page" id="page-shipping">
       <div class="toolbar">
         <div class="search-box-wrap">
-          <input type="text" id="shippingSearch" placeholder="🔍 Kargo/Ürün ara..." oninput="handleSearchInput(this, renderShipping)">
+          <input type="text" id="shippingSearch" placeholder="🔍 Ürün / Not ara..." oninput="handleSearchInput(this, renderShipping)">
           <button class="search-clear-btn" onclick="clearSearchInput('shippingSearch', renderShipping)">✕</button>
         </div>
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
@@ -152,14 +151,13 @@
       <div class="form-group">
         <label>Tedarik Aşaması *</label>
         <select id="processStatusSelect" style="width:100%">
-          <option value="ordered">🚚 Sipariş Verildi / Alındı</option>
-          <option value="shipping">🚢 Sevkiyatta (Kargoya Verildi / Yolda)</option>
-          <option value="approved">✅ Onaylandı (İşleme Alındı / Hazırlanıyor)</option>
+          <option value="ordered">🚚 Sipariş Edildi / Alım Yapıldı</option>
+          <option value="approved">⏳ Satın Alım Aşamasında (İşleme Alındı)</option>
         </select>
       </div>
       <div class="form-group">
         <label>Tedarikçi Firma / Kargo Takip / Not</label>
-        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından sipariş geçildi. Yurtiçi Kargo Takip: 123456789. Tahmini varış Cuma."></textarea>
+        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından alım yapıldı. Tahmini varış Cuma."></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -266,9 +264,9 @@ function updateBadges() {
 
 const PRST = {
   pending: { l: '⏳ Admin Onayı Bekliyor', c: 'var(--muted)' },
-  approved: { l: '✅ Onaylandı (İşleme Al)', c: 'var(--warning)' },
-  ordered: { l: '🚚 Sipariş Verildi / Alındı', c: 'var(--accent)' },
-  shipping: { l: '🚢 Sevkiyatta (Yolda)', c: '#4ba0e8' },
+  approved: { l: '⏳ Satın Alım Aşamasında', c: 'var(--warning)' },
+  ordered: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' },
+  shipping: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' },
   received: { l: '📦 Depoya Ulaştı (Teslim)', c: 'var(--success)' },
   rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
 };
@@ -276,7 +274,7 @@ const PRST = {
 const pageTitles = {
   dashboard: 'Tedarik Paneli',
   orders: 'Sipariş & Tedarik Havuzu',
-  shipping: 'Sevkiyattaki Siparişler',
+  shipping: 'Sipariş Edilenler',
   completed: 'Teslim Alınanlar Arşivi'
 };
 
@@ -337,7 +335,7 @@ function renderDashboard() {
       </td>
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
-      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c}">${st.l}</span></td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span></td>
       <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ İşle</button></td>
     </tr>`;
   }).join('');
@@ -370,8 +368,7 @@ function renderOrders() {
   cont.innerHTML = list.map(p => {
     const st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     const isApproved = p.status === 'approved';
-    const isOrdered = p.status === 'ordered';
-    const isShipping = p.status === 'shipping';
+    const isOrdered = p.status === 'ordered' || p.status === 'shipping';
     const isReceived = p.status === 'received';
     const extraTags = renderExtraTags(p.product_values);
 
@@ -395,14 +392,14 @@ function renderOrders() {
             <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">İlgili İş / Vinç: <strong>${esc(p.task_title || 'Genel Atölye İhtiyacı')}</strong></div>
             <div class="status-timeline">
               <div class="timeline-step completed">✓ 1. Admin Onayı</div>
-              <div class="timeline-step ${isOrdered || isShipping || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Sipariş Verildi / Alındı</div>
-              <div class="timeline-step ${isShipping || isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Sevkiyatta</div>
+              <div class="timeline-step ${isOrdered || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Satın Alım Aşamasında</div>
+              <div class="timeline-step ${isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Sipariş Edildi / Alındı</div>
               <div class="timeline-step ${isReceived ? 'completed' : ''}">4. Depoya Teslim</div>
             </div>
           </div>
           <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;font-size:.75rem">
-            <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Kargo Notu:</div>
-            <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz kargo/tedarikçi bilgisi girilmedi.</span>'}</div>
+            <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Alım Notu:</div>
+            <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz alım/tedarikçi bilgisi girilmedi.</span>'}</div>
             <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.4rem">Kayıt: ${fmtDate(p.created_at)}</div>
           </div>
         </div>
@@ -411,7 +408,7 @@ function renderOrders() {
   }).join('');
 }
 
-// ── 3. SHIPPING ───────────────────────────────────────────────────────────
+// ── 3. SİPARİŞ EDİLENLER (SHIPPING) ───────────────────────────────────────
 function renderShipping() {
   const q = (document.getElementById('shippingSearch')?.value || '').toLowerCase();
   let list = purchases.filter(p => p.status === 'ordered' || p.status === 'shipping');
@@ -428,7 +425,7 @@ function renderShipping() {
   const tbody = document.getElementById('shippingTbody');
   if (!tbody) return;
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Yolda / Sevkiyatta olan sipariş bulunmuyor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Sipariş edilmiş / alınan ürün bulunmuyor</td></tr>';
     return;
   }
 
@@ -444,7 +441,7 @@ function renderShipping() {
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.82rem;color:var(--accent)">${p.admin_note ? esc(p.admin_note) : '—'}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
-      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c}">${st.l}</span></td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span></td>
       <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">✏️ Güncelle</button></td>
     </tr>`;
   }).join('');
