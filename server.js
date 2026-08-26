@@ -172,13 +172,10 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Kullanıcı adı ve şifre gereklidir' });
-    
     const cleanUsername = String(username).trim();
-    const user = (await query('SELECT * FROM users WHERE LOWER(TRIM(username)) = LOWER($1)', [cleanUsername])).rows[0];
-    
+    const user = (await query('SELECT * FROM users WHERE LOWER(username)=LOWER($1)', [cleanUsername])).rows[0];
     if (!user || !bcrypt.compareSync(password, user.password_hash))
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
-      
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
     await logActivity(user.id, 'Giriş Yapıldı', 'auth', user.id, { username: user.username, role: user.role }, req);
     res.json({ role: user.role, display_name: user.display_name, token });
@@ -692,23 +689,12 @@ app.post('/api/users', auth, admin, async (req, res) => {
     const cleanUsername = String(username).trim();
     const cleanDisplayName = display_name ? String(display_name).trim() : cleanUsername;
     const cleanRole = role ? String(role).trim() : 'personnel';
-    
-    const r = (await query(
-      'INSERT INTO users(username, password_hash, role, display_name) VALUES($1, $2, $3, $4) RETURNING id',
-      [cleanUsername, bcrypt.hashSync(password, 10), cleanRole, cleanDisplayName]
-    )).rows[0];
-
+    const r = (await query('INSERT INTO users(username,password_hash,role,display_name) VALUES($1,$2,$3,$4) RETURNING id', [cleanUsername, bcrypt.hashSync(password, 10), cleanRole, cleanDisplayName])).rows[0];
     await logActivity(req.user.id, 'Kullanıcı Oluşturuldu', 'user', r.id, { username: cleanUsername, role: cleanRole, display_name: cleanDisplayName }, req);
     broadcast('user_update', {});
     res.json({ id: r.id }); 
   }
-  catch (err) {
-    console.error('Kullanıcı ekleme hatası:', err.message);
-    if (err.code === '23505') { // Benzersizlik (Unique) hatası
-      return res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' });
-    }
-    res.status(500).json({ error: 'Kullanıcı oluşturulamadı: ' + err.message });
-  }
+  catch (err) { res.status(409).json({ error: 'Bu kullanıcı adı zaten mevcut' }); }
 });
 app.put('/api/users/:id', auth, admin, async (req, res) => {
   try {
@@ -1348,15 +1334,22 @@ app.post('/api/task-stages/:id/comments',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// ── Satın Alma (Rol Bazlı Akış: Admin & Purchase) ─────────────
+// ── Satın Alma (Rol Bazlı Akış: Admin & Purchase & Personel) ─────────────
 app.get('/api/purchase-requests', auth, async (req, res) => {
   try {
-    const isManager = req.user.role === 'admin' || req.user.role === 'purchase';
+    // Madde 3: Personel de tüm havuzu görebilsin
     res.json((await query(
-      isManager
-        ? `SELECT pr.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 WHEN 'ordered' THEN 3 WHEN 'shipping' THEN 4 ELSE 5 END, pr.created_at DESC`
-        : `SELECT pr.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`,
-      isManager ? [] : [req.user.id]
+      `SELECT pr.*, u.display_name as requester_name, t.title as task_title 
+       FROM purchase_requests pr 
+       JOIN users u ON u.id=pr.requested_by 
+       LEFT JOIN tasks t ON t.id=pr.task_id 
+       ORDER BY CASE pr.status 
+         WHEN 'pending' THEN 1 
+         WHEN 'approved' THEN 2 
+         WHEN 'ordered' THEN 3 
+         WHEN 'shipping' THEN 4 
+         WHEN 'received' THEN 5 
+         ELSE 6 END, pr.created_at DESC`
     )).rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1392,7 +1385,7 @@ app.post('/api/purchase-requests', auth, async (req, res) => {
   }
 });
 
-// Yönetici Talebi Düzenleme Endpoint'i (Ürün adı, miktar, birim, iş, stok detayları)
+// Yönetici Talebi Düzenleme Endpoint'i
 app.put('/api/purchase-requests/:id', auth, admin, async (req, res) => {
   try {
     const { product_name, quantity, unit, reason, task_id, product_values, status, admin_note } = req.body;
@@ -1428,11 +1421,17 @@ app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
     const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
     if (!pr) return res.status(404).json({ error: 'Bulunamadı' });
 
+    // Onay ve red yetkisi sadece yöneticide
     if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Bu durum değişikliği için yönetici yetkisi gerekli' });
     }
+    // Sipariş ve sevkiyat durumları admin veya satın alma rolü tarafından güncellenebilir
     if ((status === 'ordered' || status === 'shipping') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
       return res.status(403).json({ error: 'Tedarik yetkisi gerekli' });
+    }
+    // Madde 4: Personel, Admin ve Satın Alma 'received' (Teslim Alındı) yapabilir
+    if (status === 'received' && req.user.role !== 'admin' && req.user.role !== 'purchase' && req.user.role !== 'personnel') {
+      return res.status(403).json({ error: 'Yetkisiz işlem' });
     }
 
     await query("UPDATE purchase_requests SET status=$1, admin_note=$2, updated_at=NOW() WHERE id=$3", [status, admin_note || '', req.params.id]);
@@ -1452,6 +1451,7 @@ app.delete('/api/purchase-requests/:id', auth, admin, async (req, res) => {
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
 app.put('/api/users/change-password',auth,async(req,res)=>{
   try{
     const{current_password,new_password}=req.body;
