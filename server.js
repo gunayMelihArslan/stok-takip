@@ -68,6 +68,10 @@ function admin(req, res, next) {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Yönetici yetkisi gerekli' });
   next();
 }
+function adminOrPurchase(req, res, next) {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'purchase') return res.status(403).json({ error: 'Yetki gerekli' });
+  next();
+}
 
 async function getNumCol() {
   try { return (await query("SELECT * FROM column_defs WHERE data_type='number' ORDER BY display_order LIMIT 1")).rows[0] || null; }
@@ -171,7 +175,7 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
     if (!user || !bcrypt.compareSync(password, user.password_hash))
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, display_name: user.display_name }, JWT_SECRET, { expiresIn: '8h' });
-    await logActivity(user.id, 'Giriş Yapıldı', 'auth', user.id, { username: user.username }, req);
+    await logActivity(user.id, 'Giriş Yapıldı', 'auth', user.id, { username: user.username, role: user.role }, req);
     res.json({ role: user.role, display_name: user.display_name, token });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1323,15 +1327,15 @@ app.post('/api/task-stages/:id/comments',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// ── Satın Alma ────────────────────────────────────────────────
+// ── Satın Alma (Rol Bazlı Akış: Admin & Purchase) ─────────────
 app.get('/api/purchase-requests',auth,async(req,res)=>{
   try{
-    const isAdmin=req.user.role==='admin';
+    const isManager = req.user.role === 'admin' || req.user.role === 'purchase';
     res.json((await query(
-      isAdmin
-        ?`SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 ELSE 2 END,pr.created_at DESC`
-        :`SELECT pr.*,u.display_name as requester_name,t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`,
-      isAdmin?[]:[req.user.id]
+      isManager
+        ? `SELECT pr.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id ORDER BY CASE pr.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 WHEN 'ordered' THEN 3 WHEN 'shipping' THEN 4 ELSE 5 END, pr.created_at DESC`
+        : `SELECT pr.*, u.display_name as requester_name, t.title as task_title FROM purchase_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN tasks t ON t.id=pr.task_id WHERE pr.requested_by=$1 ORDER BY pr.created_at DESC`,
+      isManager ? [] : [req.user.id]
     )).rows);
   }catch(e){res.status(500).json({error:e.message});}
 });
@@ -1348,13 +1352,23 @@ app.post('/api/purchase-requests',auth,async(req,res)=>{
     broadcast('purchase_new',{});res.json(r);
   }catch(e){console.error('purchase POST:',e.message);res.status(500).json({error:e.message});}
 });
-app.put('/api/purchase-requests/:id/status',auth,admin,async(req,res)=>{
+app.put('/api/purchase-requests/:id/status',auth,async(req,res)=>{
   try{
     const{status,admin_note}=req.body;
     const pr=(await query("SELECT * FROM purchase_requests WHERE id=$1",[req.params.id])).rows[0];
     if(!pr)return res.status(404).json({error:'Bulunamadı'});
+
+    // Onay ve red yetkisi sadece yöneticide (admin) kalır
+    if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Bu durum değişikliği için yönetici yetkisi gerekli' });
+    }
+    // Sipariş ve sevkiyat durumları admin veya satın alma rolü tarafından güncellenebilir
+    if ((status === 'ordered' || status === 'shipping') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
+      return res.status(403).json({ error: 'Tedarik yetkisi gerekli' });
+    }
+
     await query("UPDATE purchase_requests SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3",[status,admin_note||'',req.params.id]);
-    const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',received:'📦 Teslim Alındı'};
+    const labels={approved:'✅ Onaylandı',rejected:'❌ Reddedildi',ordered:'🚚 Sipariş Verildi',shipping:'🚢 Sevkiyatta (Yolda)',received:'📦 Teslim Alındı'};
     if(labels[status])await createNotif(pr.requested_by,'Satın Alma: '+labels[status],pr.product_name+(admin_note?' — '+admin_note:''),'purchase');
     await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note }, req);
     broadcast('purchase_new',{});res.json({ok:true});
