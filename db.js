@@ -147,6 +147,7 @@ async function init() {
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
     ALTER TABLE bom_columns ADD COLUMN IF NOT EXISTS mapped_field TEXT DEFAULT NULL;
+    ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS product_values JSONB DEFAULT '{}';
   `);
 
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
@@ -170,6 +171,7 @@ async function init() {
     unit TEXT DEFAULT 'adet', reason TEXT DEFAULT '',
     task_id INT REFERENCES tasks(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT DEFAULT '',
+    product_values JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
   )`);
   await query(`CREATE TABLE IF NOT EXISTS activity_log (
