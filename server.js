@@ -1440,7 +1440,6 @@ app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
 
     const uName = req.user.display_name || req.user.username;
 
-    // Farklı/Eksik teslimat veya alım bildirimi varsa bildirim fırlat
     if (delivery_status && delivery_status !== 'exact') {
       const managers = (await query("SELECT id FROM users WHERE role IN ('admin', 'purchase')")).rows;
       for (const m of managers) {
@@ -1464,6 +1463,124 @@ app.delete('/api/purchase-requests/:id', auth, admin, async (req, res) => {
     await query("DELETE FROM purchase_requests WHERE id=$1", [req.params.id]);
     await logActivity(req.user.id, 'Satın Alma Talebi Silindi', 'purchase_request', parseInt(req.params.id), {}, req);
     broadcast('purchase_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── VFD / SÜRÜCÜ & CİHAZ REHBERİ API ENDPOINT'LERİ ───────────────────────
+app.get('/api/vfd/devices', auth, async (req, res) => {
+  try {
+    const rows = (await query('SELECT * FROM vfd_devices ORDER BY display_order ASC, brand ASC, model ASC')).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/vfd/devices', auth, admin, async (req, res) => {
+  try {
+    const { brand, model, notes, display_order } = req.body;
+    if (!brand || !model) return res.status(400).json({ error: 'Marka ve model zorunludur' });
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM vfd_devices')).rows[0].m;
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
+    const r = (await query(
+      'INSERT INTO vfd_devices(brand, model, notes, display_order) VALUES($1, $2, $3, $4) RETURNING *',
+      [brand.trim(), model.trim(), notes || '', ord]
+    )).rows[0];
+    await logActivity(req.user.id, 'Sürücü/Cihaz Eklendi', 'vfd_device', r.id, { brand, model }, req);
+    broadcast('vfd_device_update', {});
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/vfd/devices/:id', auth, admin, async (req, res) => {
+  try {
+    const { brand, model, notes, display_order } = req.body;
+    await query(
+      'UPDATE vfd_devices SET brand=$1, model=$2, notes=$3, display_order=$4 WHERE id=$5',
+      [brand.trim(), model.trim(), notes || '', parseInt(display_order) || 0, req.params.id]
+    );
+    await logActivity(req.user.id, 'Sürücü/Cihaz Güncellendi', 'vfd_device', parseInt(req.params.id), { brand, model }, req);
+    broadcast('vfd_device_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/vfd/devices/:id', auth, admin, async (req, res) => {
+  try {
+    await query('DELETE FROM vfd_devices WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'Sürücü/Cihaz Silindi', 'vfd_device', parseInt(req.params.id), {}, req);
+    broadcast('vfd_device_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Kayıtlar: Parametreler & Hata Kodları
+app.get('/api/vfd/records', auth, async (req, res) => {
+  try {
+    const { device_id, record_type, q } = req.query;
+    let sql = `
+      SELECT r.*, d.brand, d.model 
+      FROM vfd_records r 
+      JOIN vfd_devices d ON d.id = r.device_id 
+      WHERE 1=1
+    `;
+    const params = [];
+    if (device_id) {
+      params.push(device_id);
+      sql += ` AND r.device_id = $${params.length}`;
+    }
+    if (record_type) {
+      params.push(record_type);
+      sql += ` AND r.record_type = $${params.length}`;
+    }
+    if (q) {
+      params.push(`%${q.toLowerCase()}%`);
+      sql += ` AND (LOWER(r.code) LIKE $${params.length} OR LOWER(r.title) LIKE $${params.length} OR LOWER(r.description) LIKE $${params.length} OR LOWER(r.solution_steps) LIKE $${params.length})`;
+    }
+    sql += ' ORDER BY r.display_order ASC, r.code ASC, r.created_at DESC';
+    const rows = (await query(sql, params)).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/vfd/records', auth, admin, async (req, res) => {
+  try {
+    const { device_id, record_type, code, title, description, solution_steps, display_order } = req.body;
+    if (!device_id || !code || !title || !record_type) {
+      return res.status(400).json({ error: 'Cihaz, tür, kod ve başlık zorunludur' });
+    }
+    const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM vfd_records WHERE device_id=$1', [device_id])).rows[0].m;
+    const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
+    const r = (await query(
+      `INSERT INTO vfd_records(device_id, record_type, code, title, description, solution_steps, display_order)
+       VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [parseInt(device_id), record_type, code.trim().toUpperCase(), title.trim(), description || '', solution_steps || '', ord]
+    )).rows[0];
+    await logActivity(req.user.id, `Sürücü ${record_type === 'fault' ? 'Hata Kodu' : 'Parametresi'} Eklendi`, 'vfd_record', r.id, { code, title }, req);
+    broadcast('vfd_record_update', {});
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/vfd/records/:id', auth, admin, async (req, res) => {
+  try {
+    const { device_id, record_type, code, title, description, solution_steps, display_order } = req.body;
+    await query(
+      `UPDATE vfd_records 
+       SET device_id=$1, record_type=$2, code=$3, title=$4, description=$5, solution_steps=$6, display_order=$7 
+       WHERE id=$8`,
+      [parseInt(device_id), record_type, code.trim().toUpperCase(), title.trim(), description || '', solution_steps || '', parseInt(display_order) || 0, req.params.id]
+    );
+    await logActivity(req.user.id, `Sürücü ${record_type === 'fault' ? 'Hata Kodu' : 'Parametresi'} Güncellendi`, 'vfd_record', parseInt(req.params.id), { code, title }, req);
+    broadcast('vfd_record_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/vfd/records/:id', auth, admin, async (req, res) => {
+  try {
+    await query('DELETE FROM vfd_records WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'Sürücü Kaydı Silindi', 'vfd_record', parseInt(req.params.id), {}, req);
+    broadcast('vfd_record_update', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
