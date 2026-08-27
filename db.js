@@ -129,7 +129,6 @@ async function init() {
             END IF;
         END LOOP;
 
-        -- USERS TABLOSUNDAKİ ESKİ ROL KISITLAMASINI (CHECK CONSTRAINT) KALDIRMA
         ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
         ALTER TABLE users DROP CONSTRAINT IF EXISTS check_role;
     END $$;
@@ -199,9 +198,48 @@ async function init() {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
 
+  // ── VFD / SÜRÜCÜ CİHAZLARI VE REHBER TABLOLARI ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS vfd_devices (
+      id SERIAL PRIMARY KEY,
+      brand TEXT NOT NULL,
+      model TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      display_order INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS vfd_records (
+      id SERIAL PRIMARY KEY,
+      device_id INT NOT NULL REFERENCES vfd_devices(id) ON DELETE CASCADE,
+      record_type TEXT NOT NULL, -- 'fault' veya 'parameter'
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      solution_steps TEXT DEFAULT '',
+      display_order INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
     await query("INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES('Sıra No', 1, true, 'auto_no'),('Malzeme Adı', 2, true, 'auto_name'),('Miktar', 3, true, 'auto_qty'),('Birim', 4, true, 'auto_unit'),('Açıklama', 5, true, 'auto_desc')");
+  }
+
+  // Varsayılan Sürücü Marka ve Modelleri
+  const vfdCheck = (await query("SELECT COUNT(*) as c FROM vfd_devices")).rows[0];
+  if (parseInt(vfdCheck.c) === 0) {
+    await query(`
+      INSERT INTO vfd_devices (brand, model, display_order) VALUES
+      ('Schneider', 'ATV310', 1),
+      ('Schneider', 'ATV320', 2),
+      ('Schneider', 'ATV340', 3),
+      ('Schneider', 'ATV930', 4),
+      ('Mitsubishi', 'E840', 5),
+      ('Fuji', 'Ace', 6),
+      ('Fuji', 'Mini', 7),
+      ('Fuji', 'Micro', 8);
+    `);
   }
 }
 
