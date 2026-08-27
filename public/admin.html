@@ -61,6 +61,11 @@
 /* Rol Rozeti - Satın Alma */
 .badge-purchase{background:#e8f5f0;color:#1a6b56;border:1px solid rgba(26,107,86,.3);font-weight:700}
 
+/* VFD Tab & Kart Stilleri */
+.vfd-tabs{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border2);padding-bottom:.5rem;}
+.vfd-tab-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.88rem;padding:.4rem .9rem;border-radius:6px;cursor:pointer;transition:all .2s;}
+.vfd-tab-btn.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border2);}
+
 /* ── MOBİL UYUMLULUK CSS ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .stages-grid { grid-template-columns: 1fr; }
@@ -103,6 +108,7 @@
     <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Yönetimi</div>
     <div class="nav-item" onclick="showPage('bom')"><span class="nav-icon">📄</span>BOM Sütunları</div>
     <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
+    <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü & Parametre Kütüphanesi</div>
     
     <div class="nav-section-label">İş Takibi</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
@@ -255,9 +261,35 @@
       <div id="taskBoard"></div>
     </div>
 
-    <!-- ── ATÖLYE & OPERASYON SAYFALARI ── -->
+    <!-- ── VFD & SÜRÜCÜ PARAMETRE / HATA KÜTÜPHANESİ SAYFASI ── -->
+    <div class="page" id="page-vfd">
+      <div class="vfd-tabs">
+        <button type="button" class="vfd-tab-btn active" id="vfdTabParamBtn" onclick="switchVfdTab('parameter')">📋 Parametre Listesi</button>
+        <button type="button" class="vfd-tab-btn" id="vfdTabFaultBtn" onclick="switchVfdTab('fault')">⚠️ Hata Kodları & Teşhis</button>
+      </div>
 
-    <!-- MY TASKS (Admin Kendi İşleri) -->
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="vfdSearch" placeholder="🔍 Kod, başlık veya açıklama ara..." oninput="handleSearchInput(this, renderVfdRecords)">
+            <button class="search-clear-btn" onclick="clearSearchInput('vfdSearch', renderVfdRecords)">✕</button>
+          </div>
+          <select id="vfdDeviceFilter" style="max-width:200px" onchange="renderVfdRecords()">
+            <option value="">Tüm Cihazlar / Modeller</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openVfdRecordModal()">+ Yeni Kayıt Ekle</button>
+        <button class="btn btn-ghost" onclick="openVfdDevicesModal()">⚙️ Marka & Model Tanımları</button>
+        <button class="btn btn-ghost" onclick="loadVfdAll();renderVfdRecords()">↺ Yenile</button>
+      </div>
+
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Cihaz</th><th>Kod</th><th>Başlık / Anlam</th><th>Açıklama / Fabrika Değeri</th><th>Atölye Çözüm & Ayar Adımları</th><th>İşlem</th></tr></thead>
+        <tbody id="vfdRecordsTbody"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- ── ATÖLYE & OPERASYON SAYFALARI ── -->
     <div class="page" id="page-mytasks">
       <div id="transferAlerts"></div>
       <div class="toolbar">
@@ -270,7 +302,6 @@
       <div id="myTaskList"></div>
     </div>
 
-    <!-- OPEN TASKS (Açık İşler) -->
     <div class="page" id="page-opentasks">
       <div class="toolbar">
         <select id="openFirmFilter" style="max-width:180px" onchange="renderOpenTasks()"><option value="">Tüm Firmalar</option></select>
@@ -283,7 +314,6 @@
       <div id="openTaskList"></div>
     </div>
 
-    <!-- TAKE (Ürün Al) -->
     <div class="page" id="page-take">
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün Alma Kaydı</h3></div>
@@ -302,7 +332,6 @@
       </div></div>
     </div>
 
-    <!-- BULK TAKE (Vinç İçin Al) -->
     <div class="page" id="page-bulktake">
       <div style="max-width:560px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
@@ -319,7 +348,6 @@
       </div></div>
     </div>
 
-    <!-- RETURN (Ürün İade) -->
     <div class="page" id="page-return">
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün İadesi</h3></div>
@@ -426,6 +454,8 @@
             <option value="column">Sütun Yönetimi</option>
             <option value="bom_column">BOM Sütunları</option>
             <option value="bom_category">BOM Kategorileri</option>
+            <option value="vfd_device">Sürücü Cihazları</option>
+            <option value="vfd_record">Sürücü Parametre/Hata</option>
           </select>
         </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/activity-logs')">↓ CSV</button>
@@ -464,109 +494,58 @@
 </div>
 
 <!-- Modals -->
-
-<!-- 1. YENİ ÜRÜN MODALI -->
 <div class="modal-overlay" id="productModal">
   <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <h3 id="productModalTitle">Yeni Ürün Ekle</h3>
-      <button class="modal-close" onclick="closeModal('productModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="productModalTitle">Yeni Ürün Ekle</h3><button class="modal-close" onclick="closeModal('productModal')">×</button></div>
     <div class="modal-body" id="productModalBody" style="max-height:70vh;overflow-y:auto"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveProductModal()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button><button class="btn btn-primary" onclick="saveProductModal()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 2. SÜTUN MODALI -->
 <div class="modal-overlay" id="columnModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="columnModalTitle">Yeni Sütun</h3>
-      <button class="modal-close" onclick="closeModal('columnModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="editColId">
       <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName"></div>
       <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
       <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok</label><input type="number" id="colMinStock" value="5"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveColumn()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" onclick="saveColumn()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 3. BOM SÜTUN MODALI -->
 <div class="modal-overlay" id="bomColModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="bomColModalTitle">BOM Sütunu</h3>
-      <button class="modal-close" onclick="closeModal('bomColModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="bomColModalTitle">BOM Sütunu</h3><button class="modal-close" onclick="closeModal('bomColModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="editBomColId">
       <div class="form-group"><label>Sütun Başlığı</label><input type="text" id="bomColName" placeholder="Örn: Marka"></div>
-      <div class="form-group">
-        <label>BOM Çıktısında Yazılacak Değişken (Eşleşme)</label>
-        <select id="bomColMappedField"></select>
-        <small style="color:var(--muted);font-size:.68rem">Bu sütunun altında ürünün hangi özelliğinin yazılacağını seçin.</small>
-      </div>
+      <div class="form-group"><label>BOM Çıktısında Yazılacak Değişken (Eşleşme)</label><select id="bomColMappedField"></select><small style="color:var(--muted);font-size:.68rem">Bu sütunun altında ürünün hangi özelliğinin yazılacağını seçin.</small></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveBomCol()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button><button class="btn btn-primary" onclick="saveBomCol()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 4. BOM KATEGORİ MODALI -->
 <div class="modal-overlay" id="bomCatModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="bomCatModalTitle">Yeni Kategori</h3>
-      <button class="modal-close" onclick="closeModal('bomCatModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editBomCatId">
-      <div class="form-group"><label>Kategori Adı</label><input type="text" id="bomCatName" placeholder="Örn: Kanca Cihazı"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveBomCat()">Kaydet</button>
-    </div>
+    <div class="modal-header"><h3 id="bomCatModalTitle">Yeni Kategori</h3><button class="modal-close" onclick="closeModal('bomCatModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editBomCatId"><div class="form-group"><label>Kategori Adı</label><input type="text" id="bomCatName" placeholder="Örn: Kanca Cihazı"></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button><button class="btn btn-primary" onclick="saveBomCat()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 5. FİRMA MODALI -->
 <div class="modal-overlay" id="firmModal">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="firmModalTitle">Yeni Firma</h3>
-      <button class="modal-close" onclick="closeModal('firmModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editFirmId">
-      <div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div>
-      <div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveFirm()">Kaydet</button>
-    </div>
+    <div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editFirmId"><div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div><div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 6. VİNÇ MODALI -->
 <div class="modal-overlay" id="machineModal">
   <div class="modal" style="max-width:560px">
-    <div class="modal-header">
-      <h3 id="machineModalTitle">Yeni Vinç</h3>
-      <button class="modal-close" onclick="closeModal('machineModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="editMachineId">
       <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
@@ -580,53 +559,30 @@
         <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveMachine()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" onclick="saveMachine()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 7. VİNÇ KOPYALAMA MODALI -->
 <div class="modal-overlay" id="cloneMachineModal">
   <div class="modal" style="max-width:480px">
-    <div class="modal-header">
-      <h3>📋 Vinci Kopyala (Klonla)</h3>
-      <button class="modal-close" onclick="closeModal('cloneMachineModal')">×</button>
-    </div>
+    <div class="modal-header"><h3>📋 Vinci Kopyala (Klonla)</h3><button class="modal-close" onclick="closeModal('cloneMachineModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="cloneSourceId">
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
         <div>Kaynak Vinç: <strong id="cloneSourceName">—</strong></div>
         <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="cloneSourceItemCount">0 kalem malzeme aktarılacak</div>
       </div>
-      <div class="form-group">
-        <label>Hedef Firma</label>
-        <select id="cloneTargetFirm" style="width:100%"></select>
-      </div>
-      <div class="form-group">
-        <label>Yeni Vinç Adı / Modeli / Seri No *</label>
-        <input type="text" id="cloneNewName" placeholder="Yeni vinç adı giriniz...">
-      </div>
-      <div class="form-group">
-        <label>Yeni Tonaj / Kapasite</label>
-        <input type="text" id="cloneNewCapacity" placeholder="Örn: 10 Ton, 20T">
-      </div>
+      <div class="form-group"><label>Hedef Firma</label><select id="cloneTargetFirm" style="width:100%"></select></div>
+      <div class="form-group"><label>Yeni Vinç Adı / Modeli / Seri No *</label><input type="text" id="cloneNewName" placeholder="Yeni vinç adı giriniz..."></div>
+      <div class="form-group"><label>Yeni Tonaj / Kapasite</label><input type="text" id="cloneNewCapacity" placeholder="Örn: 10 Ton, 20T"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button>
-      <button class="btn btn-primary" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button><button class="btn btn-primary" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button></div>
   </div>
 </div>
 
-<!-- 8. İŞ MODALI -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal" style="max-width:500px">
-    <div class="modal-header">
-      <h3>Manuel İş Ekle</h3>
-      <button class="modal-close" onclick="closeModal('taskModal')">×</button>
-    </div>
+    <div class="modal-header"><h3>Manuel İş Ekle</h3><button class="modal-close" onclick="closeModal('taskModal')">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label>İş Başlığı</label><input type="text" id="taskTitle" placeholder="Özel iş açıklaması..."></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
@@ -639,27 +595,20 @@
       </div>
       <div class="form-group"><label>Not</label><textarea id="taskNotes" rows="2"></textarea></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveTask()">Kaydet</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" onclick="saveTask()">Kaydet</button></div>
   </div>
 </div>
 
-<!-- 9. ATAMA MODALI -->
 <div class="modal-overlay" id="assignModal">
   <div class="modal">
     <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
     <div class="modal-body"><input type="hidden" id="assignStageId">
-      <div class="form-group"><label>Personel / Satın Alma / Yönetici</label>
-        <select id="assignUser"><option value="">— Atamayı Kaldır —</option></select>
-      </div>
+      <div class="form-group"><label>Personel / Satın Alma / Yönetici</label><select id="assignUser"><option value="">— Atamayı Kaldır —</option></select></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" onclick="doAssign()">Ata</button></div>
   </div>
 </div>
 
-<!-- 10. GEÇMİŞ MODALI -->
 <div class="modal-overlay" id="historyModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
@@ -667,7 +616,6 @@
   </div>
 </div>
 
-<!-- 11. KULLANICI MODALI -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
@@ -687,14 +635,10 @@
   </div>
 </div>
 
-<!-- 12. LOT MODALI -->
 <div class="modal-overlay" id="lotModal">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
-      <div>
-        <h3 id="lotTitle">Model Yılı Yönetimi</h3>
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam Stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div>
-      </div>
+      <div><h3 id="lotTitle">Model Yılı Yönetimi</h3><div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam Stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div></div>
       <button class="modal-close" onclick="closeModal('lotModal')">×</button>
     </div>
     <div class="modal-body">
@@ -710,134 +654,133 @@
         <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
         <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
       </div>
-      <div style="margin-top:.65rem;padding:.45rem .7rem;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);border-radius:6px;font-family:var(--mono);font-size:.63rem;color:var(--accent)">
-        ⚡ <strong>FIFO Prensibi:</strong> Çıkış işlemlerinde en eski model yılına ait stoklar otomatik olarak önce düşülür.
-      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
   </div>
 </div>
 
-<!-- 13. YORUM MODALI -->
 <div class="modal-overlay" id="commentModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
-    <div class="modal-body">
-      <div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div>
-      <div class="form-group" style="margin:0"><label>Yeni Not</label>
-        <textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button>
-      <button class="btn btn-primary" onclick="saveComment()">💬 Not Ekle</button>
-    </div>
+    <div class="modal-body"><div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div><div class="form-group" style="margin:0"><label>Yeni Not</label><textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button><button class="btn btn-primary" onclick="saveComment()">💬 Not Ekle</button></div>
   </div>
 </div>
 
-<!-- 14. DEVİR MODALI -->
 <div class="modal-overlay" id="transferModal">
   <div class="modal"><div class="modal-header"><h3 id="transferModalTitle">Aşamayı Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
-  <div class="modal-body"><input type="hidden" id="transferStageId">
-    <div class="form-group"><label>Devredilecek Personel / Satın Alma / Yönetici</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div>
-    <div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div>
-  </div>
+  <div class="modal-body"><input type="hidden" id="transferStageId"><div class="form-group"><label>Devredilecek Kullanıcı</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div><div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div></div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
-<!-- 15. AKTİVİTE DETAY MODALI (AUDIT TRAIL) -->
 <div class="modal-overlay" id="actDetailModal">
   <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <h3 id="actDetailTitle">🛡️ İşlem / Denetim Detayı</h3>
-      <button class="modal-close" onclick="closeModal('actDetailModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="actDetailTitle">🛡️ İşlem / Denetim Detayı</h3><button class="modal-close" onclick="closeModal('actDetailModal')">×</button></div>
     <div class="modal-body" style="font-size:.83rem">
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem">
-        <div style="display:flex;justify-content:space-between;margin-bottom:.3rem">
-          <span>Kullanıcı: <strong id="actDetailUser">—</strong></span>
-          <span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)" id="actDetailDate">—</span>
-        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:.3rem"><span>Kullanıcı: <strong id="actDetailUser">—</strong></span><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)" id="actDetailDate">—</span></div>
         <div>İşlem: <strong id="actDetailAction" style="color:var(--accent)">—</strong></div>
         <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-top:.2rem">Varlık: <span id="actDetailEntity">—</span> | IP: <span id="actDetailIP">—</span></div>
       </div>
-      <div class="form-group" style="margin:0">
-        <label>Kayıt Değişiklik Detayları (JSON / Veri):</label>
-        <pre id="actDetailJson" style="background:#000;color:#3cd4a0;padding:.75rem;border-radius:6px;font-family:var(--mono);font-size:.72rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></pre>
-      </div>
+      <div class="form-group" style="margin:0"><label>Kayıt Değişiklik Detayları (JSON / Veri):</label><pre id="actDetailJson" style="background:#000;color:#3cd4a0;padding:.75rem;border-radius:6px;font-family:var(--mono);font-size:.72rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></pre></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('actDetailModal')">Kapat</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('actDetailModal')">Kapat</button></div>
   </div>
 </div>
 
-<!-- 16. YÖNETİCİ SATIN ALMA / SİPARİŞ OLUŞTURMA & DÜZENLEME MODALI -->
 <div class="modal-overlay" id="purchaseModal">
   <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <h3 id="purchaseModalTitle">🛒 Satın Alma / Sipariş Talebi</h3>
-      <button class="modal-close" onclick="closeModal('purchaseModal')">×</button>
-    </div>
+    <div class="modal-header"><h3 id="purchaseModalTitle">🛒 Satın Alma / Sipariş Talebi</h3><button class="modal-close" onclick="closeModal('purchaseModal')">×</button></div>
     <div class="modal-body" style="max-height:75vh;overflow-y:auto">
       <input type="hidden" id="editPurchaseId">
-      
-      <div class="form-group">
-        <label>Malzeme / Ürün Adı *</label>
-        <input type="text" id="prModalName" placeholder="Örn: 10mm² NYY Kablo">
-      </div>
-      
+      <div class="form-group"><label>Malzeme / Ürün Adı *</label><input type="text" id="prModalName" placeholder="Örn: 10mm² NYY Kablo"></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Miktar *</label><input type="number" id="prModalQty" min="0.01" step="any" placeholder="0"></div>
+        <div class="form-group"><label>Birim</label><input type="text" id="prModalUnit" value="adet" placeholder="adet"></div>
+      </div>
+      <div class="form-group"><label>İlgili İş / Vinç (Opsiyonel)</label><select id="prModalTask" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
+      <div class="form-group"><label>Talep / Sipariş Nedeni</label><textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea></div>
+      <div class="form-group"><label>Sipariş Durumu</label><select id="prModalStatus" style="width:100%"><option value="approved">✅ Onaylandı</option><option value="pending">⏳ Beklemede</option><option value="ordered">🚚 Sipariş Verildi</option><option value="shipping">🚢 Sevkiyatta</option><option value="received">📦 Teslim Alındı</option></select></div>
+      <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem"></div>
+      <div class="form-group" style="margin-top:.75rem"><label>Tedarikçi / Kargo / Yönetici Notu</label><input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, takip no veya özel not..."></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Siparişi Kaydet</button></div>
+  </div>
+</div>
+
+<!-- ── VFD CİHAZ MARKA/MODEL TANIMLARI MODALI ── -->
+<div class="modal-overlay" id="vfdDevicesModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h3>⚙️ Sürücü & Cihaz Tanımları</h3>
+      <button class="modal-close" onclick="closeModal('vfdDevicesModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:1rem">
+        <input type="hidden" id="editVfdDevId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.4rem">
+          <div class="form-group" style="margin:0"><label>Marka *</label><input type="text" id="vfdDevBrand" placeholder="Örn: Schneider"></div>
+          <div class="form-group" style="margin:0"><label>Model *</label><input type="text" id="vfdDevModel" placeholder="Örn: ATV320"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 .5rem"><label>Açıklama / Not</label><input type="text" id="vfdDevNotes" placeholder="Örn: Vinç kedi/yürütme sürücüsü"></div>
+        <div style="display:flex;justify-content:flex-end;gap:.4rem">
+          <button type="button" class="btn btn-ghost btn-sm" id="vfdDevCancelEditBtn" style="display:none" onclick="cancelVfdDevEdit()">Vazgeç</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveVfdDevice()">💾 Cihazı Kaydet</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table style="font-size:.8rem">
+        <thead><tr><th>Marka</th><th>Model</th><th>Not</th><th>İşlem</th></tr></thead>
+        <tbody id="vfdDevicesTbody"></tbody>
+      </table></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('vfdDevicesModal')">Kapat</button></div>
+  </div>
+</div>
+
+<!-- ── VFD PARAMETRE / HATA KAYIT MODALI ── -->
+<div class="modal-overlay" id="vfdRecordModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="vfdRecordModalTitle">⚡ Yeni Sürücü Kaydı</h3>
+      <button class="modal-close" onclick="closeModal('vfdRecordModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="editVfdRecId">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
         <div class="form-group">
-          <label>Miktar *</label>
-          <input type="number" id="prModalQty" min="0.01" step="any" placeholder="0">
+          <label>Kayıt Türü *</label>
+          <select id="vfdRecType" style="width:100%" onchange="updateVfdRecordLabels()">
+            <option value="parameter">📋 Parametre</option>
+            <option value="fault">⚠️ Hata Kodu (Arıza Teşhis)</option>
+          </select>
         </div>
         <div class="form-group">
-          <label>Birim</label>
-          <input type="text" id="prModalUnit" value="adet" placeholder="adet">
+          <label>Cihaz / Model *</label>
+          <select id="vfdRecDeviceId" style="width:100%"></select>
         </div>
       </div>
-
-      <div class="form-group">
-        <label>İlgili İş / Vinç (Opsiyonel)</label>
-        <select id="prModalTask" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select>
-      </div>
-
-      <div class="form-group">
-        <label>Talep / Sipariş Nedeni</label>
-        <textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>Sipariş Durumu</label>
-        <select id="prModalStatus" style="width:100%">
-          <option value="approved">✅ Onaylandı (Satın Alma Hemen İşleme Alabilir)</option>
-          <option value="pending">⏳ Beklemede (Onay Bekleyen Taslak)</option>
-          <option value="ordered">🚚 Sipariş Verildi</option>
-          <option value="shipping">🚢 Sevkiyatta (Yolda)</option>
-          <option value="received">📦 Teslim Alındı</option>
-        </select>
-      </div>
-
-      <!-- DİNAMİK STOK SÜTUNLARI BÖLÜMÜ -->
-      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;margin-top:.75rem">
-        <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.5rem">
-          📦 Stok / Ürün Özellik Bilgileri (Satın Alma İçin Detaylar)
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:.65rem">
+        <div class="form-group">
+          <label id="vfdRecCodeLabel">Parametre Kodu *</label>
+          <input type="text" id="vfdRecCode" placeholder="Örn: ACC veya OCF">
         </div>
-        <div style="font-size:.65rem;color:var(--muted);margin-bottom:.65rem">
-          Tedarikçiye bildirilecek marka, model, stok kodu veya teknik özellikleri tanımlı sütunlara göre girebilirsiniz:
+        <div class="form-group">
+          <label id="vfdRecTitleLabel">Parametre Adı / Başlık *</label>
+          <input type="text" id="vfdRecTitle" placeholder="Örn: Hızlanma Rampası Süresi">
         </div>
-        <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem"></div>
       </div>
-
-      <div class="form-group" style="margin-top:.75rem">
-        <label>Tedarikçi / Kargo / Yönetici Notu</label>
-        <input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, takip no veya özel not...">
+      <div class="form-group">
+        <label id="vfdRecDescLabel">Açıklama / Fabrika Değeri</label>
+        <textarea id="vfdRecDesc" rows="2" placeholder="Örn: 3.0s — Motorun 0'dan nominal hıza çıkış süresi..."></textarea>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label id="vfdRecStepsLabel">Atölye Ayar / Çözüm Adımları</label>
+        <textarea id="vfdRecSteps" rows="4" placeholder="1. Menüden CONF -> FULL -> FUN_ girin&#10;2. ACC değerini 5.0 yapın..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button>
-      <button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Siparişi Kaydet</button>
+      <button class="btn btn-ghost" onclick="closeModal('vfdRecordModal')">İptal</button>
+      <button class="btn btn-primary" onclick="saveVfdRecord()">💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -858,6 +801,7 @@ window.fetch = function(url, opts) {
 
 let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
 let pendingTransfers = [], activityLogs = [], me = null;
+let vfdDevices = [], vfdRecords = [], currentVfdTab = 'parameter';
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
 let firmCollapsed = {};
 
@@ -877,9 +821,7 @@ async function init() {
 function connectSSE() {
   const _sseToken = localStorage.getItem('stok_token') || '';
   const es = new EventSource('/api/events?token=' + encodeURIComponent(_sseToken));
-  es.addEventListener('connected', () => {
-    document.getElementById('liveInd').innerHTML = '<span class="live-dot"></span>canlı';
-  });
+  es.addEventListener('connected', () => { document.getElementById('liveInd').innerHTML = '<span class="live-dot"></span>canlı'; });
   es.addEventListener('tx_new', async () => {
     await loadTransactions();
     if (currentPage === 'transactions') renderTransactions();
@@ -928,11 +870,15 @@ function connectSSE() {
     if (currentPage === 'products') renderProducts();
     if (currentPage === 'dashboard') renderDashboard();
   });
-  es.addEventListener('activity_new', function() {
-    if (currentPage === 'activity') {
-      loadActivityLogs().then(renderActivityLogs);
-    }
+  es.addEventListener('vfd_device_update', async () => {
+    await loadVfdDevices();
+    if (currentPage === 'vfd') renderVfdRecords();
   });
+  es.addEventListener('vfd_record_update', async () => {
+    await loadVfdRecords();
+    if (currentPage === 'vfd') renderVfdRecords();
+  });
+  es.addEventListener('activity_new', function() { if (currentPage === 'activity') loadActivityLogs().then(renderActivityLogs); });
   es.addEventListener('notif_new', function() { loadNotifs(); });
   es.addEventListener('purchase_new', function() { loadPurchases().then(function() { if (currentPage === 'purchases') renderPurchases(); }); });
   es.addEventListener('comment_new', function() { if (_commentSid && document.getElementById('commentModal')?.classList.contains('open')) loadComments(); });
@@ -953,7 +899,7 @@ function connectSSE() {
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs()]);
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll()]);
   renderFirmLists();
 }
 async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
@@ -965,10 +911,7 @@ async function loadProducts() {
   if (lc) products.forEach(p => { p._lc = lc[p.id] || 0; });
 }
 async function loadTransactions() { transactions = await api('/api/transactions?limit=300') || []; }
-async function loadUsers() { 
-  users = await api('/api/users') || []; 
-  if (currentPage === 'users') renderUsers();
-}
+async function loadUsers() { users = await api('/api/users') || []; if (currentPage === 'users') renderUsers(); }
 async function loadActivityLogs() { activityLogs = await api('/api/activity-logs?limit=300') || []; }
 async function loadMachines() { machines = await api('/api/machines') || []; }
 async function loadFirms() { firms = await api('/api/firms') || []; }
@@ -977,13 +920,14 @@ async function loadTasks() {
   pendingTransfers = await api('/api/task-transfers/pending') || [];
   const cnt = pendingTransfers.length;
   const ab = document.getElementById('alertBadge');
-  if (ab) {
-    if (cnt) { ab.textContent = cnt; ab.style.display = 'inline'; } 
-    else ab.style.display = 'none';
-  }
+  if (ab) { if (cnt) { ab.textContent = cnt; ab.style.display = 'inline'; } else ab.style.display = 'none'; }
 }
 async function loadPerformance() { perf = await api('/api/performance') || []; renderPerformance(); }
 async function loadGold() { const g = await api('/api/gold'); if (g) updateGoldDisplay(g); }
+
+async function loadVfdAll() { await Promise.all([loadVfdDevices(), loadVfdRecords()]); }
+async function loadVfdDevices() { vfdDevices = await api('/api/vfd/devices') || []; }
+async function loadVfdRecords() { vfdRecords = await api('/api/vfd/records') || []; }
 
 function updateGoldDisplay(g) {
   if (g.error) { document.getElementById('goldPrice').textContent = '—'; document.getElementById('goldMeta').textContent = g.error; return; }
@@ -1001,26 +945,13 @@ async function api(url, method = 'GET', body = null) {
     const res = await fetch(url, opts);
     const text = await res.text();
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      if (res.status === 401) {
-        localStorage.removeItem('stok_token');
-        window.location.href = '/';
-        return null;
-      }
-      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
-      return null;
+    try { data = JSON.parse(text); } catch (err) {
+      if (res.status === 401) { localStorage.removeItem('stok_token'); window.location.href = '/'; return null; }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error'); return null;
     }
-    if (!res.ok) {
-      toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error');
-      return null;
-    }
+    if (!res.ok) { toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error'); return null; }
     return data;
-  } catch (e) {
-    toast('Bağlantı sorunu oluştu', 'error');
-    return null;
-  }
+  } catch (e) { toast('Bağlantı sorunu oluştu', 'error'); return null; }
 }
 
 function downloadCSV(url) {
@@ -1030,9 +961,7 @@ function downloadCSV(url) {
 
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
-  if (clearBtn) {
-    clearBtn.style.display = inputEl.value ? 'block' : 'none';
-  }
+  if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
   if (callbackFn) callbackFn();
 }
 
@@ -1047,18 +976,6 @@ function clearSearchInput(inputId, callbackFn) {
   }
 }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    const activeEl = document.activeElement;
-    if (activeEl && activeEl.tagName === 'INPUT' && activeEl.id && activeEl.id.includes('Search')) {
-      activeEl.value = '';
-      const clearBtn = activeEl.parentElement.querySelector('.search-clear-btn');
-      if (clearBtn) clearBtn.style.display = 'none';
-      activeEl.dispatchEvent(new Event('input'));
-    }
-  }
-});
-
 const pageTitles = { 
   dashboard: 'Gösterge Paneli', 
   products: 'Ürün Yönetimi', 
@@ -1067,6 +984,7 @@ const pageTitles = {
   machines: 'Vinç Yönetimi', 
   bom: 'BOM Sütunları', 
   bom_categories: 'BOM Kategorileri', 
+  vfd: 'Sürücü & Parametre Kütüphanesi',
   tasks: 'İş Panosu',
   mytasks: 'İşlerim (Yönetici)',
   opentasks: 'Açık İşler (Üstlen)',
@@ -1099,6 +1017,7 @@ function showPage(name) {
     machines: renderMachines, 
     bom: renderBomColumns, 
     bom_categories: renderBomCategories, 
+    vfd: renderVfdRecords,
     tasks: renderTasks,
     mytasks: renderMyTasks,
     opentasks: renderOpenTasks,
@@ -1114,6 +1033,193 @@ function showPage(name) {
 }
 
 function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+// ── VFD / SÜRÜCÜ & CİHAZ KÜTÜPHANESİ FONKSİYONLARI ────────────────────────
+function switchVfdTab(tab) {
+  currentVfdTab = tab;
+  document.getElementById('vfdTabParamBtn').classList.toggle('active', tab === 'parameter');
+  document.getElementById('vfdTabFaultBtn').classList.toggle('active', tab === 'fault');
+  renderVfdRecords();
+}
+
+function renderVfdRecords() {
+  const fsel = document.getElementById('vfdDeviceFilter');
+  if (fsel) {
+    const cur = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Cihazlar / Modeller</option>' + vfdDevices.map(d => `<option value="${d.id}" ${String(d.id) === cur ? 'selected' : ''}>⚡ ${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+    fsel.value = cur;
+  }
+  const curDev = fsel?.value || '';
+  const sq = (document.getElementById('vfdSearch')?.value || '').toLowerCase();
+
+  let list = vfdRecords.filter(r => r.record_type === currentVfdTab);
+  if (curDev) list = list.filter(r => String(r.device_id) === curDev);
+  if (sq) {
+    list = list.filter(r => 
+      (r.code || '').toLowerCase().includes(sq) ||
+      (r.title || '').toLowerCase().includes(sq) ||
+      (r.description || '').toLowerCase().includes(sq) ||
+      (r.solution_steps || '').toLowerCase().includes(sq) ||
+      (r.brand || '').toLowerCase().includes(sq) ||
+      (r.model || '').toLowerCase().includes(sq)
+    );
+  }
+
+  const tbody = document.getElementById('vfdRecordsTbody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty"><div class="icon">⚡</div>${currentVfdTab === 'parameter' ? 'Kayıtlı parametre bulunamadı' : 'Kayıtlı hata kodu bulunamadı'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(r => `<tr>
+    <td><span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ ${esc(r.brand)} ${esc(r.model)}</span></td>
+    <td><strong style="font-family:var(--mono);color:var(--accent);font-size:.9rem">${esc(r.code)}</strong></td>
+    <td><strong>${esc(r.title)}</strong></td>
+    <td style="font-size:.8rem;color:var(--text2)">${esc(r.description || '—')}</td>
+    <td style="font-size:.8rem;line-height:1.4;white-space:pre-wrap">${esc(r.solution_steps || '—')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="editVfdRecord(${r.id})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVfdRecord(${r.id})">×</button>
+    </td>
+  </tr>`).join('');
+}
+
+function openVfdRecordModal() {
+  document.getElementById('editVfdRecId').value = '';
+  document.getElementById('vfdRecType').value = currentVfdTab;
+  document.getElementById('vfdRecDeviceId').innerHTML = vfdDevices.map(d => `<option value="${d.id}">${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+  document.getElementById('vfdRecCode').value = '';
+  document.getElementById('vfdRecTitle').value = '';
+  document.getElementById('vfdRecDesc').value = '';
+  document.getElementById('vfdRecSteps').value = '';
+  updateVfdRecordLabels();
+  document.getElementById('vfdRecordModalTitle').textContent = `⚡ Yeni ${currentVfdTab === 'fault' ? 'Hata Kodu' : 'Parametre'} Ekle`;
+  openModal('vfdRecordModal');
+}
+
+function editVfdRecord(id) {
+  const r = vfdRecords.find(x => x.id == id);
+  if (!r) return;
+  document.getElementById('editVfdRecId').value = r.id;
+  document.getElementById('vfdRecType').value = r.record_type;
+  document.getElementById('vfdRecDeviceId').innerHTML = vfdDevices.map(d => `<option value="${d.id}" ${d.id == r.device_id ? 'selected' : ''}>${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+  document.getElementById('vfdRecCode').value = r.code || '';
+  document.getElementById('vfdRecTitle').value = r.title || '';
+  document.getElementById('vfdRecDesc').value = r.description || '';
+  document.getElementById('vfdRecSteps').value = r.solution_steps || '';
+  updateVfdRecordLabels();
+  document.getElementById('vfdRecordModalTitle').textContent = `✏️ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
+  openModal('vfdRecordModal');
+}
+
+function updateVfdRecordLabels() {
+  const typ = document.getElementById('vfdRecType').value;
+  const isFault = typ === 'fault';
+  document.getElementById('vfdRecCodeLabel').textContent = isFault ? 'Hata Kodu *' : 'Parametre Kodu *';
+  document.getElementById('vfdRecTitleLabel').textContent = isFault ? 'Hata Başlığı / Anlamı *' : 'Parametre Adı / Başlık *';
+  document.getElementById('vfdRecDescLabel').textContent = isFault ? 'Olası Nedenler' : 'Açıklama / Fabrika Değeri';
+  document.getElementById('vfdRecStepsLabel').textContent = isFault ? 'Atölye Çözüm / Kontrol Adımları' : 'Atölye Ayar Adımları / Değerler';
+}
+
+async function saveVfdRecord() {
+  const id = document.getElementById('editVfdRecId').value;
+  const record_type = document.getElementById('vfdRecType').value;
+  const device_id = document.getElementById('vfdRecDeviceId').value;
+  const code = document.getElementById('vfdRecCode').value.trim();
+  const title = document.getElementById('vfdRecTitle').value.trim();
+  const description = document.getElementById('vfdRecDesc').value.trim();
+  const solution_steps = document.getElementById('vfdRecSteps').value.trim();
+
+  if (!device_id || !code || !title) { toast('Cihaz, kod ve başlık zorunludur', 'error'); return; }
+
+  const payload = { record_type, device_id, code, title, description, solution_steps };
+  let r;
+  if (id) r = await api('/api/vfd/records/' + id, 'PUT', payload);
+  else r = await api('/api/vfd/records', 'POST', payload);
+
+  if (!r) return;
+  closeModal('vfdRecordModal');
+  await loadVfdRecords();
+  renderVfdRecords();
+  toast('Kayıt kaydedildi ✓', 'success');
+}
+
+async function deleteVfdRecord(id) {
+  if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
+  await api('/api/vfd/records/' + id, 'DELETE');
+  await loadVfdRecords();
+  renderVfdRecords();
+  toast('Kayıt silindi ✓', 'success');
+}
+
+// Cihaz (Marka & Model) Yönetim Fonksiyonları
+function openVfdDevicesModal() {
+  cancelVfdDevEdit();
+  renderVfdDevicesTable();
+  openModal('vfdDevicesModal');
+}
+
+function renderVfdDevicesTable() {
+  const tbody = document.getElementById('vfdDevicesTbody');
+  if (!tbody) return;
+  tbody.innerHTML = vfdDevices.map(d => `<tr>
+    <td><strong>${esc(d.brand)}</strong></td>
+    <td><strong style="color:var(--accent)">${esc(d.model)}</strong></td>
+    <td style="color:var(--text2);font-size:.75rem">${esc(d.notes || '—')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="editVfdDevice(${d.id})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVfdDevice(${d.id})">×</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">Tanımlı cihaz yok</td></tr>';
+}
+
+function editVfdDevice(id) {
+  const d = vfdDevices.find(x => x.id == id);
+  if (!d) return;
+  document.getElementById('editVfdDevId').value = d.id;
+  document.getElementById('vfdDevBrand').value = d.brand || '';
+  document.getElementById('vfdDevModel').value = d.model || '';
+  document.getElementById('vfdDevNotes').value = d.notes || '';
+  document.getElementById('vfdDevCancelEditBtn').style.display = 'inline-block';
+}
+
+function cancelVfdDevEdit() {
+  document.getElementById('editVfdDevId').value = '';
+  document.getElementById('vfdDevBrand').value = '';
+  document.getElementById('vfdDevModel').value = '';
+  document.getElementById('vfdDevNotes').value = '';
+  document.getElementById('vfdDevCancelEditBtn').style.display = 'none';
+}
+
+async function saveVfdDevice() {
+  const id = document.getElementById('editVfdDevId').value;
+  const brand = document.getElementById('vfdDevBrand').value.trim();
+  const model = document.getElementById('vfdDevModel').value.trim();
+  const notes = document.getElementById('vfdDevNotes').value.trim();
+
+  if (!brand || !model) { toast('Marka ve model zorunludur', 'error'); return; }
+
+  let r;
+  if (id) r = await api('/api/vfd/devices/' + id, 'PUT', { brand, model, notes });
+  else r = await api('/api/vfd/devices', 'POST', { brand, model, notes });
+
+  if (!r) return;
+  cancelVfdDevEdit();
+  await loadVfdDevices();
+  renderVfdDevicesTable();
+  renderVfdRecords();
+  toast('Cihaz kaydedildi ✓', 'success');
+}
+
+async function deleteVfdDevice(id) {
+  if (!confirm('Bu cihazı ve bu cihaza bağlı tüm parametre/hata kayıtlarını silmek istediğinizden emin misiniz?')) return;
+  await api('/api/vfd/devices/' + id, 'DELETE');
+  await loadVfdAll();
+  renderVfdDevicesTable();
+  renderVfdRecords();
+  toast('Cihaz silindi ✓', 'success');
+}
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────
 function renderDashboard() {
@@ -1231,9 +1337,7 @@ function filterProducts() {
   const catFilter = (document.getElementById('productCatFilter')?.value || '').toLowerCase();
   
   let prods = products;
-  if (catFilter) {
-    prods = prods.filter(p => (getProductCategory(p) || '').toLowerCase() === catFilter);
-  }
+  if (catFilter) { prods = prods.filter(p => (getProductCategory(p) || '').toLowerCase() === catFilter); }
   if (q) {
     prods = prods.filter(p => {
       const cName = (getProductCategory(p) || '').toLowerCase();
@@ -1332,20 +1436,15 @@ async function saveProductModal() {
 
   const numCol = columns.find(c => c.data_type === 'number');
   if (numCol) {
-    if (validLots.length > 0) {
-      values[numCol.id] = String(totalLotQty);
-    } else if (!values[numCol.id]) {
-      values[numCol.id] = '0';
-    }
+    if (validLots.length > 0) values[numCol.id] = String(totalLotQty);
+    else if (!values[numCol.id]) values[numCol.id] = '0';
   }
 
   const r = await api('/api/products', 'POST', { values });
   if (!r) return;
 
   if (validLots.length > 0) {
-    for (const lot of validLots) {
-      await api('/api/products/' + r.id + '/lots', 'POST', lot);
-    }
+    for (const lot of validLots) { await api('/api/products/' + r.id + '/lots', 'POST', lot); }
   }
 
   closeModal('productModal');
@@ -1743,14 +1842,7 @@ async function executeCloneMachine() {
   const sourceMachine = machines.find(x => x.id == sourceId);
   if (!sourceMachine) return;
 
-  const payload = {
-    machine_name: newName,
-    firm_id: targetFirmId,
-    capacity: newCapacity,
-    notes: sourceMachine.notes || '',
-    items: sourceMachine.items || []
-  };
-
+  const payload = { machine_name: newName, firm_id: targetFirmId, capacity: newCapacity, notes: sourceMachine.notes || '', items: sourceMachine.items || [] };
   const r = await api('/api/machines', 'POST', payload);
   if (!r) return;
   closeModal('cloneMachineModal');
@@ -1766,7 +1858,6 @@ function addMachineItem(pid, qty, machineYear, catName) {
   div.style.cssText = 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.4rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;position:relative';
   
   var catOpts = '<option value="">— Kategori Seçin —</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === catName ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-
   var firstCol = columns[0];
   var prodName = '';
   if (pid) {
@@ -1778,8 +1869,7 @@ function addMachineItem(pid, qty, machineYear, catName) {
     '<select class="mi-cat" style="width:130px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px" onchange="window.miCatChange(this)">' + catOpts + '</select>' +
     '<div style="flex:2;min-width:180px;position:relative">' +
       '<input type="hidden" class="mi-pid" value="' + pid + '">' +
-      '<input type="text" class="mi-search" value="' + esc(prodName) + '" placeholder="🔍 Ürün Ara (örn: kablo)" style="width:100%" autocomplete="off" ' +
-      'onfocus="window.acFocus(this)" oninput="window.acInput(this)">' +
+      '<input type="text" class="mi-search" value="' + esc(prodName) + '" placeholder="🔍 Ürün Ara (örn: kablo)" style="width:100%" autocomplete="off" onfocus="window.acFocus(this)" oninput="window.acInput(this)">' +
       '<div class="ac-list" style="position:absolute;z-index:999;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:4px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.2)"></div>' +
     '</div>' +
     '<input type="number" class="mi-qty" value="' + qty + '" min="0" step="any" style="width:80px" placeholder="Adet" title="Adet">' +
@@ -1790,10 +1880,8 @@ function addMachineItem(pid, qty, machineYear, catName) {
 
 window.miCatChange = function(select) {
   var row = select.closest('.machine-item-row');
-  var pidInput = row.querySelector('.mi-pid');
-  var searchInput = row.querySelector('.mi-search');
-  pidInput.value = '';
-  searchInput.value = '';
+  row.querySelector('.mi-pid').value = '';
+  row.querySelector('.mi-search').value = '';
 };
 
 window.acFocus = function(input) { window.acInput(input, true); };
@@ -1805,17 +1893,9 @@ window.acInput = function(input, showAll = false) {
   var catVal = catSelect ? catSelect.value : '';
 
   var filtered = products;
-  if (catVal) {
-    filtered = products.filter(p => getProductCategory(p).trim().toLowerCase() === catVal.trim().toLowerCase());
-  }
-  if (q && !showAll) {
-    filtered = filtered.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
-  }
-  if (!filtered.length) {
-    listDiv.innerHTML = '<div style="padding:.5rem;font-size:.8rem;color:var(--muted)">Sonuç yok</div>';
-    listDiv.style.display = 'block';
-    return;
-  }
+  if (catVal) filtered = products.filter(p => getProductCategory(p).trim().toLowerCase() === catVal.trim().toLowerCase());
+  if (q && !showAll) filtered = filtered.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
+  if (!filtered.length) { listDiv.innerHTML = '<div style="padding:.5rem;font-size:.8rem;color:var(--muted)">Sonuç yok</div>'; listDiv.style.display = 'block'; return; }
   var firstCol = columns[0];
   var numCol = columns.find(col => col.data_type === 'number');
   var html = filtered.slice(0, 30).map(p => {
@@ -1825,9 +1905,7 @@ window.acInput = function(input, showAll = false) {
     var label = '<strong>' + esc(name) + '</strong>' + (extra ? ' <span style="font-size:.7rem;color:var(--muted)">[' + esc(extra) + ']</span>' : '');
     var badgeStyle = stock > 0 ? 'background:rgba(75,232,160,0.15);color:var(--success)' : 'background:rgba(232,75,75,0.15);color:var(--danger)';
     var badge = stock != null ? '<span class="badge" style="font-size:.65rem;' + badgeStyle + '">Stok: ' + stock + '</span>' : '';
-    return '<div class="ac-item" style="padding:.5rem;cursor:pointer;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center" ' +
-           'onclick="window.acSelect(this, ' + p.id + ', \'' + esc(name).replace(/'/g, "\\'") + '\', ' + (stock || 0) + ')">' +
-           '<div style="font-size:.8rem">' + label + '</div>' + badge + '</div>';
+    return '<div class="ac-item" style="padding:.5rem;cursor:pointer;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center" onclick="window.acSelect(this, ' + p.id + ', \'' + esc(name).replace(/'/g, "\\'") + '\', ' + (stock || 0) + ')"><div style="font-size:.8rem">' + label + '</div>' + badge + '</div>';
   }).join('');
   listDiv.innerHTML = html;
   listDiv.style.display = 'block';
@@ -1837,15 +1915,12 @@ window.acSelect = function(item, pid, name, stock) {
   if (stock <= 0) { toast('Uyarı: Bu üründen stokta hiç yok!', 'error'); }
   var wrap = item.parentElement.parentElement;
   wrap.querySelector('.mi-pid').value = pid;
-  var inp = wrap.querySelector('.mi-search');
-  inp.value = name;
+  wrap.querySelector('.mi-search').value = name;
   item.parentElement.style.display = 'none';
 };
 
 document.addEventListener('click', function(e) {
-  if (!e.target.classList.contains('mi-search')) {
-    document.querySelectorAll('.ac-list').forEach(l => l.style.display = 'none');
-  }
+  if (!e.target.classList.contains('mi-search')) { document.querySelectorAll('.ac-list').forEach(l => l.style.display = 'none'); }
 });
 
 async function saveMachine() {
@@ -1858,20 +1933,16 @@ async function saveMachine() {
   
   const rows = document.getElementById('machineItems').children;
   const items = Array.from(rows).map(r => {
-    const pid = r.querySelector('.mi-pid').value;
-    const qty = parseFloat(r.querySelector('.mi-qty').value) || 1;
-    const yr = r.querySelector('.mi-year').value;
-    const cat = r.querySelector('.mi-cat').value;
     return {
-      product_id: pid,
-      quantity: qty,
-      machine_year: yr ? parseInt(yr) : null,
-      category_name: cat || null
+      product_id: r.querySelector('.mi-pid').value,
+      quantity: parseFloat(r.querySelector('.mi-qty').value) || 1,
+      machine_year: r.querySelector('.mi-year').value ? parseInt(r.querySelector('.mi-year').value) : null,
+      category_name: r.querySelector('.mi-cat').value || null
     };
   }).filter(i => i.product_id);
 
-  if (id) { await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items }); }
-  else { await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items }); }
+  if (id) await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items });
+  else await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items });
   closeModal('machineModal');
   await Promise.all([loadMachines(), loadTasks()]);
   renderMachines();
@@ -2193,14 +2264,8 @@ function selectProd(prefix, pid, name) {
 }
 
 document.addEventListener('click', e => {
-  if (!e.target.closest('#takeProductSearch')) {
-    const dd = document.getElementById('takeDD');
-    if (dd) dd.style.display = 'none';
-  }
-  if (!e.target.closest('#retProductSearch')) {
-    const dd = document.getElementById('retDD');
-    if (dd) dd.style.display = 'none';
-  }
+  if (!e.target.closest('#takeProductSearch')) { const dd = document.getElementById('takeDD'); if (dd) dd.style.display = 'none'; }
+  if (!e.target.closest('#retProductSearch')) { const dd = document.getElementById('retDD'); if (dd) dd.style.display = 'none'; }
 });
 
 function updateProductInfo() {
@@ -2233,9 +2298,7 @@ async function submitTake() {
   document.getElementById('takeQty').value = '';
   document.getElementById('takeNote').value = '';
   document.getElementById('productInfoBox').style.display = 'none';
-  await loadProducts(); 
-  renderProducts();
-  toast(`${quantity} adet çıkış kaydedildi ✓`, 'success');
+  await loadProducts(); renderProducts(); toast(`${quantity} adet çıkış kaydedildi ✓`, 'success');
 }
 
 function filterBulkMachines() {
@@ -2261,18 +2324,11 @@ async function loadMachinePreview() {
 
   try {
     const takenMap = await api('/api/machines/' + mid + '/taken') || {};
-    const results = await Promise.all(
-      (m.items || []).map(it =>
-        api('/api/products/' + it.product_id + '/lots')
-        .then(lots => ({ pid: Number(it.product_id), lots: lots || [] }))
-      )
-    );
+    const results = await Promise.all((m.items || []).map(it => api('/api/products/' + it.product_id + '/lots').then(lots => ({ pid: Number(it.product_id), lots: lots || [] }))));
     const lotMap = {};
     results.forEach(r => { lotMap[r.pid] = r.lots; });
     renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
@@ -2290,9 +2346,7 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
     if (remQty > 0) allCompleted = false;
 
     const enough = stock !== null ? stock >= remQty : true;
-    const stockBadge = stock !== null
-      ? (enough ? `<span class="badge badge-ok">Depo: ${stock}</span>` : `<span class="badge badge-low">Depo Yetersiz: ${stock}</span>`)
-      : '—';
+    const stockBadge = stock !== null ? (enough ? `<span class="badge badge-ok">Depo: ${stock}</span>` : `<span class="badge badge-low">Depo Yetersiz: ${stock}</span>`) : '—';
 
     const colTags = textCols.map(col => {
       const v = prod?.values?.[col.id];
@@ -2303,25 +2357,14 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
     const activeLots = (lotMap[Number(it.product_id)] || []).filter(l => parseFloat(l.quantity) > 0);
     const machineYear = it.machine_year;
     const lotHtml = activeLots.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-left:1.5rem">` +
-        activeLots.map((l, i) => {
+      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-left:1.5rem">` + activeLots.map((l, i) => {
           const isTarget = machineYear && l.production_year == machineYear;
           const isFirst = i === 0;
-          const bg = isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)';
-          const bord = isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)';
-          const color = isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)';
-          const icon = isTarget ? '🎯 ' : isFirst ? '⚡ ' : '';
-          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${bg};border:1px solid ${bord};color:${color};white-space:nowrap">${icon}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
-        }).join('') + `</div>`
-      : '';
+          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)'};border:1px solid ${isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)'};color:${isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)'};white-space:nowrap">${isTarget ? '🎯 ' : isFirst ? '⚡ ' : ''}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
+        }).join('') + `</div>` : '';
 
-    const yearNote = machineYear
-      ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success);margin-left:1.5rem">🎯 İstenen model yılı: <strong>${machineYear}</strong></div>`
-      : '';
-
-    const categoryHtml = it.category_name 
-      ? `<span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.7rem;font-weight:700;padding:.1rem .35rem;border-radius:4px">${esc(it.category_name)}</span>`
-      : '';
+    const yearNote = machineYear ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success);margin-left:1.5rem">🎯 İstenen model yılı: <strong>${machineYear}</strong></div>` : '';
+    const categoryHtml = it.category_name ? `<span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.7rem;font-weight:700;padding:.1rem .35rem;border-radius:4px">${esc(it.category_name)}</span>` : '';
 
     let rowContent = '';
     if (remQty <= 0) {
@@ -2345,7 +2388,7 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
         ${colTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-left:1.5rem">${colTags}</div>` : ''}
         ${yearNote}
         ${lotHtml}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-left:1.5rem;font-family:var(--mono);font-size:.75rem;flex-wrap:wrap;gap:.4rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-left:1.5rem;font-family:var(--mono);font-size:.75rem;flex-wrap:gap:.4rem">
           <div>Reçete: <strong>${reqQty}</strong> | Alınan: <strong>${takenQty}</strong> | Kalan: <strong style="color:var(--accent)">${remQty}</strong></div>
           <div style="display:flex;align-items:center;gap:.4rem">
             <span>Alınacak:</span>
@@ -2354,19 +2397,16 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
         </div>
       `;
     }
-
     return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.3rem">${rowContent}</div>`;
   }).join('');
 
-  let completedHeader = '';
   if (allCompleted && m.items && m.items.length > 0) {
-    completedHeader = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div>`;
+    preview.innerHTML = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div><div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
     btn.disabled = true;
   } else {
     btn.disabled = false;
+    preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   }
-
-  preview.innerHTML = completedHeader + `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   preview.style.display = 'block';
 }
 
@@ -2388,12 +2428,7 @@ async function submitBulkTake() {
       const qtyInput = document.querySelector(`.bulk-item-qty[data-idx="${idx}"]`);
       const qty = parseFloat(qtyInput ? qtyInput.value : 0);
       if (qty > 0) {
-        items_to_take.push({
-          product_id: pid,
-          product_name: pname,
-          quantity: qty,
-          bom_category: it ? it.category_name : null
-        });
+        items_to_take.push({ product_id: pid, product_name: pname, quantity: qty, bom_category: it ? it.category_name : null });
       }
     }
   });
@@ -2426,9 +2461,7 @@ async function submitReturn() {
   document.getElementById('retCompany').value = '';
   document.getElementById('retQty').value = '';
   document.getElementById('retNote').value = '';
-  await loadProducts(); 
-  renderProducts(); 
-  toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  await loadProducts(); renderProducts(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────────
@@ -2438,20 +2471,9 @@ function renderUsers() {
   if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
   const tbody = document.getElementById('usersTbody');
   if (!tbody) return;
-  if (!usrs.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>';
-    return;
-  }
-  const roleNames = {
-    admin: 'Yönetici',
-    purchase: 'Satın Alma',
-    personnel: 'Personel'
-  };
-  const roleBadges = {
-    admin: 'badge-admin',
-    purchase: 'badge-purchase',
-    personnel: 'badge-personnel'
-  };
+  if (!usrs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>'; return; }
+  const roleNames = { admin: 'Yönetici', purchase: 'Satın Alma', personnel: 'Personel' };
+  const roleBadges = { admin: 'badge-admin', purchase: 'badge-purchase', personnel: 'badge-personnel' };
   tbody.innerHTML = usrs.map(u => `<tr>
     <td><strong>${esc(u.display_name || u.username)}</strong></td>
     <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
@@ -2530,7 +2552,9 @@ function getEntityBadge(type) {
     user: '<span class="act-badge act-user">Kullanıcı</span>',
     column: '<span class="act-badge act-user">Sütun Tanımı</span>',
     bom_column: '<span class="act-badge act-user">BOM Sütun</span>',
-    bom_category: '<span class="act-badge act-user">BOM Kategori</span>'
+    bom_category: '<span class="act-badge act-user">BOM Kategori</span>',
+    vfd_device: '<span class="act-badge act-machine">Sürücü Cihazı</span>',
+    vfd_record: '<span class="act-badge act-product">Sürücü Parametre/Hata</span>'
   };
   return map[type] || `<span class="act-badge" style="background:var(--border2);color:var(--text)">${esc(type)}</span>`;
 }
@@ -2563,10 +2587,7 @@ function filterActivityLogs() {
 
   const tbody = document.getElementById('activityTbody');
   if (!tbody) return;
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="icon">🛡️</div>Aktivite kaydı bulunamadı</td></tr>';
-    return;
-  }
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="icon">🛡️</div>Aktivite kaydı bulunamadı</td></tr>'; return; }
 
   tbody.innerHTML = filtered.map(a => {
     const uName = a.display_name || a.username || 'Sistem';
@@ -2579,9 +2600,7 @@ function filterActivityLogs() {
       <td><strong style="color:var(--text)">${esc(a.action)}</strong></td>
       <td>${getEntityBadge(a.entity_type)}</td>
       <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${a.entity_id ? '#' + a.entity_id : '—'}</td>
-      <td style="font-family:var(--mono);font-size:.68rem;color:var(--text2);cursor:pointer" onclick="openActivityDetail(${a.id})" title="Detayları İncele">
-        <span style="text-decoration:underline">${esc(shortDetail)}</span>
-      </td>
+      <td style="font-family:var(--mono);font-size:.68rem;color:var(--text2);cursor:pointer" onclick="openActivityDetail(${a.id})" title="Detayları İncele"><span style="text-decoration:underline">${esc(shortDetail)}</span></td>
       <td style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">${esc(a.ip_address || '—')}</td>
     </tr>`;
   }).join('');
@@ -2710,7 +2729,7 @@ async function loadComments() {
     return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
       '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
-      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : x.role === 'purchase' ? 'rgba(26,107,86,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
+      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
       '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
       '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
   }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
@@ -2754,8 +2773,6 @@ function renderPurchases() {
   var tbody = document.getElementById('purchaseTbody'); if (!tbody) return;
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    
-    // Ürün için eklenen dinamik stok sütunları rozetleri
     var pVals = p.product_values || {};
     var extraTags = Object.entries(pVals).map(function([cid, val]) {
       if (!val) return '';
@@ -2798,11 +2815,9 @@ function openPurchaseModal() {
   document.getElementById('prModalAdminNote').value = '';
   document.getElementById('purchaseModalTitle').textContent = '🛒 Yeni Satın Alma / Sipariş Oluştur';
 
-  // İş listesini doldur
   const tsel = document.getElementById('prModalTask');
   tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.filter(t => t.status !== 'completed').map(t => `<option value="${t.id}">${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
 
-  // Dinamik stok sütunlarını modal içine oluştur
   renderPurchaseColFields({});
   openModal('purchaseModal');
 }
@@ -2831,12 +2846,8 @@ function renderPurchaseColFields(existingVals) {
   if (!cont) return;
   existingVals = existingVals || {};
 
-  // Stoktaki sayısal miktar veya kategori dışındaki özel sütunları getir
   const relevantCols = columns.filter(c => (c.name || '').toLowerCase() !== 'ürün adı' && (c.name || '').toLowerCase() !== 'kategori' && c.data_type !== 'number');
-  if (!relevantCols.length) {
-    cont.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Tanımlı ek özellik sütunu yok.</span>';
-    return;
-  }
+  if (!relevantCols.length) { cont.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Tanımlı ek özellik sütunu yok.</span>'; return; }
 
   cont.innerHTML = relevantCols.map(c => `
     <div style="display:grid;grid-template-columns:120px 1fr;gap:.5rem;align-items:center">
@@ -2859,22 +2870,16 @@ async function savePurchaseRequest() {
   if (!product_name) { toast('Ürün / Malzeme adı gerekli', 'error'); return; }
   if (isNaN(quantity) || quantity <= 0) { toast('Geçerli bir miktar giriniz', 'error'); return; }
 
-  // Ek sütun değerlerini topla
   const product_values = {};
   document.querySelectorAll('#prModalColFields .pr-col-input').forEach(inp => {
     const cid = inp.getAttribute('data-cid');
-    if (cid && inp.value.trim()) {
-      product_values[cid] = inp.value.trim();
-    }
+    if (cid && inp.value.trim()) product_values[cid] = inp.value.trim();
   });
 
   const payload = { product_name, quantity, unit, task_id, reason, status, admin_note, product_values };
   let r;
-  if (id) {
-    r = await api('/api/purchase-requests/' + id, 'PUT', payload);
-  } else {
-    r = await api('/api/purchase-requests', 'POST', payload);
-  }
+  if (id) r = await api('/api/purchase-requests/' + id, 'PUT', payload);
+  else r = await api('/api/purchase-requests', 'POST', payload);
 
   if (!r) return;
   closeModal('purchaseModal');
@@ -2921,7 +2926,6 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
 
-// ── SÜTUN SIRALAMA ────────────────────────────────────────────────────────
 var _sortState = {};
 function makeSortable(tblId) {
   var tbl = document.getElementById(tblId);
@@ -2961,7 +2965,7 @@ function makeSortable(tblId) {
 }
 
 function autoSort() {
-  ['productTbody', 'txTbody', 'firmsTbody', 'usersTbody', 'purchaseTbody', 'bomColsTbody', 'bomCatsTbody', 'columnsTbody', 'activityTbody'].forEach(function(id) {
+  ['productTbody', 'txTbody', 'firmsTbody', 'usersTbody', 'purchaseTbody', 'bomColsTbody', 'bomCatsTbody', 'columnsTbody', 'activityTbody', 'vfdRecordsTbody', 'vfdDevicesTbody'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     var t = el.closest('table'); if (!t) return;
     if (!t.id) t.id = id + 'T';
@@ -2969,7 +2973,6 @@ function autoSort() {
   });
 }
 
-// ── Refresh Helpers ───────────────────────────────────────────────────────
 async function refresh() {
   const fns = {
     dashboard: async () => { await loadAll(); renderDashboard(); },
@@ -2977,6 +2980,7 @@ async function refresh() {
     columns: async () => { await loadColumns(); await loadProducts(); renderColumns(); },
     firms: async () => { await loadFirms(); await loadMachines(); renderFirms(); },
     machines: async () => { await loadMachines(); renderMachines(); },
+    vfd: async () => { await loadVfdAll(); renderVfdRecords(); },
     tasks: async () => { await loadTasks(); renderTasks(); },
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
     opentasks: async () => { await loadTasks(); renderOpenTasks(); },
