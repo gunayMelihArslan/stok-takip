@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<!-- HTML5 QR / Barcode Scanner CDN -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
 .job-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.6rem;}
 .job-header{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
@@ -130,13 +132,17 @@
       <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
     </div>
 
-    <!-- TAKE -->
+    <!-- TAKE (Ürün Al - Barkod Kamera Destekli) -->
     <div class="page" id="page-take">
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün Alma Kaydı</h3></div>
         <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.8rem">
-          <div class="form-group" style="margin:0"><label>Ürün Seçin</label>
-            <input type="text" id="takeProductSearch" placeholder="Ürün adı yazın..." oninput="buildDD('take')" autocomplete="off">
+          <div class="form-group" style="margin:0">
+            <label>Ürün Seçin veya Barkod Okutun</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="text" id="takeProductSearch" placeholder="Ürün adı veya barkod..." oninput="buildDD('take')" autocomplete="off" style="flex:1">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openBarcodeScanner('take')" style="white-space:nowrap;padding:.4rem .8rem">📷 Tara</button>
+            </div>
             <div id="takeDD" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
             <input type="hidden" id="takeProductId">
           </div>
@@ -166,13 +172,17 @@
       </div></div>
     </div>
 
-    <!-- RETURN -->
+    <!-- RETURN (Ürün İade - Barkod Kamera Destekli) -->
     <div class="page" id="page-return">
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün İadesi</h3></div>
         <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.8rem">
-          <div class="form-group" style="margin:0"><label>Ürün</label>
-            <input type="text" id="retProductSearch" placeholder="Ürün adı yazın..." oninput="buildDD('ret')" autocomplete="off">
+          <div class="form-group" style="margin:0">
+            <label>Ürün veya Barkod</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="text" id="retProductSearch" placeholder="Ürün adı veya barkod..." oninput="buildDD('ret')" autocomplete="off" style="flex:1">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openBarcodeScanner('ret')" style="white-space:nowrap;padding:.4rem .8rem">📷 Tara</button>
+            </div>
             <div id="retDD" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
             <input type="hidden" id="retProductId">
           </div>
@@ -240,6 +250,23 @@
     <div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
+</div>
+
+<!-- BARKOD / QR KAMERA TARAYICI MODALI -->
+<div class="modal-overlay" id="barcodeModal">
+  <div class="modal" style="max-width:425px">
+    <div class="modal-header">
+      <h3>📷 Kamera ile Barkod Oku</h3>
+      <button class="modal-close" onclick="closeBarcodeScanner()">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="reader" style="width:100%;border-radius:8px;overflow:hidden"></div>
+      <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:.75rem">Telefon kamerasını ürün etiketindeki barkoda tutun.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-full" onclick="closeBarcodeScanner()">İptal / Kapat</button>
+    </div>
+  </div>
 </div>
 
 <!-- TESLİM ALMA & FARK BİLDİRİM MODALI -->
@@ -318,6 +345,8 @@ window.fetch = function(url, opts) {
 
 let columns = [], products = [], myTransactions = [], machines = [], firms = [], allTasks = [], pendingTransfers = [], allUsers = [];
 let me = null;
+let html5QrCode = null;
+let activeScannerPrefix = 'take';
 
 async function init() {
   const u = await api('/api/me');
@@ -500,6 +529,64 @@ function showPage(name) {
   if (['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
   if (name === 'bom_lists') renderBomLists();
   if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
+}
+
+// ── BARKOD KAMERA TARAYICI FONKSİYONLARI ──────────────────────────────────
+function openBarcodeScanner(prefix) {
+  activeScannerPrefix = prefix;
+  openModal('barcodeModal');
+  
+  setTimeout(() => {
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("reader");
+    }
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      (decodedText, decodedResult) => {
+        // Barkod başarıyla okundu
+        handleScannedBarcode(decodedText);
+      },
+      (errorMessage) => {
+        // Tarama devam ediyor, hata yutulabilir
+      }
+    ).catch(err => {
+      toast('Kamera başlatılamadı: ' + err, 'error');
+      closeBarcodeScanner();
+    });
+  }, 300);
+}
+
+function closeBarcodeScanner() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop().then(() => {
+      closeModal('barcodeModal');
+    }).catch(err => {
+      closeModal('barcodeModal');
+    });
+  } else {
+    closeModal('barcodeModal');
+  }
+}
+
+function handleScannedBarcode(code) {
+  closeBarcodeScanner();
+  const searchInput = document.getElementById(activeScannerPrefix + 'ProductSearch');
+  if (searchInput) {
+    searchInput.value = code;
+    buildDD(activeScannerPrefix);
+    
+    // Eğer birebir eşleşen bir ürün varsa otomatik seç
+    const matched = products.find(p => Object.values(p.values || {}).some(v => String(v).toLowerCase() === code.toLowerCase()));
+    if (matched) {
+      const firstCol = columns[0];
+      const name = firstCol ? (matched.values[firstCol.id] || `#${matched.id}`) : `#${matched.id}`;
+      selectProd(activeScannerPrefix, matched.id, name);
+      toast('Ürün barkodla eşleşti: ' + name, 'success');
+    } else {
+      toast('Barkod okundu: ' + code, 'success');
+    }
+  }
 }
 
 // ── MY TASKS ─────────────────────────────────────────────────────────────
