@@ -31,6 +31,11 @@
 /* Malzeme Listeleri (BOM Görünüm) Başlıkları */
 .bom-accordion-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:var(--surface2);cursor:pointer;flex-wrap:wrap;}
 
+/* VFD Tab Stilleri */
+.vfd-tabs{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border2);padding-bottom:.5rem;}
+.vfd-tab-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.88rem;padding:.4rem .9rem;border-radius:6px;cursor:pointer;transition:all .2s;}
+.vfd-tab-btn.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border2);}
+
 /* ── MOBİL DOKUNMATİK & UYUM STİLLERİ ───────────────────────────────────── */
 @media (max-width: 768px) {
   .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
@@ -57,6 +62,7 @@
     <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
     <div class="nav-item" onclick="showPage('bom_lists')"><span class="nav-icon">📋</span>Malzeme Listeleri</div>
     <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
+    <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü Kılavuzu</div>
     <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
     <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
     <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
@@ -130,6 +136,27 @@
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- ⚡ VFD SÜRÜCÜ KILAVUZU & TEŞHİS (PERSONEL) -->
+    <div class="page" id="page-vfd">
+      <div class="vfd-tabs">
+        <button type="button" class="vfd-tab-btn active" id="pVfdTabParamBtn" onclick="switchPVfdTab('parameter')">📋 Parametreler</button>
+        <button type="button" class="vfd-tab-btn" id="pVfdTabFaultBtn" onclick="switchPVfdTab('fault')">⚠️ Hata Kodu & Teşhis</button>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <select id="pVfdDeviceFilter" style="max-width:220px" onchange="renderPVfdRecords()">
+            <option value="">Tüm Cihazlar / Modeller</option>
+          </select>
+          <div class="search-box-wrap">
+            <input type="text" id="pVfdSearch" placeholder="🔍 Kod veya arıza ara (örn: OCF, ACC)..." oninput="handleSearchInput(this, renderPVfdRecords)">
+            <button class="search-clear-btn" onclick="clearSearchInput('pVfdSearch', renderPVfdRecords)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost" onclick="loadPVfdAll();renderPVfdRecords()">↺ Yenile</button>
+      </div>
+      <div id="pVfdRecordsList" style="display:grid;gap:.65rem"></div>
     </div>
 
     <!-- TAKE (Ürün Al - Barkod Kamera Destekli) -->
@@ -344,6 +371,7 @@ window.fetch = function(url, opts) {
 };
 
 let columns = [], products = [], myTransactions = [], machines = [], firms = [], allTasks = [], pendingTransfers = [], allUsers = [];
+let pVfdDevices = [], pVfdRecords = [], currentPVfdTab = 'parameter';
 let me = null;
 let html5QrCode = null;
 let activeScannerPrefix = 'take';
@@ -375,26 +403,13 @@ async function api(url, method = 'GET', body = null) {
     const res = await fetch(url, opts);
     const text = await res.text();
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      if (res.status === 401) {
-        localStorage.removeItem('stok_token');
-        window.location.href = '/';
-        return null;
-      }
-      toast('Sunucu yanıt hatası (' + res.status + ')', 'error');
-      return null;
+    try { data = JSON.parse(text); } catch (err) {
+      if (res.status === 401) { localStorage.removeItem('stok_token'); window.location.href = '/'; return null; }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error'); return null;
     }
-    if (!res.ok) {
-      toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error');
-      return null;
-    }
+    if (!res.ok) { toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error'); return null; }
     return data;
-  } catch (e) {
-    toast('Bağlantı sorunu oluştu', 'error');
-    return null;
-  }
+  } catch (e) { toast('Bağlantı sorunu oluştu', 'error'); return null; }
 }
 
 function connectSSE() {
@@ -420,6 +435,8 @@ function connectSSE() {
   es.addEventListener('notif_new', function() { loadPNotifs(); });
   es.addEventListener('purchase_new', function() { loadMyPurchases().then(function() { if (currentPage === 'purchase') renderMyPurchases(); }); });
   es.addEventListener('comment_new', function() { if (_pCSid && document.getElementById('pCommentModal')?.classList.contains('open')) loadPComments(); });
+  es.addEventListener('vfd_record_update', async () => { await loadPVfdRecords(); if (currentPage === 'vfd') renderPVfdRecords(); });
+  es.addEventListener('vfd_device_update', async () => { await loadPVfdDevices(); if (currentPage === 'vfd') renderPVfdRecords(); });
   es.addEventListener('stock_update', async () => {
     await loadProducts();
     if (currentPage === 'stock') renderStock();
@@ -438,9 +455,7 @@ function connectSSE() {
     if (currentPage === 'bulktake') filterBulkMachines();
     if (currentPage === 'bom_lists') renderBomLists();
   });
-  es.addEventListener('user_update', async () => {
-    allUsers = await api('/api/users') || [];
-  });
+  es.addEventListener('user_update', async () => { allUsers = await api('/api/users') || []; });
   es.addEventListener('column_update', async () => {
     columns = await api('/api/columns') || [];
     products = await api('/api/products') || [];
@@ -456,7 +471,8 @@ function connectSSE() {
 async function loadAll() {
   [columns, products, machines, firms, allUsers] = await Promise.all([api('/api/columns'), api('/api/products'), api('/api/machines'), api('/api/firms'), api('/api/users')]);
   columns = columns || []; products = products || []; machines = machines || []; firms = firms || []; allUsers = allUsers || [];
-  await loadTasks(); renderStock(); renderFirmLists();
+  await Promise.all([loadTasks(), loadPVfdAll()]);
+  renderStock(); renderFirmLists();
 }
 
 async function loadTasks() {
@@ -473,11 +489,13 @@ async function loadMyHistory() {
   renderHistory();
 }
 
+async function loadPVfdAll() { await Promise.all([loadPVfdDevices(), loadPVfdRecords()]); }
+async function loadPVfdDevices() { pVfdDevices = await api('/api/vfd/devices') || []; }
+async function loadPVfdRecords() { pVfdRecords = await api('/api/vfd/records') || []; }
+
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
-  if (clearBtn) {
-    clearBtn.style.display = inputEl.value ? 'block' : 'none';
-  }
+  if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
   if (callbackFn) callbackFn();
 }
 
@@ -492,24 +510,12 @@ function clearSearchInput(inputId, callbackFn) {
   }
 }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    const activeEl = document.activeElement;
-    if (activeEl && activeEl.tagName === 'INPUT' && activeEl.id && activeEl.id.includes('Search')) {
-      activeEl.value = '';
-      const clearBtn = activeEl.parentElement.querySelector('.search-clear-btn');
-      if (clearBtn) clearBtn.style.display = 'none';
-      activeEl.dispatchEvent(new Event('input'));
-    }
-  }
-});
-
-let currentPage = 'mytasks';
 const pageTitles = { 
   mytasks: 'İşlerim', 
   opentasks: 'Açık İşler', 
   bom_lists: 'Malzeme Listeleri',
   stock: 'Stok Durumu', 
+  vfd: 'Sürücü Kılavuzu & Teşhis',
   take: 'Ürün Al', 
   bulktake: 'Vinç İçin Al', 
   return: 'Ürün İade', 
@@ -527,30 +533,77 @@ function showPage(name) {
   currentPage = name;
   if (name === 'history') loadMyHistory();
   if (['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
+  if (name === 'vfd') renderPVfdRecords();
   if (name === 'bom_lists') renderBomLists();
   if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
+}
+
+// ── VFD / SÜRÜCÜ KILAVUZU & TEŞHİS (PERSONEL) ─────────────────────────────
+function switchPVfdTab(tab) {
+  currentPVfdTab = tab;
+  document.getElementById('pVfdTabParamBtn').classList.toggle('active', tab === 'parameter');
+  document.getElementById('pVfdTabFaultBtn').classList.toggle('active', tab === 'fault');
+  renderPVfdRecords();
+}
+
+function renderPVfdRecords() {
+  const fsel = document.getElementById('pVfdDeviceFilter');
+  if (fsel) {
+    const cur = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Cihazlar / Modeller</option>' + pVfdDevices.map(d => `<option value="${d.id}" ${String(d.id) === cur ? 'selected' : ''}>⚡ ${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+    fsel.value = cur;
+  }
+  const curDev = fsel?.value || '';
+  const sq = (document.getElementById('pVfdSearch')?.value || '').toLowerCase();
+
+  let list = pVfdRecords.filter(r => r.record_type === currentPVfdTab);
+  if (curDev) list = list.filter(r => String(r.device_id) === curDev);
+  if (sq) {
+    list = list.filter(r => 
+      (r.code || '').toLowerCase().includes(sq) ||
+      (r.title || '').toLowerCase().includes(sq) ||
+      (r.description || '').toLowerCase().includes(sq) ||
+      (r.solution_steps || '').toLowerCase().includes(sq) ||
+      (r.brand || '').toLowerCase().includes(sq) ||
+      (r.model || '').toLowerCase().includes(sq)
+    );
+  }
+
+  const container = document.getElementById('pVfdRecordsList');
+  if (!container) return;
+  if (!list.length) {
+    container.innerHTML = `<div class="card empty"><div class="icon">⚡</div>${currentPVfdTab === 'parameter' ? 'Parametre bulunamadı' : 'Arıza/Hata kodu bulunamadı'}</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(r => `
+    <div class="card" style="padding:.9rem 1.1rem;background:var(--surface)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap">
+        <div>
+          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700;font-size:.7rem">⚡ ${esc(r.brand)} ${esc(r.model)}</span>
+          <span style="font-family:var(--mono);font-size:1.05rem;font-weight:800;color:var(--accent);margin-left:.4rem">${esc(r.code)}</span>
+          <strong style="font-size:.92rem;margin-left:.35rem">${esc(r.title)}</strong>
+        </div>
+      </div>
+      ${r.description ? `<div style="font-size:.82rem;color:var(--text2);margin-bottom:.45rem"><strong style="color:var(--muted)">${r.record_type === 'fault' ? 'Olası Neden:' : 'Fabrika / Açıklama:'}</strong> ${esc(r.description)}</div>` : ''}
+      ${r.solution_steps ? `
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.65rem .85rem;font-size:.8rem;line-height:1.45;white-space:pre-wrap">
+          <strong style="color:var(--success);display:block;margin-bottom:.25rem">🔧 ${r.record_type === 'fault' ? 'Atölye Kontrol & Çözüm:' : 'Ayar Adımları:'}</strong>${esc(r.solution_steps)}
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
 }
 
 // ── BARKOD KAMERA TARAYICI FONKSİYONLARI ──────────────────────────────────
 function openBarcodeScanner(prefix) {
   activeScannerPrefix = prefix;
   openModal('barcodeModal');
-  
   setTimeout(() => {
-    if (!html5QrCode) {
-      html5QrCode = new Html5Qrcode("reader");
-    }
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
-      (decodedText, decodedResult) => {
-        // Barkod başarıyla okundu
-        handleScannedBarcode(decodedText);
-      },
-      (errorMessage) => {
-        // Tarama devam ediyor, hata yutulabilir
-      }
-    ).catch(err => {
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, (decodedText) => {
+      handleScannedBarcode(decodedText);
+    }, () => {}).catch(err => {
       toast('Kamera başlatılamadı: ' + err, 'error');
       closeBarcodeScanner();
     });
@@ -559,14 +612,8 @@ function openBarcodeScanner(prefix) {
 
 function closeBarcodeScanner() {
   if (html5QrCode && html5QrCode.isScanning) {
-    html5QrCode.stop().then(() => {
-      closeModal('barcodeModal');
-    }).catch(err => {
-      closeModal('barcodeModal');
-    });
-  } else {
-    closeModal('barcodeModal');
-  }
+    html5QrCode.stop().then(() => closeModal('barcodeModal')).catch(() => closeModal('barcodeModal'));
+  } else closeModal('barcodeModal');
 }
 
 function handleScannedBarcode(code) {
@@ -575,8 +622,6 @@ function handleScannedBarcode(code) {
   if (searchInput) {
     searchInput.value = code;
     buildDD(activeScannerPrefix);
-    
-    // Eğer birebir eşleşen bir ürün varsa otomatik seç
     const matched = products.find(p => Object.values(p.values || {}).some(v => String(v).toLowerCase() === code.toLowerCase()));
     if (matched) {
       const firstCol = columns[0];
@@ -694,7 +739,7 @@ function renderOpenTasks() {
   el.innerHTML = html;
 }
 
-// ── MALZEME LİSTELERİ (PERSONEL BOM GÖRÜNTÜLEME & PAYLAŞMA & TALEP) ───────
+// ── MALZEME LİSTELERİ ─────────────────────────────────────────────────────
 function renderBomLists() {
   const fsel = document.getElementById('bomListFirmFilter');
   if (fsel) {
@@ -717,17 +762,10 @@ function renderBomLists() {
     });
   }
 
-  if (!filtered.length) {
-    container.innerHTML = '<div class="card empty"><div class="icon">📋</div>Malzeme listesi bulunamadı</div>';
-    return;
-  }
+  if (!filtered.length) { container.innerHTML = '<div class="card empty"><div class="icon">📋</div>Malzeme listesi bulunamadı</div>'; return; }
 
   const grouped = {};
-  filtered.forEach(m => {
-    const k = m.firm_name || 'Tanımsız Firma';
-    if (!grouped[k]) grouped[k] = [];
-    grouped[k].push(m);
-  });
+  filtered.forEach(m => { const k = m.firm_name || 'Tanımsız Firma'; if (!grouped[k]) grouped[k] = []; grouped[k].push(m); });
 
   let html = '';
   Object.entries(grouped).forEach(([fn, list]) => {
@@ -783,31 +821,22 @@ function shareBOM(machineId) {
   if (!m) return;
   const token = localStorage.getItem('stok_token') || '';
   const bomUrl = `${window.location.origin}/bom/${m.id}?token=${encodeURIComponent(token)}`;
-  
   let summaryText = `🏗️ *${m.machine_name}* - Malzeme Listesi\n`;
   if (m.firm_name) summaryText += `🏢 Firma: ${m.firm_name}\n`;
   if (m.capacity) summaryText += `⚖️ Kapasite: ${m.capacity}\n`;
   summaryText += `\n📦 *Malzemeler (${(m.items || []).length} Kalem):*\n`;
-  
   (m.items || []).forEach((it, idx) => {
     const yr = it.machine_year ? ` (Model: ${it.machine_year})` : '';
     summaryText += `${idx + 1}. ${it.product_name || '—'} - ${it.quantity} adet${yr}\n`;
   });
-  
   summaryText += `\n🔗 Detaylı BOM: ${bomUrl}`;
 
   if (navigator.share) {
-    navigator.share({
-      title: `${m.machine_name} — Malzeme Listesi`,
-      text: summaryText,
-      url: bomUrl
-    }).catch(() => {});
+    navigator.share({ title: `${m.machine_name} — Malzeme Listesi`, text: summaryText, url: bomUrl }).catch(() => {});
   } else {
     navigator.clipboard.writeText(summaryText).then(() => {
-      toast('Malzeme listesi panoya kopyalandı! Dilediğiniz yere yapıştırabilirsiniz ✓', 'success');
-    }).catch(() => {
-      window.prompt('Listeyi kopyalayabilirsiniz:', summaryText);
-    });
+      toast('Malzeme listesi panoya kopyalandı ✓', 'success');
+    }).catch(() => { window.prompt('Listeyi kopyalayabilirsiniz:', summaryText); });
   }
 }
 
@@ -824,7 +853,6 @@ async function submitBomEditRequest() {
   const machine_id = document.getElementById('bomEditReqMachineId').value;
   const message = document.getElementById('bomEditReqMessage').value.trim();
   if (!message) { toast('Lütfen talep açıklamasını yazın', 'error'); return; }
-  
   const r = await api('/api/bom-edit-request', 'POST', { machine_id, message });
   if (!r) return;
   closeModal('bomEditReqModal');
@@ -865,9 +893,7 @@ async function respondTransfer(transferId, accept) {
 // ── STOCK ─────────────────────────────────────────────────────────────────
 function renderStock() {
   const theadTr = document.getElementById('stockThead')?.querySelector('tr');
-  if (theadTr) {
-    theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Durum</th>';
-  }
+  if (theadTr) theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Durum</th>';
   renderStockRows(products);
 }
 function renderStockRows(prods) {
@@ -981,17 +1007,12 @@ async function loadMachinePreview() {
   try {
     const takenMap = await api('/api/machines/' + mid + '/taken') || {};
     const results = await Promise.all(
-      (m.items || []).map(it =>
-        api('/api/products/' + it.product_id + '/lots')
-        .then(lots => ({ pid: Number(it.product_id), lots: lots || [] }))
-      )
+      (m.items || []).map(it => api('/api/products/' + it.product_id + '/lots').then(lots => ({ pid: Number(it.product_id), lots: lots || [] })))
     );
     const lotMap = {};
     results.forEach(r => { lotMap[r.pid] = r.lots; });
     renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
@@ -1026,11 +1047,7 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
         activeLots.map((l, i) => {
           const isTarget = machineYear && l.production_year == machineYear;
           const isFirst = i === 0;
-          const bg = isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)';
-          const bord = isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)';
-          const color = isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)';
-          const icon = isTarget ? '🎯 ' : isFirst ? '⚡ ' : '';
-          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${bg};border:1px solid ${bord};color:${color};white-space:nowrap">${icon}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
+          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)'};border:1px solid ${isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)'};color:${isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)'};white-space:nowrap">${isTarget ? '🎯 ' : isFirst ? '⚡ ' : ''}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
         }).join('') + `</div>`
       : '';
 
@@ -1077,15 +1094,13 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
     return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.3rem">${rowContent}</div>`;
   }).join('');
 
-  let completedHeader = '';
   if (allCompleted && m.items && m.items.length > 0) {
-    completedHeader = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div>`;
+    preview.innerHTML = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div><div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
     btn.disabled = true;
   } else {
     btn.disabled = false;
+    preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   }
-
-  preview.innerHTML = completedHeader + `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   preview.style.display = 'block';
 }
 
@@ -1107,12 +1122,7 @@ async function submitBulkTake() {
       const qtyInput = document.querySelector(`.bulk-item-qty[data-idx="${idx}"]`);
       const qty = parseFloat(qtyInput ? qtyInput.value : 0);
       if (qty > 0) {
-        items_to_take.push({
-          product_id: pid,
-          product_name: pname,
-          quantity: qty,
-          bom_category: it ? it.category_name : null
-        });
+        items_to_take.push({ product_id: pid, product_name: pname, quantity: qty, bom_category: it ? it.category_name : null });
       }
     }
   });
@@ -1196,6 +1206,7 @@ async function refresh() {
     opentasks: async () => { await loadTasks(); renderOpenTasks(); },
     bom_lists: async () => { await loadMachines(); renderBomLists(); },
     stock: async () => { await loadProducts(); renderStock(); },
+    vfd: async () => { await loadPVfdAll(); renderPVfdRecords(); },
     take: loadAll,
     bulktake: loadAll,
     return: loadAll,
@@ -1307,7 +1318,7 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA (TÜM ATÖLYE HAVUZU & TESLİM ALMA MODALI) ────────────────────
+// ── SATIN ALMA ────────────────────────────────────────────────────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1329,7 +1340,6 @@ function renderMyPurchases() {
   var tbody = document.getElementById('myPurchaseTbody'); if (!tbody) return;
   tbody.innerHTML = _myPR.length ? _myPR.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
-    
     var pVals = p.product_values || {};
     var extraTags = Object.entries(pVals).map(function([cid, val]) {
       if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note') return '';
@@ -1391,14 +1401,8 @@ async function saveReceiveModal() {
   var delivery_status = document.getElementById('receiveStatusType').value;
   var delivery_note = document.getElementById('receiveDeliveryNote').value.trim();
 
-  if (isNaN(actual_qty) || actual_qty <= 0) {
-    toast('Lütfen geçerli bir miktar girin', 'error');
-    return;
-  }
-  if (delivery_status === 'discrepancy' && !delivery_note) {
-    toast('Lütfen fark açıklamasını girin', 'error');
-    return;
-  }
+  if (isNaN(actual_qty) || actual_qty <= 0) { toast('Lütfen geçerli bir miktar girin', 'error'); return; }
+  if (delivery_status === 'discrepancy' && !delivery_note) { toast('Lütfen fark açıklamasını girin', 'error'); return; }
 
   var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', {
     status: 'received',
