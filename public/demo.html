@@ -3,160 +3,430 @@
 <head>
 <meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Ticari Demo & Sunum — Elektrikhane</title>
+<title>Elektrikhane — Vinç & Pano İmalat Yönetim Ekosistemi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-/* Demo Bar Stilleri */
-.demo-topbar{background:#11161d;border-bottom:2px solid var(--accent);padding:.6rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;position:sticky;top:0;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.5);flex-wrap:wrap;}
-.demo-role-switcher{display:flex;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}
-.demo-role-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:.78rem;font-weight:700;padding:.45rem .85rem;border-radius:6px;cursor:pointer;transition:all .15s;}
-.demo-role-btn.active{background:var(--accent);color:#000;}
-.demo-badge{background:rgba(240,216,0,.15);color:var(--accent);border:1px solid rgba(240,216,0,.3);font-family:var(--mono);font-size:.65rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;text-transform:uppercase;}
+:root {
+  --bg-dark: #07090c;
+  --surface-1: #0f141c;
+  --surface-2: #161d28;
+  --border-glow: rgba(26,107,86,0.35);
+  --accent-gold: #f0d800;
+  --accent-green: #3cd4a0;
+  --primary-brand: #1a6b56;
+}
 
-/* Arayüz Kart Stilleri */
-.job-card,.purchase-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.65rem;}
-.job-header,.purchase-header{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap;}
-.stage-row{display:flex;align-items:center;padding:.65rem 1rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap;}
-.stage-row:last-child{border-bottom:none;}
-.stage-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.dot-open{background:var(--muted);}
-.dot-in_progress{background:var(--success);}
-.dot-completed{background:var(--accent);}
-.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;}
-.firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;}
-.firm-divider div{height:1px;flex:1;background:var(--border);}
+body {
+  background: var(--bg-dark);
+  color: #e2e8f0;
+  font-family: var(--sans);
+  overflow-x: hidden;
+}
 
-@media (max-width: 768px) {
-  .demo-topbar { flex-direction: column; align-items: stretch; gap: .5rem; }
-  .demo-role-switcher { width: 100%; justify-content: space-between; }
-  .demo-role-btn { flex: 1; text-align: center; padding: .4rem .2rem; font-size: .72rem; }
+/* ── HERO & HEADER ── */
+.hero-section {
+  padding: 3rem 1.5rem 2rem;
+  text-align: center;
+  position: relative;
+  background: radial-gradient(circle at 50% -20%, rgba(26,107,86,0.3) 0%, transparent 70%);
+  border-bottom: 1px solid var(--border);
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: rgba(240,216,0,0.1);
+  border: 1px solid rgba(240,216,0,0.3);
+  color: var(--accent-gold);
+  padding: .35rem .9rem;
+  border-radius: 30px;
+  font-family: var(--mono);
+  font-size: .75rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.hero-title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+  max-width: 850px;
+  margin: 0 auto 1rem;
+}
+.hero-title span {
+  color: var(--accent-gold);
+  text-shadow: 0 0 30px rgba(240,216,0,0.25);
+}
+.hero-desc {
+  font-size: .95rem;
+  color: var(--text2);
+  max-width: 680px;
+  margin: 0 auto 1.8rem;
+  line-height: 1.6;
+}
+
+/* ── METRIC BANNER ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto 2.5rem;
+  padding: 0 1rem;
+}
+.metric-box {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  padding: 1.2rem 1rem;
+  border-radius: 12px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.metric-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+}
+.metric-val {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--accent-green);
+  font-family: var(--mono);
+}
+.metric-lbl {
+  font-size: .78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-top: .3rem;
+}
+
+/* ── INTERACTIVE WORKSPACE (CANLI SİMÜLATÖR) ── */
+.demo-workspace {
+  max-width: 1150px;
+  margin: 0 auto 4rem;
+  padding: 0 1rem;
+}
+.workspace-wrapper {
+  background: var(--surface-1);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.workspace-nav {
+  display: flex;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  gap: 4px;
+  padding: .5rem;
+}
+.ws-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: .85rem;
+  font-weight: 700;
+  padding: .7rem 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  transition: all .2s;
+}
+.ws-tab-btn.active {
+  background: #111822;
+  color: #fff;
+  border: 1px solid var(--border2);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.ws-tab-btn.active .ws-icon {
+  color: var(--accent-gold);
+}
+
+.ws-content-panel {
+  padding: 1.5rem;
+  display: none;
+}
+.ws-content-panel.active {
+  display: block;
+}
+
+/* Showcase Kartları */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1.2fr;
+  gap: 1.25rem;
+}
+.sc-card {
+  background: #121822;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem;
+}
+.sc-head {
+  font-size: .9rem;
+  font-weight: 800;
+  margin-bottom: .85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .6rem;
+}
+
+/* Simülasyon Arayüz Elemanları */
+.sim-stage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .65rem .8rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  margin-bottom: .45rem;
+  border: 1px solid var(--border2);
+}
+.sim-live-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  display: inline-block;
+  animation: pulse 2s infinite;
+}
+
+@media (max-width: 860px) {
+  .showcase-grid { grid-template-columns: 1fr; }
+  .hero-section { padding: 2rem 1rem 1.5rem; }
 }
 </style>
 </head>
 <body>
 
-<!-- DEMO KONTROL BARI -->
-<div class="demo-topbar">
-  <div style="display:flex;align-items:center;gap:.6rem">
-    <span class="demo-badge">👁️ Canlı Sunum & Demo Modu</span>
-    <span style="font-family:var(--mono);font-size:.7rem;color:var(--muted);display:none;display:sm-inline">Veriler bellekte çalışır, canlı DB'yi etkilemez</span>
-  </div>
-  <div class="demo-role-switcher">
-    <button class="demo-role-btn active" id="btnRoleAdmin" onclick="setDemoRole('admin')">👑 Yönetici Paneli</button>
-    <button class="demo-role-btn" id="btnRolePersonnel" onclick="setDemoRole('personnel')">👷 Personel (Atölye)</button>
-    <button class="demo-role-btn" id="btnRolePurchase" onclick="setDemoRole('purchase')">🛒 Satın Alma / Tedarik</button>
+<!-- HERO BÖLÜMÜ -->
+<div class="hero-section">
+  <div style="background:#fff;border-radius:8px;padding:.35rem .8rem;display:inline-block;margin-bottom:.85rem">
+    <img src="/logo.png" alt="Sekizli" style="height:28px;width:auto;display:block">
   </div>
   <div>
-    <button class="btn btn-ghost btn-sm" onclick="resetDemoData()" style="border-color:var(--border2);font-size:.72rem">↺ Demoyu Sıfırla</button>
+    <div class="hero-badge">⚡ Endüstriyel Pano & Vinç Otomasyon Ekosistemi</div>
+  </div>
+  <h1 class="hero-title">Atölyenizi ve Vinç İmalatınızı <span>Kayıpsız Yönetin.</span></h1>
+  <p class="hero-desc">
+    Standart muhasebe ve ERP yazılımlarının çözemediği; vinç reçetesi (BOM), pano şemaları, sürücü arıza teşhisleri ve anlık atölye iş akışını tek merkezde birleştiren akıllı üretim platformu.
+  </p>
+</div>
+
+<!-- TEMEL DEĞER METRİKLERİ -->
+<div class="metrics-grid">
+  <div class="metric-box">
+    <div class="metric-val">%100</div>
+    <div class="metric-lbl">Vinç Reçete Şeffaflığı</div>
+  </div>
+  <div class="metric-box">
+    <div class="metric-val">0 Fire</div>
+    <div class="metric-lbl">Model Yılı & FIFO Takibi</div>
+  </div>
+  <div class="metric-box">
+    <div class="metric-val">15 sn</div>
+    <div class="metric-lbl">Hızlı Arıza Teşhis & Kod Çözüm</div>
+  </div>
+  <div class="metric-box">
+    <div class="metric-val">Tam Uyum</div>
+    <div class="metric-lbl">Mobil & Barkodlu Terminal</div>
   </div>
 </div>
 
-<div class="mobile-bar">
-  <div class="brand"><div class="icon">🏭</div><span id="mobileBrandTitle">Elektrikhane Demo</span></div>
-</div>
-
-<!-- 1. YÖNETİCİ GÖRÜNÜMÜ -->
-<div id="view-admin" class="demo-view">
-  <div class="main" style="margin-left:0;padding:1rem">
-    <div class="topbar">
-      <h2>👑 Yönetici Genel Bakış & Reçeteler</h2>
-      <span class="badge badge-admin">Yönetici Modu</span>
+<!-- İNTERAKTİF SİMÜLASYON ÇALIŞMA ALANI -->
+<div class="demo-workspace">
+  <div class="workspace-wrapper">
+    <div class="workspace-nav">
+      <button class="ws-tab-btn active" onclick="switchWsTab('bom', this)"><span class="ws-icon">🏗️</span> 1. Vinç Reçetesi & BOM Çıktısı</button>
+      <button class="ws-tab-btn" onclick="switchWsTab('workshop', this)"><span class="ws-icon">⚡</span> 2. Canlı Atölye & Personel Takibi</button>
+      <button class="ws-tab-btn" onclick="switchWsTab('vfd', this)"><span class="ws-icon">📟</span> 3. Sürücü (VFD) & Arıza Asistanı</button>
+      <button class="ws-tab-btn" onclick="switchWsTab('supply', this)"><span class="ws-icon">🛒</span> 4. Tedarik Zinciri & Fark Bildirimi</button>
     </div>
-    <div class="content">
-      <div class="stats-row">
-        <div class="stat-card"><div class="label">Aktif Vinç Projeleri</div><div class="value" id="admTotalCranes">3</div><div class="sub">üretim hattında</div></div>
-        <div class="stat-card"><div class="label">Stok Kalemi</div><div class="value" id="admTotalStock">184</div><div class="sub">kayıtlı ürün</div></div>
-        <div class="stat-card"><div class="label">Kritik Stok Uyarısı</div><div class="value" style="color:var(--danger)">2</div><div class="sub">asgari sınır altı</div></div>
-        <div class="stat-card"><div class="label">Açık Aşamalar</div><div class="value" style="color:var(--warning)">4</div><div class="sub">atölye sürecinde</div></div>
-      </div>
 
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-top:1rem" class="adm-grid">
-        <div class="card">
-          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:800">🏗️ Canlı Vinç Reçeteleri (BOM) & İş Emirleri</span>
-            <button class="btn btn-primary btn-sm" onclick="demoSimulateAction('Yeni vinç reçetesi oluşturma sihirbazı açıldı')">+ Yeni Vinç Tanımla</button>
+    <!-- 1. SEKME: BOM & REÇETE YÖNETİMİ -->
+    <div id="ws-bom" class="ws-content-panel active">
+      <div class="showcase-grid">
+        <div class="sc-card">
+          <div class="sc-head">
+            <span>🏗️ 20 Ton Çift Kiriş Gezer Köprülü Vinç — Canlı Reçete</span>
+            <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ 20 Ton</span>
           </div>
-          <div style="padding:.85rem" id="admCraneList"></div>
+          <table style="width:100%;font-size:.8rem">
+            <thead><tr><th>Grup</th><th>Malzeme Tanımı</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Pano</span></td><td><strong>Schneider 15 kW Sürücü (ATV320)</strong></td><td style="font-family:var(--mono);font-weight:700">2 Adet</td><td style="color:var(--accent-gold)">2025</td></tr>
+              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Kedi</span></td><td><strong>16mm² NYY Çok Damarlı Kablo</strong></td><td style="font-family:var(--mono);font-weight:700">85 Metre</td><td>—</td></tr>
+              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Köprü</span></td><td><strong>24V DC 10A Endüstriyel Güç Kaynağı</strong></td><td style="font-family:var(--mono);font-weight:700">1 Adet</td><td style="color:var(--accent-gold)">2024</td></tr>
+              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Pano</span></td><td><strong>Telemecanique Emniyet Rölesi</strong></td><td style="font-family:var(--mono);font-weight:700">2 Adet</td><td>2025</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:1rem;display:flex;gap:.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="demoToast('Resmi BOM Şablonu PDF/Baskı formatında üretildi ✓')">📄 BOM Yazdır</button>
+            <button class="btn btn-primary btn-sm" onclick="demoToast('Excel BOM Dosyası tek tıkla indirildi ✓')">📊 Excel İndir</button>
+          </div>
         </div>
 
-        <div class="card">
-          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">⚡ Sürücü & Cihaz Kütüphanesi</div>
-          <div style="padding:.85rem" id="admVfdList"></div>
+        <div class="sc-card" style="display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div class="sc-head"><span>🎯 Ticari Avantajı</span></div>
+            <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+              Teklif aşamasındaki malzeme listesi tek tıkla <strong>resmi üretim reçetesine (BOM)</strong> dönüşür. Ustanın eksik parça veya yanlış model yılı montajı yapma ihtimali sıfıra iner.
+            </p>
+          </div>
+          <div style="background:rgba(240,216,0,0.06);border:1px solid rgba(240,216,0,0.25);border-radius:8px;padding:.75rem;font-size:.78rem;color:var(--accent-gold);font-family:var(--mono)">
+            ⚡ <strong>Şantiye Şeffaflığı:</strong> Sevkiyata hazır vinçlerin malzeme karnesi müşteriye tek sayfa imzalı raporlanır.
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- 2. PERSONEL GÖRÜNÜMÜ -->
-<div id="view-personnel" class="demo-view" style="display:none">
-  <div class="main" style="margin-left:0;padding:1rem">
-    <div class="topbar">
-      <h2>👷 Personel Atölye & Saha Terminali</h2>
-      <span class="badge badge-personnel">Usta / Teknisyen Modu</span>
-    </div>
-    <div class="content">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" class="adm-grid">
-        <!-- İŞLERİM -->
-        <div class="card">
-          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">⚡ Üzerimdeki Aktif İşler & Aşamalar</div>
-          <div style="padding:.85rem" id="psnTaskList"></div>
+    <!-- 2. SEKME: CANLI ATÖLYE & PERSONEL TAKİBİ -->
+    <div id="ws-workshop" class="ws-content-panel">
+      <div class="showcase-grid">
+        <div class="sc-card">
+          <div class="sc-head">
+            <span>🔴 Atölye Canlı Aşama Takibi</span>
+            <span style="font-family:var(--mono);font-size:.7rem;color:var(--accent-green)"><span class="sim-live-pulse"></span> Senkronize</span>
+          </div>
+          <div id="simStagesList">
+            <div class="sim-stage-row">
+              <div>
+                <div style="font-weight:700;font-size:.85rem">20T Tüpraş Vinci — Pano Kablajı</div>
+                <div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Ahmet Usta · Devam Ediyor</div>
+              </div>
+              <button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>
+            </div>
+            <div class="sim-stage-row">
+              <div>
+                <div style="font-weight:700;font-size:.85rem">10T Ereğli Portalı — Sürücü Parametreleri</div>
+                <div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Mehmet Usta · Devam Ediyor</div>
+              </div>
+              <button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>
+            </div>
+            <div class="sim-stage-row">
+              <div>
+                <div style="font-weight:700;font-size:.85rem">5T Pergel Vinç — Kedi Tesisatı</div>
+                <div style="font-size:.7rem;color:var(--warning);font-family:var(--mono)">Boşta (Atanmamış)</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="claimSimStage(this)">⚡ Üstlen</button>
+            </div>
+          </div>
         </div>
 
-        <!-- HIZLI BARKODLU MALZEME ÇIKIŞI -->
-        <div class="card">
-          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">📤 Barkodla / Vinç İçin Malzeme Çıkışı</div>
-          <div style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+        <div class="sc-card">
+          <div class="sc-head"><span>📷 Sahadan Barkodla Hızlı Çıkış</span></div>
+          <div style="display:flex;flex-direction:column;gap:.6rem">
             <div class="form-group" style="margin:0">
-              <label>Malzeme Barkodu / Stok Kodu</label>
-              <div style="display:flex;gap:.4rem">
-                <input type="text" id="demoBarcodeInp" placeholder="Örn: 869000123456" value="SCH-ATV320-15KW" style="flex:1">
-                <button class="btn btn-primary btn-sm" onclick="demoScanBarcode()">📷 Oku</button>
+              <label>Malzeme Barkodu (Kamera/Tarayıcı)</label>
+              <input type="text" id="simBarcode" value="SCH-ATV320-15KW" style="font-family:var(--mono)">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="simScanProduct()">🔍 Barkodu Oku & Depoyu Eşleştir</button>
+            <div id="simScanOutput" style="display:none;background:var(--surface-2);padding:.65rem;border-radius:6px;border:1px solid var(--border2);font-size:.78rem;font-family:var(--mono)">
+              <div style="color:var(--accent-gold);font-weight:700">✓ Eşleşti: Schneider 15 kW VFD</div>
+              <div style="color:var(--text2);margin-top:.2rem">Depo Kalan: 6 Adet | Model Yılı: 2025</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. SEKME: SÜRÜCÜ & ARIZA TEŞHİS MOTORU -->
+    <div id="ws-vfd" class="ws-content-panel">
+      <div class="showcase-grid">
+        <div class="sc-card">
+          <div class="sc-head"><span>📟 Akıllı Sürücü Arıza Teşhis & Kılavuz</span></div>
+          <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+            <select id="simVfdBrand" style="flex:1" onchange="runSimVfdSearch()">
+              <option value="all">Tüm Markalar</option>
+              <option value="Schneider">Schneider Electric (Altivar)</option>
+              <option value="Mitsubishi">Mitsubishi (E840)</option>
+              <option value="Fuji">Fuji Electric (Ace/Mini)</option>
+            </select>
+            <input type="text" id="simVfdCode" placeholder="Hata Kodu Yazın (örn: OCF, E.OC1)..." value="OCF" oninput="runSimVfdSearch()" style="flex:1.2;font-family:var(--mono)">
+          </div>
+
+          <div id="simVfdResults">
+            <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Schneider ATV320</span>
+                <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">OCF</strong>
+              </div>
+              <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Aşırı Akım / Motor Sıkışması</div>
+              <div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem"><strong>Olası Neden:</strong> Rampa süresi çok kısa veya mekanik fren doğrultucusu geç açıyor.</div>
+              <div style="background:#11161f;padding:.6rem .8rem;border-radius:6px;font-size:.78rem;line-height:1.4">
+                <strong style="color:var(--accent-green);display:block;margin-bottom:.2rem">🔧 Atölye Kontrol Adımları:</strong>
+                1. Menüden CONF -> FULL -> FUN_ -> ACC süresini 3sn yerine 5sn yapın.<br>
+                2. Motor klemensinden sargı izolasyonunu megger ile test edin.
               </div>
             </div>
-            <div class="form-group" style="margin:0">
-              <label>Hangi Vinç / Proje İçin?</label>
-              <select id="demoCraneSelect" style="width:100%">
-                <option value="1">🏗️ 20T Çift Kiriş Gezer Köprülü Vinç (Tüpraş Projesi)</option>
-                <option value="2">🏗️ 10T Portal Vinç (Ereğli Demir Çelik)</option>
-              </select>
+          </div>
+        </div>
+
+        <div class="sc-card">
+          <div class="sc-head"><span>🧠 Neden Bu Kadar Önemli?</span></div>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Test aşamasında veya şantiyede vinç sürücüsü arızaya geçtiğinde 400 sayfalık PDF kılavuzlar aranmaz. Teknisyen 5 saniyede hata kodunu girer, <strong>doğrudan Türkçe ve pano içi müdahale reçetesini</strong> ekranda görür.
+          </p>
+          <div style="margin-top:1.5rem;padding:.75rem;background:#16202c;border-radius:8px;border:1px solid var(--border2)">
+            <span style="font-size:.75rem;color:var(--muted)">Desteklenen Standartlar:</span>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem">
+              <span class="badge">Schneider ATV310/320/340/930</span>
+              <span class="badge">Mitsubishi E840</span>
+              <span class="badge">Fuji Ace/Mini/Micro</span>
             </div>
-            <div class="form-group" style="margin:0">
-              <label>Çıkış Adedi</label>
-              <input type="number" id="demoOutQty" value="1">
-            </div>
-            <button class="btn btn-success btn-full" onclick="demoTakeStock()">📤 Malzemeyi Teslim Al & Stoktan Düş</button>
-            <div id="demoTakeResult" style="font-family:var(--mono);font-size:.75rem;display:none;padding:.6rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px"></div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- 3. SATIN ALMA GÖRÜNÜMÜ -->
-<div id="view-purchase" class="demo-view" style="display:none">
-  <div class="main" style="margin-left:0;padding:1rem">
-    <div class="topbar">
-      <h2>🛒 Satın Alma & Tedarik Havuzu</h2>
-      <span class="badge badge-purchase">Tedarikçi / Satın Alma Modu</span>
-    </div>
-    <div class="content">
-      <div class="card">
-        <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
-          <div>
-            <div style="font-weight:800">📦 Atölye Talep & Sipariş Listesi</div>
-            <div style="font-size:.7rem;color:var(--muted)">Atölye ustalarının istediği malzemeleri onaylayabilir, tedarikçi notu ve fark bildirebilirsiniz</div>
+    <!-- 4. SEKME: TEDARİK & FARK BİLDİRİMİ -->
+    <div id="ws-supply" class="ws-content-panel">
+      <div class="showcase-grid">
+        <div class="sc-card">
+          <div class="sc-head">
+            <span>🛒 Sipariş & Tedarikçi Fark Takibi</span>
+            <span class="badge badge-purchase">Satın Alma Havuzu</span>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="demoSimulateAction('Yeni satın alma sipariş fişi açıldı')">+ Yeni Talep Aç</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Özellikler</th><th>Miktar</th><th>İlgili Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
-            <tbody id="demoPurchaseTbody"></tbody>
+          <table style="width:100%;font-size:.8rem">
+            <thead><tr><th>Tarih</th><th>Malzeme</th><th>Miktar</th><th>Durum</th><th>İşlem</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Bugün</td>
+                <td><strong>Schneider 15 kW VFD Sürücü</strong></td>
+                <td style="font-family:var(--mono)">2 Adet</td>
+                <td><span style="color:var(--accent-gold);font-weight:700">🚚 Sipariş Edildi</span></td>
+                <td><button class="btn btn-success btn-sm" onclick="demoToast('Eksiksiz depoya teslim alındı ✓')">📦 Teslim Al</button></td>
+              </tr>
+              <tr>
+                <td>Dün</td>
+                <td><strong>16mm² NYY Güç Kablosu</strong></td>
+                <td style="font-family:var(--mono)">120 Metre</td>
+                <td><span style="color:var(--danger);font-weight:700">⚠️ 100m Geldi (Fark)</span></td>
+                <td><span class="badge badge-low">Fark Raporlandı</span></td>
+              </tr>
+            </tbody>
           </table>
+        </div>
+
+        <div class="sc-card">
+          <div class="sc-head"><span>🛡️ Tedarik Güvenliği</span></div>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Kargo geldiğinde malzeme paketi açılır açılmaz personel gelen adedi girer. Eğer siparişten eksik, kırık veya farklı marka ürün geldiyse sistem anında yöneticiye ve satın almaya <strong>"Fark Uyarısı"</strong> iletir.
+          </p>
         </div>
       </div>
     </div>
@@ -166,190 +436,72 @@
 <div id="toast"></div>
 
 <script>
-// ── DEMO GÖSTERİM VERİLERİ (IN-MEMORY SANDBOX) ──
-const INITIAL_DEMO_DATA = {
-  cranes: [
-    { id: 1, name: "20T Çift Kiriş Gezer Köprülü Vinç", firm: "Tüpraş Rafineri", capacity: "20 Ton", items: 14, stages: ["Pano Montajı (Ahmet Usta)", "Kedi Tesisatı (Açık)", "Son Test & Devreye Alma (Bekliyor)"] },
-    { id: 2, name: "10T Açık Saha Portal Vinç", firm: "Ereğli Demir Çelik", capacity: "10 Ton", items: 9, stages: ["Pano Montajı (Tamamlandı)", "Saha Montajı (Mehmet Usta)", "Kablo Çekimi (Açık)"] },
-    { id: 3, name: "5T Pergel Vinç", firm: "Sekizli Döküm", capacity: "5 Ton", items: 6, stages: ["Pano Montajı (Açık)", "Mekanik Bağlantı (Bekliyor)"] }
-  ],
-  vfds: [
-    { brand: "Schneider", model: "ATV320", code: "OCF", title: "Aşırı Akım Hatası", solution: "1. Motor sargı izolasyonunu ölçün. 2. ACC rampa süresini 3s -> 5s yapın." },
-    { brand: "Schneider", model: "ATV320", code: "ACC", title: "Hızlanma Rampası", solution: "Menü: CONF -> FULL -> FUN_ -> ACC = 4.5s ayarlayın." },
-    { brand: "Mitsubishi", model: "E840", code: "E.OC1", title: "Hızlanmada Aşırı Akım", solution: "Mekanik fren açma gecikmesini kontrol edin." }
-  ],
-  tasks: [
-    { id: 101, title: "20T Tüpraş Vinci — Pano İmalatı", stage: "Pano Kablaj & Bara", status: "in_progress", user: "Ahmet Usta" },
-    { id: 102, title: "10T Ereğli Portalı — Kedi Sürücü Panosu", stage: "Sürücü Parametre Yükleme", status: "in_progress", user: "Ahmet Usta" },
-    { id: 103, title: "5T Pergel — Ana Besleme Hattı", stage: "Kablo Çekimi", status: "open", user: "Atanmamış" }
-  ],
-  purchases: [
-    { id: 201, date: "Bugün 09:30", user: "Ahmet Usta", name: "Schneider 15 kW VFD Sürücü", specs: "ATV320U15N4B", qty: "2 adet", crane: "20T Tüpraş Vinci", status: "approved", note: "Onaylandı, tedarikçi aranıyor" },
-    { id: 202, date: "Dün 16:45", user: "Mehmet Usta", name: "16mm² NYY Çok Damarlı Kablo", specs: "Öznur Kablo / 0.6-1kV", qty: "120 metre", crane: "10T Ereğli Portalı", status: "ordered", note: "Sipariş no: TR-8841 (Sevkiyatta)" },
-    { id: 203, date: "24.08.2026", user: "Ahmet Usta", name: "24V DC Güç Kaynağı (10A)", specs: "Schneider ABL8RPS24100", qty: "3 adet", crane: "Genel Atölye İhtiyacı", status: "received", note: "Eksiksiz depoya girdi" }
-  ]
-};
-
-let demoData = JSON.parse(JSON.stringify(INITIAL_DEMO_DATA));
-
-function setDemoRole(role) {
-  document.querySelectorAll('.demo-view').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.demo-role-btn').forEach(btn => btn.classList.remove('active'));
-
-  if (role === 'admin') {
-    document.getElementById('view-admin').style.display = 'block';
-    document.getElementById('btnRoleAdmin').classList.add('active');
-    renderDemoAdmin();
-  } else if (role === 'personnel') {
-    document.getElementById('view-personnel').style.display = 'block';
-    document.getElementById('btnRolePersonnel').classList.add('active');
-    renderDemoPersonnel();
-  } else if (role === 'purchase') {
-    document.getElementById('view-purchase').style.display = 'block';
-    document.getElementById('btnRolePurchase').classList.add('active');
-    renderDemoPurchase();
-  }
+function switchWsTab(tabId, btn) {
+  document.querySelectorAll('.ws-content-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ws-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('ws-' + tabId).classList.add('active');
+  btn.classList.add('active');
 }
 
-function resetDemoData() {
-  demoData = JSON.parse(JSON.stringify(INITIAL_DEMO_DATA));
-  renderDemoAdmin();
-  renderDemoPersonnel();
-  renderDemoPurchase();
-  toast('Demo verileri ilk haline sıfırlandı ✓', 'success');
+function completeSimStage(btn) {
+  const row = btn.closest('.sim-stage-row');
+  btn.outerHTML = '<span class="badge badge-ok">✅ Tamamlandı</span>';
+  row.style.opacity = '0.7';
+  demoToast('Aşama tamamlandı olarak işaretlendi ✓');
 }
 
-// ── ADMIN GÖRÜNÜMÜ RENDER ──
-function renderDemoAdmin() {
-  const container = document.getElementById('admCraneList');
-  container.innerHTML = demoData.cranes.map(c => `
-    <div class="job-card" style="margin-bottom:.5rem">
-      <div class="job-header">
-        <div>
-          <strong style="font-size:.88rem">🏗️ ${c.name}</strong>
-          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700;margin-left:.3rem">⚖️ ${c.capacity}</span>
-          <span style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-left:.3rem">🏢 ${c.firm}</span>
+function claimSimStage(btn) {
+  btn.outerHTML = '<button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>';
+  demoToast('Aşama üzerinize zimmetlendi ✓');
+}
+
+function simScanProduct() {
+  document.getElementById('simScanOutput').style.display = 'block';
+  demoToast('Barkod veritabanında doğrulandı ✓');
+}
+
+function runSimVfdSearch() {
+  const code = (document.getElementById('simVfdCode').value || '').toUpperCase();
+  const res = document.getElementById('simVfdResults');
+  if (code.includes('OCF') || code.includes('OC')) {
+    res.innerHTML = `
+      <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Schneider ATV320</span>
+          <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">OCF</strong>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="demoOpenBOM(${c.id})">📄 BOM Listesi</button>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Aşırı Akım Hatası (Overcurrent)</div>
+        <div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem"><strong>Olası Neden:</strong> Rampa süresi çok kısa veya mekanik fren doğrultucusu geç açıyor.</div>
+        <div style="background:#11161f;padding:.6rem .8rem;border-radius:6px;font-size:.78rem;line-height:1.4">
+          <strong style="color:var(--accent-green);display:block;margin-bottom:.2rem">🔧 Atölye Kontrol Adımları:</strong>
+          1. Menüden CONF -> FULL -> FUN_ -> ACC süresini 3sn yerine 5sn yapın.<br>
+          2. Motor klemensinden sargı izolasyonunu megger ile test edin.
+        </div>
       </div>
-      <div style="padding:.5rem .85rem;font-size:.78rem;color:var(--text2)">
-        <strong>Aşamalar:</strong> ${c.stages.map(s => `<span class="badge" style="background:var(--surface);margin:.15rem">${s}</span>`).join('')}
+    `;
+  } else {
+    res.innerHTML = `
+      <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Mitsubishi E840</span>
+          <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">${code || 'PARAMETRE'}</strong>
+        </div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Standart Vinç Sürücü Ayarı</div>
+        <div style="font-size:.78rem;color:var(--text2)">Kayıtlı fabrika ve atölye parametre değerleri yüklendi.</div>
       </div>
-    </div>
-  `).join('');
-
-  const vfdCont = document.getElementById('admVfdList');
-  vfdCont.innerHTML = demoData.vfds.map(v => `
-    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;margin-bottom:.4rem;font-size:.8rem">
-      <div style="display:flex;justify-content:space-between">
-        <strong style="color:var(--accent)">⚡ ${v.brand} ${v.model} [${v.code}]</strong>
-        <span style="font-size:.7rem;color:var(--muted)">${v.title}</span>
-      </div>
-      <div style="font-size:.72rem;color:var(--text2);margin-top:.25rem;line-height:1.3">${v.solution}</div>
-    </div>
-  `).join('');
-}
-
-// ── PERSONEL GÖRÜNÜMÜ RENDER ──
-function renderDemoPersonnel() {
-  const cont = document.getElementById('psnTaskList');
-  cont.innerHTML = demoData.tasks.map(t => `
-    <div class="stage-row" style="background:var(--surface2);border-radius:8px;margin-bottom:.4rem;border:1px solid var(--border2)">
-      <div class="stage-dot ${t.status === 'in_progress' ? 'dot-in_progress' : 'dot-open'}"></div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:.85rem">${t.title}</div>
-        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">Aşama: ${t.stage} · Atanan: ${t.user}</div>
-      </div>
-      <div>
-        ${t.status === 'in_progress' ? `<button class="btn btn-success btn-sm" onclick="demoCompleteTask(${t.id})">✅ Tamamla</button>` : '<span class="badge">Açık</span>'}
-      </div>
-    </div>
-  `).join('');
-}
-
-function demoScanBarcode() {
-  document.getElementById('demoBarcodeInp').value = "SCH-ATV320-15KW";
-  toast('Barkod başarıyla okundu: Schneider 15 kW Sürücü ✓', 'success');
-}
-
-function demoTakeStock() {
-  const code = document.getElementById('demoBarcodeInp').value;
-  const qty = document.getElementById('demoOutQty').value;
-  const res = document.getElementById('demoTakeResult');
-  res.innerHTML = `✅ <strong>${qty} adet [${code}]</strong> malzeme Tüpraş 20T Vinci üzerine zimmetlendi ve stoktan düşüldü.`;
-  res.style.display = 'block';
-  toast('Stok çıkışı kaydedildi ✓', 'success');
-}
-
-function demoCompleteTask(id) {
-  const t = demoData.tasks.find(x => x.id === id);
-  if (t) {
-    t.status = 'completed';
-    renderDemoPersonnel();
-    toast(`"${t.stage}" aşaması başarıyla tamamlandı ✓`, 'success');
+    `;
   }
-}
-
-// ── SATIN ALMA GÖRÜNÜMÜ RENDER ──
-function renderDemoPurchase() {
-  const tbody = document.getElementById('demoPurchaseTbody');
-  const ST_LABELS = {
-    approved: '<span style="color:var(--warning);font-weight:700;font-family:var(--mono);font-size:.72rem">⏳ Satın Alım Aşamasında</span>',
-    ordered: '<span style="color:var(--accent);font-weight:700;font-family:var(--mono);font-size:.72rem">🚚 Sipariş Edildi (Yolda)</span>',
-    received: '<span style="color:var(--success);font-weight:700;font-family:var(--mono);font-size:.72rem">📦 Teslim Alındı</span>'
-  };
-
-  tbody.innerHTML = demoData.purchases.map(p => `
-    <tr>
-      <td style="font-family:var(--mono);font-size:.72rem">${p.date}</td>
-      <td><strong>${p.user}</strong></td>
-      <td>
-        <strong>${p.name}</strong>
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${p.specs}</div>
-      </td>
-      <td style="font-family:var(--mono);font-weight:700">${p.qty}</td>
-      <td style="font-size:.78rem;color:var(--text2)">${p.crane}</td>
-      <td>${ST_LABELS[p.status]}</td>
-      <td>
-        ${p.status === 'approved' ? `<button class="btn btn-primary btn-sm" onclick="demoUpdatePurchase(${p.id},'ordered')">🚚 Sipariş Ver</button>` : ''}
-        ${p.status === 'ordered' ? `<button class="btn btn-success btn-sm" onclick="demoUpdatePurchase(${p.id},'received')">📦 Teslim Al</button>` : ''}
-        ${p.status === 'received' ? `<span class="badge badge-ok">Arşivde</span>` : ''}
-      </td>
-    </tr>
-  `).join('');
-}
-
-function demoUpdatePurchase(id, newStatus) {
-  const p = demoData.purchases.find(x => x.id === id);
-  if (p) {
-    p.status = newStatus;
-    renderDemoPurchase();
-    toast(`Sipariş durumu güncellendi: ${newStatus === 'ordered' ? 'Sipariş Edildi' : 'Depoya Teslim Alındı'} ✓`, 'success');
-  }
-}
-
-function demoOpenBOM(craneId) {
-  toast('BOM Reçete Görünümü & Yazdırma Şablonu açılıyor...', 'success');
-  setTimeout(() => { window.open(`/bom/${craneId}`, '_blank'); }, 500);
-}
-
-function demoSimulateAction(msg) {
-  toast(msg + ' (Demo Simülasyonu) ✓', 'success');
 }
 
 let toastTimer;
-function toast(msg, type = 'success') {
+function demoToast(msg) {
   const el = document.getElementById('toast');
   if (!el) return;
-  el.textContent = (type === 'success' ? '✓ ' : 'ℹ️ ') + msg;
-  el.className = 'show ' + type;
+  el.textContent = msg;
+  el.className = 'show success';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.className = '', 3000);
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  renderDemoAdmin();
-});
 </script>
 </body>
 </html>
