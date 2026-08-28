@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Ticari Demo & Sunum — Elektrikhane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* Demo Bar Stilleri */
+.demo-topbar{background:#11161d;border-bottom:2px solid var(--accent);padding:.6rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;position:sticky;top:0;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.5);flex-wrap:wrap;}
+.demo-role-switcher{display:flex;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}
+.demo-role-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:.78rem;font-weight:700;padding:.45rem .85rem;border-radius:6px;cursor:pointer;transition:all .15s;}
+.demo-role-btn.active{background:var(--accent);color:#000;}
+.demo-badge{background:rgba(240,216,0,.15);color:var(--accent);border:1px solid rgba(240,216,0,.3);font-family:var(--mono);font-size:.65rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;text-transform:uppercase;}
+
+/* Arayüz Kart Stilleri */
+.job-card,.purchase-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.65rem;}
+.job-header,.purchase-header{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap;}
+.stage-row{display:flex;align-items:center;padding:.65rem 1rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap;}
+.stage-row:last-child{border-bottom:none;}
+.stage-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dot-open{background:var(--muted);}
+.dot-in_progress{background:var(--success);}
+.dot-completed{background:var(--accent);}
+.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;}
+.firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;}
+.firm-divider div{height:1px;flex:1;background:var(--border);}
+
+@media (max-width: 768px) {
+  .demo-topbar { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .demo-role-switcher { width: 100%; justify-content: space-between; }
+  .demo-role-btn { flex: 1; text-align: center; padding: .4rem .2rem; font-size: .72rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- DEMO KONTROL BARI -->
+<div class="demo-topbar">
+  <div style="display:flex;align-items:center;gap:.6rem">
+    <span class="demo-badge">👁️ Canlı Sunum & Demo Modu</span>
+    <span style="font-family:var(--mono);font-size:.7rem;color:var(--muted);display:none;display:sm-inline">Veriler bellekte çalışır, canlı DB'yi etkilemez</span>
+  </div>
+  <div class="demo-role-switcher">
+    <button class="demo-role-btn active" id="btnRoleAdmin" onclick="setDemoRole('admin')">👑 Yönetici Paneli</button>
+    <button class="demo-role-btn" id="btnRolePersonnel" onclick="setDemoRole('personnel')">👷 Personel (Atölye)</button>
+    <button class="demo-role-btn" id="btnRolePurchase" onclick="setDemoRole('purchase')">🛒 Satın Alma / Tedarik</button>
+  </div>
+  <div>
+    <button class="btn btn-ghost btn-sm" onclick="resetDemoData()" style="border-color:var(--border2);font-size:.72rem">↺ Demoyu Sıfırla</button>
+  </div>
+</div>
+
+<div class="mobile-bar">
+  <div class="brand"><div class="icon">🏭</div><span id="mobileBrandTitle">Elektrikhane Demo</span></div>
+</div>
+
+<!-- 1. YÖNETİCİ GÖRÜNÜMÜ -->
+<div id="view-admin" class="demo-view">
+  <div class="main" style="margin-left:0;padding:1rem">
+    <div class="topbar">
+      <h2>👑 Yönetici Genel Bakış & Reçeteler</h2>
+      <span class="badge badge-admin">Yönetici Modu</span>
+    </div>
+    <div class="content">
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">Aktif Vinç Projeleri</div><div class="value" id="admTotalCranes">3</div><div class="sub">üretim hattında</div></div>
+        <div class="stat-card"><div class="label">Stok Kalemi</div><div class="value" id="admTotalStock">184</div><div class="sub">kayıtlı ürün</div></div>
+        <div class="stat-card"><div class="label">Kritik Stok Uyarısı</div><div class="value" style="color:var(--danger)">2</div><div class="sub">asgari sınır altı</div></div>
+        <div class="stat-card"><div class="label">Açık Aşamalar</div><div class="value" style="color:var(--warning)">4</div><div class="sub">atölye sürecinde</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-top:1rem" class="adm-grid">
+        <div class="card">
+          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:800">🏗️ Canlı Vinç Reçeteleri (BOM) & İş Emirleri</span>
+            <button class="btn btn-primary btn-sm" onclick="demoSimulateAction('Yeni vinç reçetesi oluşturma sihirbazı açıldı')">+ Yeni Vinç Tanımla</button>
+          </div>
+          <div style="padding:.85rem" id="admCraneList"></div>
+        </div>
+
+        <div class="card">
+          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">⚡ Sürücü & Cihaz Kütüphanesi</div>
+          <div style="padding:.85rem" id="admVfdList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. PERSONEL GÖRÜNÜMÜ -->
+<div id="view-personnel" class="demo-view" style="display:none">
+  <div class="main" style="margin-left:0;padding:1rem">
+    <div class="topbar">
+      <h2>👷 Personel Atölye & Saha Terminali</h2>
+      <span class="badge badge-personnel">Usta / Teknisyen Modu</span>
+    </div>
+    <div class="content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" class="adm-grid">
+        <!-- İŞLERİM -->
+        <div class="card">
+          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">⚡ Üzerimdeki Aktif İşler & Aşamalar</div>
+          <div style="padding:.85rem" id="psnTaskList"></div>
+        </div>
+
+        <!-- HIZLI BARKODLU MALZEME ÇIKIŞI -->
+        <div class="card">
+          <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:800">📤 Barkodla / Vinç İçin Malzeme Çıkışı</div>
+          <div style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+            <div class="form-group" style="margin:0">
+              <label>Malzeme Barkodu / Stok Kodu</label>
+              <div style="display:flex;gap:.4rem">
+                <input type="text" id="demoBarcodeInp" placeholder="Örn: 869000123456" value="SCH-ATV320-15KW" style="flex:1">
+                <button class="btn btn-primary btn-sm" onclick="demoScanBarcode()">📷 Oku</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Hangi Vinç / Proje İçin?</label>
+              <select id="demoCraneSelect" style="width:100%">
+                <option value="1">🏗️ 20T Çift Kiriş Gezer Köprülü Vinç (Tüpraş Projesi)</option>
+                <option value="2">🏗️ 10T Portal Vinç (Ereğli Demir Çelik)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Çıkış Adedi</label>
+              <input type="number" id="demoOutQty" value="1">
+            </div>
+            <button class="btn btn-success btn-full" onclick="demoTakeStock()">📤 Malzemeyi Teslim Al & Stoktan Düş</button>
+            <div id="demoTakeResult" style="font-family:var(--mono);font-size:.75rem;display:none;padding:.6rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. SATIN ALMA GÖRÜNÜMÜ -->
+<div id="view-purchase" class="demo-view" style="display:none">
+  <div class="main" style="margin-left:0;padding:1rem">
+    <div class="topbar">
+      <h2>🛒 Satın Alma & Tedarik Havuzu</h2>
+      <span class="badge badge-purchase">Tedarikçi / Satın Alma Modu</span>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+          <div>
+            <div style="font-weight:800">📦 Atölye Talep & Sipariş Listesi</div>
+            <div style="font-size:.7rem;color:var(--muted)">Atölye ustalarının istediği malzemeleri onaylayabilir, tedarikçi notu ve fark bildirebilirsiniz</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="demoSimulateAction('Yeni satın alma sipariş fişi açıldı')">+ Yeni Talep Aç</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Özellikler</th><th>Miktar</th><th>İlgili Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
+            <tbody id="demoPurchaseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── DEMO GÖSTERİM VERİLERİ (IN-MEMORY SANDBOX) ──
+const INITIAL_DEMO_DATA = {
+  cranes: [
+    { id: 1, name: "20T Çift Kiriş Gezer Köprülü Vinç", firm: "Tüpraş Rafineri", capacity: "20 Ton", items: 14, stages: ["Pano Montajı (Ahmet Usta)", "Kedi Tesisatı (Açık)", "Son Test & Devreye Alma (Bekliyor)"] },
+    { id: 2, name: "10T Açık Saha Portal Vinç", firm: "Ereğli Demir Çelik", capacity: "10 Ton", items: 9, stages: ["Pano Montajı (Tamamlandı)", "Saha Montajı (Mehmet Usta)", "Kablo Çekimi (Açık)"] },
+    { id: 3, name: "5T Pergel Vinç", firm: "Sekizli Döküm", capacity: "5 Ton", items: 6, stages: ["Pano Montajı (Açık)", "Mekanik Bağlantı (Bekliyor)"] }
+  ],
+  vfds: [
+    { brand: "Schneider", model: "ATV320", code: "OCF", title: "Aşırı Akım Hatası", solution: "1. Motor sargı izolasyonunu ölçün. 2. ACC rampa süresini 3s -> 5s yapın." },
+    { brand: "Schneider", model: "ATV320", code: "ACC", title: "Hızlanma Rampası", solution: "Menü: CONF -> FULL -> FUN_ -> ACC = 4.5s ayarlayın." },
+    { brand: "Mitsubishi", model: "E840", code: "E.OC1", title: "Hızlanmada Aşırı Akım", solution: "Mekanik fren açma gecikmesini kontrol edin." }
+  ],
+  tasks: [
+    { id: 101, title: "20T Tüpraş Vinci — Pano İmalatı", stage: "Pano Kablaj & Bara", status: "in_progress", user: "Ahmet Usta" },
+    { id: 102, title: "10T Ereğli Portalı — Kedi Sürücü Panosu", stage: "Sürücü Parametre Yükleme", status: "in_progress", user: "Ahmet Usta" },
+    { id: 103, title: "5T Pergel — Ana Besleme Hattı", stage: "Kablo Çekimi", status: "open", user: "Atanmamış" }
+  ],
+  purchases: [
+    { id: 201, date: "Bugün 09:30", user: "Ahmet Usta", name: "Schneider 15 kW VFD Sürücü", specs: "ATV320U15N4B", qty: "2 adet", crane: "20T Tüpraş Vinci", status: "approved", note: "Onaylandı, tedarikçi aranıyor" },
+    { id: 202, date: "Dün 16:45", user: "Mehmet Usta", name: "16mm² NYY Çok Damarlı Kablo", specs: "Öznur Kablo / 0.6-1kV", qty: "120 metre", crane: "10T Ereğli Portalı", status: "ordered", note: "Sipariş no: TR-8841 (Sevkiyatta)" },
+    { id: 203, date: "24.08.2026", user: "Ahmet Usta", name: "24V DC Güç Kaynağı (10A)", specs: "Schneider ABL8RPS24100", qty: "3 adet", crane: "Genel Atölye İhtiyacı", status: "received", note: "Eksiksiz depoya girdi" }
+  ]
+};
+
+let demoData = JSON.parse(JSON.stringify(INITIAL_DEMO_DATA));
+
+function setDemoRole(role) {
+  document.querySelectorAll('.demo-view').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.demo-role-btn').forEach(btn => btn.classList.remove('active'));
+
+  if (role === 'admin') {
+    document.getElementById('view-admin').style.display = 'block';
+    document.getElementById('btnRoleAdmin').classList.add('active');
+    renderDemoAdmin();
+  } else if (role === 'personnel') {
+    document.getElementById('view-personnel').style.display = 'block';
+    document.getElementById('btnRolePersonnel').classList.add('active');
+    renderDemoPersonnel();
+  } else if (role === 'purchase') {
+    document.getElementById('view-purchase').style.display = 'block';
+    document.getElementById('btnRolePurchase').classList.add('active');
+    renderDemoPurchase();
+  }
+}
+
+function resetDemoData() {
+  demoData = JSON.parse(JSON.stringify(INITIAL_DEMO_DATA));
+  renderDemoAdmin();
+  renderDemoPersonnel();
+  renderDemoPurchase();
+  toast('Demo verileri ilk haline sıfırlandı ✓', 'success');
+}
+
+// ── ADMIN GÖRÜNÜMÜ RENDER ──
+function renderDemoAdmin() {
+  const container = document.getElementById('admCraneList');
+  container.innerHTML = demoData.cranes.map(c => `
+    <div class="job-card" style="margin-bottom:.5rem">
+      <div class="job-header">
+        <div>
+          <strong style="font-size:.88rem">🏗️ ${c.name}</strong>
+          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700;margin-left:.3rem">⚖️ ${c.capacity}</span>
+          <span style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-left:.3rem">🏢 ${c.firm}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="demoOpenBOM(${c.id})">📄 BOM Listesi</button>
+      </div>
+      <div style="padding:.5rem .85rem;font-size:.78rem;color:var(--text2)">
+        <strong>Aşamalar:</strong> ${c.stages.map(s => `<span class="badge" style="background:var(--surface);margin:.15rem">${s}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  const vfdCont = document.getElementById('admVfdList');
+  vfdCont.innerHTML = demoData.vfds.map(v => `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;margin-bottom:.4rem;font-size:.8rem">
+      <div style="display:flex;justify-content:space-between">
+        <strong style="color:var(--accent)">⚡ ${v.brand} ${v.model} [${v.code}]</strong>
+        <span style="font-size:.7rem;color:var(--muted)">${v.title}</span>
+      </div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.25rem;line-height:1.3">${v.solution}</div>
+    </div>
+  `).join('');
+}
+
+// ── PERSONEL GÖRÜNÜMÜ RENDER ──
+function renderDemoPersonnel() {
+  const cont = document.getElementById('psnTaskList');
+  cont.innerHTML = demoData.tasks.map(t => `
+    <div class="stage-row" style="background:var(--surface2);border-radius:8px;margin-bottom:.4rem;border:1px solid var(--border2)">
+      <div class="stage-dot ${t.status === 'in_progress' ? 'dot-in_progress' : 'dot-open'}"></div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.85rem">${t.title}</div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">Aşama: ${t.stage} · Atanan: ${t.user}</div>
+      </div>
+      <div>
+        ${t.status === 'in_progress' ? `<button class="btn btn-success btn-sm" onclick="demoCompleteTask(${t.id})">✅ Tamamla</button>` : '<span class="badge">Açık</span>'}
+      </div>
+    </div>
+  `).join('');
+}
+
+function demoScanBarcode() {
+  document.getElementById('demoBarcodeInp').value = "SCH-ATV320-15KW";
+  toast('Barkod başarıyla okundu: Schneider 15 kW Sürücü ✓', 'success');
+}
+
+function demoTakeStock() {
+  const code = document.getElementById('demoBarcodeInp').value;
+  const qty = document.getElementById('demoOutQty').value;
+  const res = document.getElementById('demoTakeResult');
+  res.innerHTML = `✅ <strong>${qty} adet [${code}]</strong> malzeme Tüpraş 20T Vinci üzerine zimmetlendi ve stoktan düşüldü.`;
+  res.style.display = 'block';
+  toast('Stok çıkışı kaydedildi ✓', 'success');
+}
+
+function demoCompleteTask(id) {
+  const t = demoData.tasks.find(x => x.id === id);
+  if (t) {
+    t.status = 'completed';
+    renderDemoPersonnel();
+    toast(`"${t.stage}" aşaması başarıyla tamamlandı ✓`, 'success');
+  }
+}
+
+// ── SATIN ALMA GÖRÜNÜMÜ RENDER ──
+function renderDemoPurchase() {
+  const tbody = document.getElementById('demoPurchaseTbody');
+  const ST_LABELS = {
+    approved: '<span style="color:var(--warning);font-weight:700;font-family:var(--mono);font-size:.72rem">⏳ Satın Alım Aşamasında</span>',
+    ordered: '<span style="color:var(--accent);font-weight:700;font-family:var(--mono);font-size:.72rem">🚚 Sipariş Edildi (Yolda)</span>',
+    received: '<span style="color:var(--success);font-weight:700;font-family:var(--mono);font-size:.72rem">📦 Teslim Alındı</span>'
+  };
+
+  tbody.innerHTML = demoData.purchases.map(p => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.72rem">${p.date}</td>
+      <td><strong>${p.user}</strong></td>
+      <td>
+        <strong>${p.name}</strong>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${p.specs}</div>
+      </td>
+      <td style="font-family:var(--mono);font-weight:700">${p.qty}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${p.crane}</td>
+      <td>${ST_LABELS[p.status]}</td>
+      <td>
+        ${p.status === 'approved' ? `<button class="btn btn-primary btn-sm" onclick="demoUpdatePurchase(${p.id},'ordered')">🚚 Sipariş Ver</button>` : ''}
+        ${p.status === 'ordered' ? `<button class="btn btn-success btn-sm" onclick="demoUpdatePurchase(${p.id},'received')">📦 Teslim Al</button>` : ''}
+        ${p.status === 'received' ? `<span class="badge badge-ok">Arşivde</span>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function demoUpdatePurchase(id, newStatus) {
+  const p = demoData.purchases.find(x => x.id === id);
+  if (p) {
+    p.status = newStatus;
+    renderDemoPurchase();
+    toast(`Sipariş durumu güncellendi: ${newStatus === 'ordered' ? 'Sipariş Edildi' : 'Depoya Teslim Alındı'} ✓`, 'success');
+  }
+}
+
+function demoOpenBOM(craneId) {
+  toast('BOM Reçete Görünümü & Yazdırma Şablonu açılıyor...', 'success');
+  setTimeout(() => { window.open(`/bom/${craneId}`, '_blank'); }, 500);
+}
+
+function demoSimulateAction(msg) {
+  toast(msg + ' (Demo Simülasyonu) ✓', 'success');
+}
+
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = (type === 'success' ? '✓ ' : 'ℹ️ ') + msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderDemoAdmin();
+});
+</script>
+</body>
+</html>
