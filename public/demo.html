@@ -3,505 +3,399 @@
 <head>
 <meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Elektrikhane — Vinç & Pano İmalat Yönetim Ekosistemi</title>
+<title>Elektrikhane — Canlı Demo & Sunum Paneli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-:root {
-  --bg-dark: #07090c;
-  --surface-1: #0f141c;
-  --surface-2: #161d28;
-  --border-glow: rgba(26,107,86,0.35);
-  --accent-gold: #f0d800;
-  --accent-green: #3cd4a0;
-  --primary-brand: #1a6b56;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0c0f; font-family: var(--sans); }
 
-body {
-  background: var(--bg-dark);
-  color: #e2e8f0;
-  font-family: var(--sans);
-  overflow-x: hidden;
-}
-
-/* ── HERO & HEADER ── */
-.hero-section {
-  padding: 3rem 1.5rem 2rem;
-  text-align: center;
-  position: relative;
-  background: radial-gradient(circle at 50% -20%, rgba(26,107,86,0.3) 0%, transparent 70%);
-  border-bottom: 1px solid var(--border);
-}
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  background: rgba(240,216,0,0.1);
-  border: 1px solid rgba(240,216,0,0.3);
-  color: var(--accent-gold);
-  padding: .35rem .9rem;
-  border-radius: 30px;
-  font-family: var(--mono);
-  font-size: .75rem;
-  font-weight: 700;
-  margin-bottom: 1.2rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-.hero-title {
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -.03em;
-  max-width: 850px;
-  margin: 0 auto 1rem;
-}
-.hero-title span {
-  color: var(--accent-gold);
-  text-shadow: 0 0 30px rgba(240,216,0,0.25);
-}
-.hero-desc {
-  font-size: .95rem;
-  color: var(--text2);
-  max-width: 680px;
-  margin: 0 auto 1.8rem;
-  line-height: 1.6;
-}
-
-/* ── METRIC BANNER ── */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  max-width: 1100px;
-  margin: 0 auto 2.5rem;
-  padding: 0 1rem;
-}
-.metric-box {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  padding: 1.2rem 1rem;
-  border-radius: 12px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-.metric-box::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
-}
-.metric-val {
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: var(--accent-green);
-  font-family: var(--mono);
-}
-.metric-lbl {
-  font-size: .78rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  margin-top: .3rem;
-}
-
-/* ── INTERACTIVE WORKSPACE (CANLI SİMÜLATÖR) ── */
-.demo-workspace {
-  max-width: 1150px;
-  margin: 0 auto 4rem;
-  padding: 0 1rem;
-}
-.workspace-wrapper {
-  background: var(--surface-1);
-  border: 1px solid var(--border2);
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-  overflow: hidden;
-}
-.workspace-nav {
+/* ── ÜST DEMO KONTROL ÇUBUĞU ── */
+.demo-control-bar {
+  height: 54px;
+  background: #11151a;
+  border-bottom: 2px solid var(--accent);
   display: flex;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  gap: 4px;
-  padding: .5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  z-index: 10000;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
-.ws-tab-btn {
+.demo-logo-box {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.demo-badge-live {
+  background: rgba(240,216,0,0.15);
+  border: 1px solid rgba(240,216,0,0.35);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .2rem .55rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* Rol Butonları */
+.demo-switcher {
+  display: flex;
+  background: #1a202c;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.demo-btn {
   background: transparent;
   border: none;
   color: var(--muted);
   font-family: var(--sans);
-  font-size: .85rem;
+  font-size: .8rem;
   font-weight: 700;
-  padding: .7rem 1.1rem;
-  border-radius: 8px;
+  padding: .35rem .85rem;
+  border-radius: 6px;
   cursor: pointer;
-  white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: .5rem;
+  gap: .4rem;
   transition: all .2s;
 }
-.ws-tab-btn.active {
-  background: #111822;
-  color: #fff;
-  border: 1px solid var(--border2);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-.ws-tab-btn.active .ws-icon {
-  color: var(--accent-gold);
+.demo-btn:hover { color: #fff; }
+.demo-btn.active {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(240,216,0,0.3);
 }
 
-.ws-content-panel {
-  padding: 1.5rem;
-  display: none;
+/* ── GERÇEK PANEL IFRAME ALANI ── */
+.demo-frame-wrap {
+  width: 100%;
+  height: calc(100% - 54px);
+  position: relative;
 }
-.ws-content-panel.active {
-  display: block;
-}
-
-/* Showcase Kartları */
-.showcase-grid {
-  display: grid;
-  grid-template-columns: 1.8fr 1.2fr;
-  gap: 1.25rem;
-}
-.sc-card {
-  background: #121822;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.1rem;
-}
-.sc-head {
-  font-size: .9rem;
-  font-weight: 800;
-  margin-bottom: .85rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: .6rem;
+#demoFrame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #0a0c0f;
 }
 
-/* Simülasyon Arayüz Elemanları */
-.sim-stage-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .65rem .8rem;
-  background: var(--surface-2);
-  border-radius: 8px;
-  margin-bottom: .45rem;
-  border: 1px solid var(--border2);
-}
-.sim-live-pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  display: inline-block;
-  animation: pulse 2s infinite;
-}
-
-@media (max-width: 860px) {
-  .showcase-grid { grid-template-columns: 1fr; }
-  .hero-section { padding: 2rem 1rem 1.5rem; }
+@media (max-width: 768px) {
+  .demo-control-bar { height: auto; padding: .5rem; flex-direction: column; gap: .4rem; }
+  .demo-frame-wrap { height: calc(100% - 85px); }
+  .demo-switcher { width: 100%; justify-content: space-between; }
+  .demo-btn { flex: 1; justify-content: center; padding: .35rem .2rem; font-size: .72rem; }
 }
 </style>
 </head>
 <body>
 
-<!-- HERO BÖLÜMÜ -->
-<div class="hero-section">
-  <div style="background:#fff;border-radius:8px;padding:.35rem .8rem;display:inline-block;margin-bottom:.85rem">
-    <img src="/logo.png" alt="Sekizli" style="height:28px;width:auto;display:block">
+<div class="demo-control-bar">
+  <div class="demo-logo-box">
+    <div style="background:#fff;border-radius:6px;padding:.2rem .5rem;display:inline-block">
+      <img src="/logo.png" alt="Sekizli" style="height:18px;width:auto;display:block">
+    </div>
+    <span class="demo-badge-live">⚡ Canlı Demo Simülasyonu</span>
   </div>
+
+  <div class="demo-switcher">
+    <button class="demo-btn active" id="btnAdmin" onclick="switchPanel('admin')">👑 Yönetici Paneli</button>
+    <button class="demo-btn" id="btnPersonnel" onclick="switchPanel('personnel')">👷 Personel (Atölye)</button>
+    <button class="demo-btn" id="btnPurchase" onclick="switchPanel('purchase')">🛒 Satın Alma & Tedarik</button>
+  </div>
+
   <div>
-    <div class="hero-badge">⚡ Endüstriyel Pano & Vinç Otomasyon Ekosistemi</div>
-  </div>
-  <h1 class="hero-title">Atölyenizi ve Vinç İmalatınızı <span>Kayıpsız Yönetin.</span></h1>
-  <p class="hero-desc">
-    Standart muhasebe ve ERP yazılımlarının çözemediği; vinç reçetesi (BOM), pano şemaları, sürücü arıza teşhisleri ve anlık atölye iş akışını tek merkezde birleştiren akıllı üretim platformu.
-  </p>
-</div>
-
-<!-- TEMEL DEĞER METRİKLERİ -->
-<div class="metrics-grid">
-  <div class="metric-box">
-    <div class="metric-val">%100</div>
-    <div class="metric-lbl">Vinç Reçete Şeffaflığı</div>
-  </div>
-  <div class="metric-box">
-    <div class="metric-val">0 Fire</div>
-    <div class="metric-lbl">Model Yılı & FIFO Takibi</div>
-  </div>
-  <div class="metric-box">
-    <div class="metric-val">15 sn</div>
-    <div class="metric-lbl">Hızlı Arıza Teşhis & Kod Çözüm</div>
-  </div>
-  <div class="metric-box">
-    <div class="metric-val">Tam Uyum</div>
-    <div class="metric-lbl">Mobil & Barkodlu Terminal</div>
+    <button class="btn btn-ghost btn-sm" onclick="resetSandbox()" style="font-size:.7rem;border-color:var(--border2);color:var(--text2)">↺ Demoyu Sıfırla</button>
   </div>
 </div>
 
-<!-- İNTERAKTİF SİMÜLASYON ÇALIŞMA ALANI -->
-<div class="demo-workspace">
-  <div class="workspace-wrapper">
-    <div class="workspace-nav">
-      <button class="ws-tab-btn active" onclick="switchWsTab('bom', this)"><span class="ws-icon">🏗️</span> 1. Vinç Reçetesi & BOM Çıktısı</button>
-      <button class="ws-tab-btn" onclick="switchWsTab('workshop', this)"><span class="ws-icon">⚡</span> 2. Canlı Atölye & Personel Takibi</button>
-      <button class="ws-tab-btn" onclick="switchWsTab('vfd', this)"><span class="ws-icon">📟</span> 3. Sürücü (VFD) & Arıza Asistanı</button>
-      <button class="ws-tab-btn" onclick="switchWsTab('supply', this)"><span class="ws-icon">🛒</span> 4. Tedarik Zinciri & Fark Bildirimi</button>
-    </div>
-
-    <!-- 1. SEKME: BOM & REÇETE YÖNETİMİ -->
-    <div id="ws-bom" class="ws-content-panel active">
-      <div class="showcase-grid">
-        <div class="sc-card">
-          <div class="sc-head">
-            <span>🏗️ 20 Ton Çift Kiriş Gezer Köprülü Vinç — Canlı Reçete</span>
-            <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ 20 Ton</span>
-          </div>
-          <table style="width:100%;font-size:.8rem">
-            <thead><tr><th>Grup</th><th>Malzeme Tanımı</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
-            <tbody>
-              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Pano</span></td><td><strong>Schneider 15 kW Sürücü (ATV320)</strong></td><td style="font-family:var(--mono);font-weight:700">2 Adet</td><td style="color:var(--accent-gold)">2025</td></tr>
-              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Kedi</span></td><td><strong>16mm² NYY Çok Damarlı Kablo</strong></td><td style="font-family:var(--mono);font-weight:700">85 Metre</td><td>—</td></tr>
-              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Köprü</span></td><td><strong>24V DC 10A Endüstriyel Güç Kaynağı</strong></td><td style="font-family:var(--mono);font-weight:700">1 Adet</td><td style="color:var(--accent-gold)">2024</td></tr>
-              <tr><td><span class="badge" style="background:rgba(26,107,86,.15);color:var(--success)">Pano</span></td><td><strong>Telemecanique Emniyet Rölesi</strong></td><td style="font-family:var(--mono);font-weight:700">2 Adet</td><td>2025</td></tr>
-            </tbody>
-          </table>
-          <div style="margin-top:1rem;display:flex;gap:.5rem;justify-content:flex-end">
-            <button class="btn btn-ghost btn-sm" onclick="demoToast('Resmi BOM Şablonu PDF/Baskı formatında üretildi ✓')">📄 BOM Yazdır</button>
-            <button class="btn btn-primary btn-sm" onclick="demoToast('Excel BOM Dosyası tek tıkla indirildi ✓')">📊 Excel İndir</button>
-          </div>
-        </div>
-
-        <div class="sc-card" style="display:flex;flex-direction:column;justify-content:space-between">
-          <div>
-            <div class="sc-head"><span>🎯 Ticari Avantajı</span></div>
-            <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-              Teklif aşamasındaki malzeme listesi tek tıkla <strong>resmi üretim reçetesine (BOM)</strong> dönüşür. Ustanın eksik parça veya yanlış model yılı montajı yapma ihtimali sıfıra iner.
-            </p>
-          </div>
-          <div style="background:rgba(240,216,0,0.06);border:1px solid rgba(240,216,0,0.25);border-radius:8px;padding:.75rem;font-size:.78rem;color:var(--accent-gold);font-family:var(--mono)">
-            ⚡ <strong>Şantiye Şeffaflığı:</strong> Sevkiyata hazır vinçlerin malzeme karnesi müşteriye tek sayfa imzalı raporlanır.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2. SEKME: CANLI ATÖLYE & PERSONEL TAKİBİ -->
-    <div id="ws-workshop" class="ws-content-panel">
-      <div class="showcase-grid">
-        <div class="sc-card">
-          <div class="sc-head">
-            <span>🔴 Atölye Canlı Aşama Takibi</span>
-            <span style="font-family:var(--mono);font-size:.7rem;color:var(--accent-green)"><span class="sim-live-pulse"></span> Senkronize</span>
-          </div>
-          <div id="simStagesList">
-            <div class="sim-stage-row">
-              <div>
-                <div style="font-weight:700;font-size:.85rem">20T Tüpraş Vinci — Pano Kablajı</div>
-                <div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Ahmet Usta · Devam Ediyor</div>
-              </div>
-              <button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>
-            </div>
-            <div class="sim-stage-row">
-              <div>
-                <div style="font-weight:700;font-size:.85rem">10T Ereğli Portalı — Sürücü Parametreleri</div>
-                <div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Mehmet Usta · Devam Ediyor</div>
-              </div>
-              <button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>
-            </div>
-            <div class="sim-stage-row">
-              <div>
-                <div style="font-weight:700;font-size:.85rem">5T Pergel Vinç — Kedi Tesisatı</div>
-                <div style="font-size:.7rem;color:var(--warning);font-family:var(--mono)">Boşta (Atanmamış)</div>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="claimSimStage(this)">⚡ Üstlen</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sc-card">
-          <div class="sc-head"><span>📷 Sahadan Barkodla Hızlı Çıkış</span></div>
-          <div style="display:flex;flex-direction:column;gap:.6rem">
-            <div class="form-group" style="margin:0">
-              <label>Malzeme Barkodu (Kamera/Tarayıcı)</label>
-              <input type="text" id="simBarcode" value="SCH-ATV320-15KW" style="font-family:var(--mono)">
-            </div>
-            <button class="btn btn-primary btn-full" onclick="simScanProduct()">🔍 Barkodu Oku & Depoyu Eşleştir</button>
-            <div id="simScanOutput" style="display:none;background:var(--surface-2);padding:.65rem;border-radius:6px;border:1px solid var(--border2);font-size:.78rem;font-family:var(--mono)">
-              <div style="color:var(--accent-gold);font-weight:700">✓ Eşleşti: Schneider 15 kW VFD</div>
-              <div style="color:var(--text2);margin-top:.2rem">Depo Kalan: 6 Adet | Model Yılı: 2025</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 3. SEKME: SÜRÜCÜ & ARIZA TEŞHİS MOTORU -->
-    <div id="ws-vfd" class="ws-content-panel">
-      <div class="showcase-grid">
-        <div class="sc-card">
-          <div class="sc-head"><span>📟 Akıllı Sürücü Arıza Teşhis & Kılavuz</span></div>
-          <div style="display:flex;gap:.5rem;margin-bottom:1rem">
-            <select id="simVfdBrand" style="flex:1" onchange="runSimVfdSearch()">
-              <option value="all">Tüm Markalar</option>
-              <option value="Schneider">Schneider Electric (Altivar)</option>
-              <option value="Mitsubishi">Mitsubishi (E840)</option>
-              <option value="Fuji">Fuji Electric (Ace/Mini)</option>
-            </select>
-            <input type="text" id="simVfdCode" placeholder="Hata Kodu Yazın (örn: OCF, E.OC1)..." value="OCF" oninput="runSimVfdSearch()" style="flex:1.2;font-family:var(--mono)">
-          </div>
-
-          <div id="simVfdResults">
-            <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
-                <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Schneider ATV320</span>
-                <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">OCF</strong>
-              </div>
-              <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Aşırı Akım / Motor Sıkışması</div>
-              <div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem"><strong>Olası Neden:</strong> Rampa süresi çok kısa veya mekanik fren doğrultucusu geç açıyor.</div>
-              <div style="background:#11161f;padding:.6rem .8rem;border-radius:6px;font-size:.78rem;line-height:1.4">
-                <strong style="color:var(--accent-green);display:block;margin-bottom:.2rem">🔧 Atölye Kontrol Adımları:</strong>
-                1. Menüden CONF -> FULL -> FUN_ -> ACC süresini 3sn yerine 5sn yapın.<br>
-                2. Motor klemensinden sargı izolasyonunu megger ile test edin.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sc-card">
-          <div class="sc-head"><span>🧠 Neden Bu Kadar Önemli?</span></div>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Test aşamasında veya şantiyede vinç sürücüsü arızaya geçtiğinde 400 sayfalık PDF kılavuzlar aranmaz. Teknisyen 5 saniyede hata kodunu girer, <strong>doğrudan Türkçe ve pano içi müdahale reçetesini</strong> ekranda görür.
-          </p>
-          <div style="margin-top:1.5rem;padding:.75rem;background:#16202c;border-radius:8px;border:1px solid var(--border2)">
-            <span style="font-size:.75rem;color:var(--muted)">Desteklenen Standartlar:</span>
-            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem">
-              <span class="badge">Schneider ATV310/320/340/930</span>
-              <span class="badge">Mitsubishi E840</span>
-              <span class="badge">Fuji Ace/Mini/Micro</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. SEKME: TEDARİK & FARK BİLDİRİMİ -->
-    <div id="ws-supply" class="ws-content-panel">
-      <div class="showcase-grid">
-        <div class="sc-card">
-          <div class="sc-head">
-            <span>🛒 Sipariş & Tedarikçi Fark Takibi</span>
-            <span class="badge badge-purchase">Satın Alma Havuzu</span>
-          </div>
-          <table style="width:100%;font-size:.8rem">
-            <thead><tr><th>Tarih</th><th>Malzeme</th><th>Miktar</th><th>Durum</th><th>İşlem</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>Bugün</td>
-                <td><strong>Schneider 15 kW VFD Sürücü</strong></td>
-                <td style="font-family:var(--mono)">2 Adet</td>
-                <td><span style="color:var(--accent-gold);font-weight:700">🚚 Sipariş Edildi</span></td>
-                <td><button class="btn btn-success btn-sm" onclick="demoToast('Eksiksiz depoya teslim alındı ✓')">📦 Teslim Al</button></td>
-              </tr>
-              <tr>
-                <td>Dün</td>
-                <td><strong>16mm² NYY Güç Kablosu</strong></td>
-                <td style="font-family:var(--mono)">120 Metre</td>
-                <td><span style="color:var(--danger);font-weight:700">⚠️ 100m Geldi (Fark)</span></td>
-                <td><span class="badge badge-low">Fark Raporlandı</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="sc-card">
-          <div class="sc-head"><span>🛡️ Tedarik Güvenliği</span></div>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Kargo geldiğinde malzeme paketi açılır açılmaz personel gelen adedi girer. Eğer siparişten eksik, kırık veya farklı marka ürün geldiyse sistem anında yöneticiye ve satın almaya <strong>"Fark Uyarısı"</strong> iletir.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="demo-frame-wrap">
+  <iframe id="demoFrame" src="about:blank"></iframe>
 </div>
-
-<div id="toast"></div>
 
 <script>
-function switchWsTab(tabId, btn) {
-  document.querySelectorAll('.ws-content-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.ws-tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('ws-' + tabId).classList.add('active');
-  btn.classList.add('active');
+// ── IN-MEMORY MOCK DATABASE (GERÇEK DB'YE ASLA YAZMAZ) ──
+const DEFAULT_MOCK_DB = {
+  users: [
+    { id: 1, username: 'admin', display_name: 'Yönetici (Demo)', role: 'admin', created_at: new Date() },
+    { id: 2, username: 'ahmet.usta', display_name: 'Ahmet Usta (Pano)', role: 'personnel', created_at: new Date() },
+    { id: 3, username: 'mehmet.usta', display_name: 'Mehmet Usta (Mekanik)', role: 'personnel', created_at: new Date() },
+    { id: 4, username: 'satinalma', display_name: 'Tedarik Sorumlusu', role: 'purchase', created_at: new Date() }
+  ],
+  columns: [
+    { id: 1, name: 'Malzeme Adı', data_type: 'text', display_order: 1, min_stock: 0 },
+    { id: 2, name: 'Stok Kodu', data_type: 'text', display_order: 2, min_stock: 0 },
+    { id: 3, name: 'Miktar', data_type: 'number', display_order: 3, min_stock: 5 },
+    { id: 4, name: 'Birim', data_type: 'text', display_order: 4, min_stock: 0 },
+    { id: 5, name: 'Kategori', data_type: 'text', display_order: 5, min_stock: 0 }
+  ],
+  products: [
+    { id: 1, values: { '1': 'Schneider 15 kW VFD Sürücü', '2': 'SCH-ATV320-15K', '3': '8', '4': 'adet', '5': 'Sürücüler', category: 'Sürücüler' }, display_order: 1, _lc: 2 },
+    { id: 2, values: { '1': '16mm² NYY Çok Damarlı Kablo', '2': 'KBL-16NYY', '3': '240', '4': 'metre', '5': 'Kablolar', category: 'Kablolar' }, display_order: 2, _lc: 0 },
+    { id: 3, values: { '1': 'Schneider 25A Güç Kontaktörü', '2': 'LC1D25BD', '3': '3', '4': 'adet', '5': 'Şalt Malzeme', category: 'Şalt Malzeme' }, display_order: 3, _lc: 1 },
+    { id: 4, values: { '1': '24V DC 10A Endüstriyel Güç Kaynağı', '2': 'PS-2410', '3': '12', '4': 'adet', '5': 'Otomasyon', category: 'Otomasyon' }, display_order: 4, _lc: 0 },
+    { id: 5, values: { '1': 'Telemecanique Çift El Emniyet Rölesi', '2': 'XPS-AF5130', '3': '2', '4': 'adet', '5': 'Emniyet', category: 'Emniyet' }, display_order: 5, _lc: 0 }
+  ],
+  product_lots: [
+    { id: 1, product_id: 1, production_year: 2024, quantity: 3, notes: 'Eski parti (FIFO Öncelikli)' },
+    { id: 2, product_id: 1, production_year: 2025, quantity: 5, notes: 'Yeni sevkiyat' },
+    { id: 3, product_id: 3, production_year: 2025, quantity: 3, notes: 'Depo sağlam' }
+  ],
+  firms: [
+    { id: 1, name: 'Tüpraş Rafineri A.Ş.', notes: '20T Çift Kiriş Projesi', display_order: 1 },
+    { id: 2, name: 'Ereğli Demir ve Çelik Fabrikaları', notes: '10T Portal Saha Vinci', display_order: 2 },
+    { id: 3, name: 'Tosyalı Demir Çelik', notes: 'Pergel Vinç Revizyonu', display_order: 3 }
+  ],
+  machines: [
+    { 
+      id: 1, machine_name: '20T Çift Kiriş Gezer Köprülü Vinç', firm_id: 1, capacity: '20 Ton', notes: 'Ana Hol Kaldırma Vinci', display_order: 1,
+      items: [
+        { product_id: 1, quantity: 2, machine_year: 2025, category_name: 'Pano' },
+        { product_id: 2, quantity: 85, machine_year: null, category_name: 'Kedi Tesisatı' },
+        { product_id: 3, quantity: 4, machine_year: 2025, category_name: 'Pano' },
+        { product_id: 4, quantity: 1, machine_year: null, category_name: 'Pano' }
+      ]
+    },
+    { 
+      id: 2, machine_name: '10T Açık Saha Portal Vinç', firm_id: 2, capacity: '10 Ton', notes: 'Hurda Sahası', display_order: 2,
+      items: [
+        { product_id: 1, quantity: 1, machine_year: 2024, category_name: 'Pano' },
+        { product_id: 2, quantity: 120, machine_year: null, category_name: 'Köprü Yürüyüş' }
+      ]
+    }
+  ],
+  tasks: [
+    { id: 1, title: '20T Çift Kiriş Vinç (Tüpraş)', firm_id: 1, machine_id: 1, status: 'in_progress', priority: 'urgent', is_auto: true, notes: 'Acil sevkiyat' },
+    { id: 2, title: '10T Portal Vinç (Ereğli)', firm_id: 2, machine_id: 2, status: 'open', priority: 'normal', is_auto: true, notes: 'Test aşaması' }
+  ],
+  task_stages: [
+    { id: 1, task_id: 1, stage_order: 1, stage_name: 'Pano Montaj & Kablaj', assigned_to: 2, status: 'in_progress', notes: 'Bara bükümü bitti' },
+    { id: 2, task_id: 1, stage_order: 2, stage_name: 'Kedi Tesisatı', assigned_to: 3, status: 'open', notes: '' },
+    { id: 3, task_id: 1, stage_order: 3, stage_name: 'Devreye Alma & Test', assigned_to: null, status: 'open', notes: '' },
+    { id: 4, task_id: 2, stage_order: 1, stage_name: 'Pano Montajı', assigned_to: 2, status: 'completed', notes: 'Eksiksiz toplandı' },
+    { id: 5, task_id: 2, stage_order: 2, stage_name: 'Saha Montajı', assigned_to: null, status: 'open', notes: '' }
+  ],
+  transactions: [
+    { id: 1, user_id: 2, product_id: 1, company: 'Tüpraş Rafineri A.Ş.', quantity: 2, tx_type: 'out', notes: '20T Vinç Panosu', created_at: new Date(Date.now() - 3600000) },
+    { id: 2, user_id: 2, product_id: 3, company: 'Tüpraş Rafineri A.Ş.', quantity: 4, tx_type: 'out', notes: 'Kontaktör grubu', created_at: new Date(Date.now() - 7200000) }
+  ],
+  purchases: [
+    { id: 1, requested_by: 2, product_name: 'Schneider 15 kW VFD Sürücü', quantity: 2, unit: 'adet', reason: 'Tüpraş vinci için acil eksik', task_id: 1, status: 'approved', admin_note: 'Onaylandı, tedarik bekleniyor', product_values: { '2': 'SCH-ATV320-15K' }, created_at: new Date(Date.now() - 86400000) },
+    { id: 2, requested_by: 3, product_name: '16mm² NYY Güç Kablosu', quantity: 100, unit: 'metre', reason: 'Kedi yürütme hattı', task_id: 1, status: 'ordered', admin_note: 'Öznur Kablo sipariş no: TR-8941', product_values: { '2': 'KBL-16NYY' }, created_at: new Date(Date.now() - 43200000) }
+  ],
+  vfd_devices: [
+    { id: 1, brand: 'Schneider', model: 'ATV320', notes: 'Standart vinç yürütme sürücüsü', display_order: 1 },
+    { id: 2, brand: 'Mitsubishi', model: 'E840', notes: 'Kaldırma motoru sürücüsü', display_order: 2 },
+    { id: 3, brand: 'Fuji', model: 'Ace', notes: 'Ağır hizmet köprü sürücüsü', display_order: 3 }
+  ],
+  vfd_records: [
+    { id: 1, device_id: 1, record_type: 'fault', code: 'OCF', title: 'Aşırı Akım Hatası (Overcurrent)', description: 'Rampa süresi çok kısa veya mekanik fren doğrultucusu geç açıyor.', solution_steps: '1. CONF -> FULL -> FUN_ -> ACC süresini 3s yerine 5s yapın.\n2. Motor klemensinden sargı izolasyonunu megger ile test edin.', display_order: 1 },
+    { id: 2, device_id: 1, record_type: 'parameter', code: 'ACC', title: 'Hızlanma Rampası Süresi', description: 'Fabrika Değeri: 3.0s — Motorun 0\'dan nominal hıza çıkış süresi.', solution_steps: 'CONF -> FULL -> FUN_ -> ACC = 4.5s olarak ayarlayın.', display_order: 2 },
+    { id: 3, device_id: 2, record_type: 'fault', code: 'E.OC1', title: 'Hızlanma Sırasında Aşırı Akım', description: 'Motor fazlarında ani yük binmesi veya kalkış momenti düşüklüğü.', solution_steps: 'Pr.0 tork artırma değerini %4 seviyesine çıkarın.', display_order: 1 }
+  ],
+  bom_categories: [
+    { id: 1, name: 'Pano', display_order: 1 },
+    { id: 2, name: 'Kedi Tesisatı', display_order: 2 },
+    { id: 3, name: 'Köprü Yürüyüş', display_order: 3 }
+  ],
+  bom_columns: [
+    { id: 1, name: 'Sıra No', display_order: 1, is_default: true, mapped_field: 'auto_no' },
+    { id: 2, name: 'Malzeme Adı', display_order: 2, is_default: true, mapped_field: 'auto_name' },
+    { id: 3, name: 'Miktar', display_order: 3, is_default: true, mapped_field: 'auto_qty' },
+    { id: 4, name: 'Birim', display_order: 4, is_default: true, mapped_field: 'auto_unit' },
+    { id: 5, name: 'Açıklama', display_order: 5, is_default: true, mapped_field: 'auto_desc' }
+  ],
+  activity_logs: [
+    { id: 1, user_id: 1, action: 'Sistem Başlatıldı', entity_type: 'auth', entity_id: null, details: { mode: 'Sandbox Demo' }, ip_address: '127.0.0.1', created_at: new Date() }
+  ]
+};
+
+let sandboxDB = JSON.parse(JSON.stringify(DEFAULT_MOCK_DB));
+let currentRole = 'admin';
+
+function switchPanel(role) {
+  currentRole = role;
+  document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+  if (role === 'admin') document.getElementById('btnAdmin').classList.add('active');
+  if (role === 'personnel') document.getElementById('btnPersonnel').classList.add('active');
+  if (role === 'purchase') document.getElementById('btnPurchase').classList.add('active');
+
+  const frame = document.getElementById('demoFrame');
+  const targetPage = role === 'admin' ? '/admin.html' : role === 'purchase' ? '/purchase.html' : '/personnel.html';
+  frame.src = targetPage;
 }
 
-function completeSimStage(btn) {
-  const row = btn.closest('.sim-stage-row');
-  btn.outerHTML = '<span class="badge badge-ok">✅ Tamamlandı</span>';
-  row.style.opacity = '0.7';
-  demoToast('Aşama tamamlandı olarak işaretlendi ✓');
+function resetSandbox() {
+  sandboxDB = JSON.parse(JSON.stringify(DEFAULT_MOCK_DB));
+  const frame = document.getElementById('demoFrame');
+  frame.src = frame.src;
 }
 
-function claimSimStage(btn) {
-  btn.outerHTML = '<button class="btn btn-success btn-sm" onclick="completeSimStage(this)">✅ Tamamla</button>';
-  demoToast('Aşama üzerinize zimmetlendi ✓');
-}
+// ── IFRAME İÇİNDE API İSTEKLERİNİ YAKALAMA VE MOCKLAMA ──
+const frame = document.getElementById('demoFrame');
+frame.onload = function() {
+  try {
+    const win = frame.contentWindow;
+    if (!win) return;
 
-function simScanProduct() {
-  document.getElementById('simScanOutput').style.display = 'block';
-  demoToast('Barkod veritabanında doğrulandı ✓');
-}
+    // Aktif kullanıcıyı ayarla
+    const curUser = sandboxDB.users.find(u => u.role === currentRole) || sandboxDB.users[0];
+    win.localStorage.setItem('stok_token', 'demo_token_' + currentRole);
 
-function runSimVfdSearch() {
-  const code = (document.getElementById('simVfdCode').value || '').toUpperCase();
-  const res = document.getElementById('simVfdResults');
-  if (code.includes('OCF') || code.includes('OC')) {
-    res.innerHTML = `
-      <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
-          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Schneider ATV320</span>
-          <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">OCF</strong>
-        </div>
-        <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Aşırı Akım Hatası (Overcurrent)</div>
-        <div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem"><strong>Olası Neden:</strong> Rampa süresi çok kısa veya mekanik fren doğrultucusu geç açıyor.</div>
-        <div style="background:#11161f;padding:.6rem .8rem;border-radius:6px;font-size:.78rem;line-height:1.4">
-          <strong style="color:var(--accent-green);display:block;margin-bottom:.2rem">🔧 Atölye Kontrol Adımları:</strong>
-          1. Menüden CONF -> FULL -> FUN_ -> ACC süresini 3sn yerine 5sn yapın.<br>
-          2. Motor klemensinden sargı izolasyonunu megger ile test edin.
-        </div>
-      </div>
-    `;
-  } else {
-    res.innerHTML = `
-      <div style="background:var(--surface-2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
-          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ Mitsubishi E840</span>
-          <strong style="font-family:var(--mono);color:var(--accent-gold);font-size:1.1rem">${code || 'PARAMETRE'}</strong>
-        </div>
-        <div style="font-weight:700;font-size:.85rem;margin-bottom:.3rem">Standart Vinç Sürücü Ayarı</div>
-        <div style="font-size:.78rem;color:var(--text2)">Kayıtlı fabrika ve atölye parametre değerleri yüklendi.</div>
-      </div>
-    `;
+    // Iframe içerisindeki fetch çağrılarını yakala ve mock veritabanına bağla
+    win.fetch = async function(url, opts = {}) {
+      const u = typeof url === 'string' ? url : url.url;
+      const method = (opts.method || 'GET').toUpperCase();
+      const body = opts.body ? JSON.parse(opts.body) : {};
+
+      // Helper Response
+      const resOk = (data) => new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+      if (u.includes('/api/me')) return resOk(curUser);
+      if (u.includes('/api/gold')) return resOk({ price: '3450.00', usdtry: '38.20', usd_oz: '2800.00' });
+      if (u.includes('/api/notifications')) return resOk([]);
+      if (u.includes('/api/active-sessions')) return resOk({ connected_clients: 4 });
+      if (u.includes('/api/performance')) return resOk([
+        { id: 2, display_name: 'Ahmet Usta', score: 85, completed_stages: 6, in_progress: 1, tx_count: 14, avg_hours: '3.2' },
+        { id: 3, display_name: 'Mehmet Usta', score: 60, completed_stages: 4, in_progress: 1, tx_count: 8, avg_hours: '4.1' }
+      ]);
+
+      // Sütunlar & Kategoriler & BOM
+      if (u.includes('/api/columns')) return resOk(sandboxDB.columns);
+      if (u.includes('/api/bom-categories')) return resOk(sandboxDB.bom_categories);
+      if (u.includes('/api/bom-columns')) return resOk(sandboxDB.bom_columns);
+
+      // Ürünler & Stok
+      if (u.includes('/api/lots/counts')) {
+        const counts = {};
+        sandboxDB.product_lots.forEach(l => { counts[l.product_id] = (counts[l.product_id] || 0) + 1; });
+        return resOk(counts);
+      }
+      if (u.includes('/api/products') && method === 'GET') {
+        const idMatch = u.match(/\/api\/products\/(\d+)\/lots/);
+        if (idMatch) return resOk(sandboxDB.product_lots.filter(l => l.product_id == idMatch[1]));
+        return resOk(sandboxDB.products);
+      }
+      if (u.includes('/api/products') && method === 'POST') {
+        const newP = { id: Date.now(), values: body.values || {}, display_order: sandboxDB.products.length + 1 };
+        sandboxDB.products.push(newP);
+        return resOk(newP);
+      }
+
+      // Firmalar
+      if (u.includes('/api/firms')) return resOk(sandboxDB.firms);
+
+      // Vinçler & Reçeteler
+      if (u.includes('/api/machines')) {
+        const midMatch = u.match(/\/api\/machines\/(\d+)\/taken/);
+        if (midMatch) return resOk({});
+        const enriched = sandboxDB.machines.map(m => {
+          const f = sandboxDB.firms.find(x => x.id === m.firm_id);
+          return {
+            ...m,
+            firm_name: f ? f.name : '',
+            items: (m.items || []).map(it => {
+              const p = sandboxDB.products.find(x => x.id == it.product_id);
+              return { ...it, product_name: p ? (p.values['1'] || `#${p.id}`) : '—' };
+            })
+          };
+        });
+        return resOk(enriched);
+      }
+
+      // İş Panosu & Aşamalar
+      if (u.includes('/api/tasks') && method === 'GET') {
+        const enrichedTasks = sandboxDB.tasks.map(t => {
+          const f = sandboxDB.firms.find(x => x.id === t.firm_id);
+          const stages = sandboxDB.task_stages.filter(s => s.task_id === t.id).map(s => {
+            const u = sandboxDB.users.find(x => x.id === s.assigned_to);
+            return { ...s, assignee_name: u ? u.display_name : null };
+          });
+          return { ...t, firm_name: f ? f.name : '', stages };
+        });
+        return resOk(enrichedTasks);
+      }
+      if (u.includes('/api/task-stages/') && u.includes('/take')) {
+        const sid = u.match(/\/api\/task-stages\/(\d+)\/take/)[1];
+        const stg = sandboxDB.task_stages.find(s => s.id == sid);
+        if (stg) { stg.assigned_to = curUser.id; stg.status = 'in_progress'; }
+        return resOk({ ok: true });
+      }
+      if (u.includes('/api/task-stages/') && u.includes('/complete')) {
+        const sid = u.match(/\/api\/task-stages\/(\d+)\/complete/)[1];
+        const stg = sandboxDB.task_stages.find(s => s.id == sid);
+        if (stg) { stg.status = 'completed'; }
+        return resOk({ ok: true });
+      }
+      if (u.includes('/api/task-transfers/pending')) return resOk([]);
+
+      // Stok İşlemleri
+      if (u.includes('/api/transactions')) {
+        if (method === 'POST') {
+          const tx = { id: Date.now(), user_id: curUser.id, user_name: curUser.display_name, product_name: 'Malzeme', ...body, created_at: new Date() };
+          sandboxDB.transactions.unshift(tx);
+          return resOk(tx);
+        }
+        const txEnriched = sandboxDB.transactions.map(t => {
+          const p = sandboxDB.products.find(x => x.id == t.product_id);
+          const u = sandboxDB.users.find(x => x.id == t.user_id);
+          return { ...t, user_name: u ? u.display_name : 'Personel', product_name: p ? p.values['1'] : 'Malzeme' };
+        });
+        return resOk(txEnriched);
+      }
+
+      // Satın Alma
+      if (u.includes('/api/purchase-requests')) {
+        if (method === 'POST') {
+          const pr = { id: Date.now(), requested_by: curUser.id, requester_name: curUser.display_name, status: 'approved', created_at: new Date(), ...body };
+          sandboxDB.purchases.unshift(pr);
+          return resOk(pr);
+        }
+        return resOk(sandboxDB.purchases);
+      }
+      if (u.includes('/status') && method === 'PUT') {
+        const pid = u.match(/\/api\/purchase-requests\/(\d+)\/status/)[1];
+        const pr = sandboxDB.purchases.find(p => p.id == pid);
+        if (pr) { pr.status = body.status; if (body.admin_note) pr.admin_note = body.admin_note; }
+        return resOk({ ok: true });
+      }
+
+      // Sürücü & VFD Rehberi
+      if (u.includes('/api/vfd/devices')) return resOk(sandboxDB.vfd_devices);
+      if (u.includes('/api/vfd/records')) {
+        const enrichedVfd = sandboxDB.vfd_records.map(r => {
+          const dev = sandboxDB.vfd_devices.find(d => d.id === r.device_id);
+          return { ...r, brand: dev ? dev.brand : '', model: dev ? dev.model : '' };
+        });
+        return resOk(enrichedVfd);
+      }
+
+      // Kullanıcılar & Aktivite
+      if (u.includes('/api/users')) return resOk(sandboxDB.users);
+      if (u.includes('/api/activity-logs')) return resOk(sandboxDB.activity_logs);
+
+      return resOk({ ok: true });
+    };
+
+    // SSE Mock
+    win.EventSource = function() {
+      return { addEventListener: () => {}, close: () => {} };
+    };
+
+  } catch(e) {
+    console.warn('Iframe sandbox initialization error:', e);
   }
-}
+};
 
-let toastTimer;
-function demoToast(msg) {
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'show success';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.className = '', 3000);
-}
+document.addEventListener('DOMContentLoaded', () => {
+  switchPanel('admin');
+});
 </script>
 </body>
 </html>
