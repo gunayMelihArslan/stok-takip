@@ -40,13 +40,27 @@
     <div style="display:flex;align-items:center;gap:.5rem"><span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span><span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Satın Alma</span></div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section-label">Genel</div>
-    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Tedarik Paneli</div>
+    <!-- GRUP 1: GENEL BAKIŞ -->
+    <div class="nav-group" id="pgroup-genel">
+      <div class="nav-group-header" onclick="toggleNavGroup('pgroup-genel')">
+        <span>📊 Genel</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Tedarik Paneli</div>
+      </div>
+    </div>
     
-    <div class="nav-section-label">Sipariş Akışı</div>
-    <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
-    <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
-    <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
+    <!-- GRUP 2: SİPARİŞ AKIŞI -->
+    <div class="nav-group" id="pgroup-siparisler">
+      <div class="nav-group-header" onclick="toggleNavGroup('pgroup-siparisler')">
+        <span>🛒 Sipariş Akışı</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+        <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+        <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
+      </div>
+    </div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">S</div><div class="info"><div class="name" id="userName">Satın Alma</div><div class="role">Tedarikçi</div></div></div>
@@ -190,6 +204,11 @@ window.fetch = function(url, opts) {
 let purchases = [], columns = [], me = null;
 let currentPage = 'dashboard';
 
+function toggleNavGroup(groupId) {
+  const el = document.getElementById(groupId);
+  if (el) el.classList.toggle('collapsed');
+}
+
 async function init() {
   me = await api('/api/me');
   if (!me) return window.location.href = '/';
@@ -288,7 +307,15 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
   if (targetPage) targetPage.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'" + name + "'")) {
+      n.classList.add('active');
+      const grp = n.closest('.nav-group');
+      if (grp) grp.classList.remove('collapsed');
+    }
+  });
+
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
 
