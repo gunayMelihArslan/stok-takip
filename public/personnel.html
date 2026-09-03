@@ -20,8 +20,8 @@
 .dot-pending_transfer{background:var(--warning);}
 .dot-completed{background:var(--accent);}
 .transfer-alert{background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.25);border-radius:8px;padding:.75rem 1rem;display:flex;align-items:center;gap:.65rem;margin-bottom:.6rem;flex-wrap:wrap;}
-.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;}
-.firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;}
+.firm-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0 .5rem;cursor:pointer;user-select:none;padding:.3rem 0;}
+.firm-divider span{font-family:var(--mono);font-size:.68rem;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.1em;font-weight:700;}
 .firm-divider div{height:1px;flex:1;background:var(--border);}
 .search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:240px;}
 .search-box-wrap input{width:100%;padding-right:24px;}
@@ -35,6 +35,11 @@
 .vfd-tabs{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border2);padding-bottom:.5rem;}
 .vfd-tab-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.88rem;padding:.4rem .9rem;border-radius:6px;cursor:pointer;transition:all .2s;}
 .vfd-tab-btn.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border2);}
+
+/* Typeahead Arama Açılır Kutusu */
+.dd-item{padding:.55rem .85rem;cursor:pointer;border-bottom:1px solid var(--border2);font-size:.83rem;display:flex;justify-content:space-between;align-items:center;transition:background .1s;}
+.dd-item:last-child{border-bottom:none;}
+.dd-item:hover,.dd-item.selected{background:var(--accent-dim);color:var(--accent);}
 
 /* ── MOBİL DOKUNMATİK & UYUM STİLLERİ ───────────────────────────────────── */
 @media (max-width: 768px) {
@@ -58,16 +63,42 @@
     <div style="display:flex;align-items:center;gap:.5rem"><span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span><span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Personel</span></div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-item active" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
-    <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
-    <div class="nav-item" onclick="showPage('bom_lists')"><span class="nav-icon">📋</span>Malzeme Listeleri</div>
-    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
-    <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü Kılavuzu</div>
-    <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
-    <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
-    <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
-    <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📑</span>İşlem Geçmişim</div>
-    <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Satın Alma & Siparişler</div>
+    <!-- GRUP 1: İŞ & GÖREVLER -->
+    <div class="nav-group" id="pgroup-isler">
+      <div class="nav-group-header" onclick="toggleNavGroup('pgroup-isler')">
+        <span>📋 İşler & Aşamalar</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item active" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
+        <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
+        <div class="nav-item" onclick="showPage('bom_lists')"><span class="nav-icon">📋</span>Malzeme Listeleri</div>
+      </div>
+    </div>
+
+    <!-- GRUP 2: DEPO & HAREKETLER -->
+    <div class="nav-group" id="pgroup-depo">
+      <div class="nav-group-header" onclick="toggleNavGroup('pgroup-depo')">
+        <span>📦 Depo & Çıkış</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
+        <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
+        <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
+        <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
+        <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">📑</span>İşlem Geçmişim</div>
+      </div>
+    </div>
+
+    <!-- GRUP 3: TEKNİK & TEDARİK -->
+    <div class="nav-group" id="pgroup-teknik">
+      <div class="nav-group-header" onclick="toggleNavGroup('pgroup-teknik')">
+        <span>⚡ Teknik & Tedarik</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü Kılavuzu</div>
+        <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Satın Alma & Siparişler</div>
+      </div>
+    </div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">P</div><div class="info"><div class="name" id="userName">Personel</div><div class="role">Personel</div></div></div>
@@ -164,13 +195,13 @@
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün Alma Kaydı</h3></div>
         <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.8rem">
-          <div class="form-group" style="margin:0">
+          <div class="form-group" style="margin:0;position:relative">
             <label>Ürün Seçin veya Barkod Okutun</label>
             <div style="display:flex;gap:.4rem">
-              <input type="text" id="takeProductSearch" placeholder="Ürün adı veya barkod..." oninput="buildDD('take')" autocomplete="off" style="flex:1">
+              <input type="text" id="takeProductSearch" placeholder="Ürün adı veya barkod yazın..." oninput="buildDD('take')" onkeydown="handleDDKey(event, 'take')" autocomplete="off" style="flex:1">
               <button type="button" class="btn btn-primary btn-sm" onclick="openBarcodeScanner('take')" style="white-space:nowrap;padding:.4rem .8rem">📷 Tara</button>
             </div>
-            <div id="takeDD" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
+            <div id="takeDD" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:500;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);max-height:220px;overflow-y:auto;"></div>
             <input type="hidden" id="takeProductId">
           </div>
           <div id="productInfoBox" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.8rem;font-family:var(--mono);font-size:.75rem;"></div>
@@ -204,13 +235,13 @@
       <div style="max-width:520px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)"><h3 style="font-size:.92rem;font-weight:800">Ürün İadesi</h3></div>
         <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.8rem">
-          <div class="form-group" style="margin:0">
+          <div class="form-group" style="margin:0;position:relative">
             <label>Ürün veya Barkod</label>
             <div style="display:flex;gap:.4rem">
-              <input type="text" id="retProductSearch" placeholder="Ürün adı veya barkod..." oninput="buildDD('ret')" autocomplete="off" style="flex:1">
+              <input type="text" id="retProductSearch" placeholder="Ürün adı veya barkod yazın..." oninput="buildDD('ret')" onkeydown="handleDDKey(event, 'ret')" autocomplete="off" style="flex:1">
               <button type="button" class="btn btn-primary btn-sm" onclick="openBarcodeScanner('ret')" style="white-space:nowrap;padding:.4rem .8rem">📷 Tara</button>
             </div>
-            <div id="retDD" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;"></div>
+            <div id="retDD" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:500;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);max-height:220px;overflow-y:auto;"></div>
             <input type="hidden" id="retProductId">
           </div>
           <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="retCompany" list="firmList3"><datalist id="firmList3"></datalist></div>
@@ -375,6 +406,12 @@ let pVfdDevices = [], pVfdRecords = [], currentPVfdTab = 'parameter';
 let me = null;
 let html5QrCode = null;
 let activeScannerPrefix = 'take';
+let pBomFirmCollapsed = {};
+
+function toggleNavGroup(groupId) {
+  const el = document.getElementById(groupId);
+  if (el) el.classList.toggle('collapsed');
+}
 
 async function init() {
   const u = await api('/api/me');
@@ -528,7 +565,15 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
   if (targetPage) targetPage.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'" + name + "'")) {
+      n.classList.add('active');
+      const grp = n.closest('.nav-group');
+      if (grp) grp.classList.remove('collapsed');
+    }
+  });
+
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
   if (name === 'history') loadMyHistory();
@@ -660,6 +705,7 @@ function renderMyTasks() {
   });
 
   const el = document.getElementById('myTaskList');
+  if (!el) return;
   if (!myStages.length && !pendingTransfers.length) {
     el.innerHTML = '<div class="card empty"><div class="icon">🎯</div>Aktif aşamanız yok — Açık İşler menüsünden üstlenebilirsiniz</div>';
     return;
@@ -739,7 +785,13 @@ function renderOpenTasks() {
   el.innerHTML = html;
 }
 
-// ── MALZEME LİSTELERİ ─────────────────────────────────────────────────────
+// ── MALZEME LİSTELERİ (VARSAYILAN KAPALI AKORDİYON) ───────────────────────
+function togglePBomFirm(fn) {
+  const isCurrentlyCollapsed = pBomFirmCollapsed[fn] !== undefined ? pBomFirmCollapsed[fn] : true;
+  pBomFirmCollapsed[fn] = !isCurrentlyCollapsed;
+  renderBomLists();
+}
+
 function renderBomLists() {
   const fsel = document.getElementById('bomListFirmFilter');
   if (fsel) {
@@ -769,39 +821,42 @@ function renderBomLists() {
 
   let html = '';
   Object.entries(grouped).forEach(([fn, list]) => {
-    html += `<div class="firm-divider"><div></div><span>🏢 ${esc(fn)} (${list.length} Vinç)</span><div></div></div>`;
-    html += list.map(m => `
-      <div class="card" style="margin-bottom:.5rem;overflow:hidden">
-        <div class="bom-accordion-head" onclick="toggleBomItems(${m.id})">
-          <div>
-            <div style="display:flex;align-items:center;gap:.5rem">
-              <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
-              ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
-              <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem</span>
+    const isCollapsed = pBomFirmCollapsed[fn] !== undefined ? pBomFirmCollapsed[fn] : true;
+    html += `<div class="firm-divider" onclick="togglePBomFirm('${esc(fn).replace(/'/g, "\\'")}')"><div></div><span>🏢 ${esc(fn)} (${list.length} Vinç) ${isCollapsed ? '▶' : '▼'}</span><div></div></div>`;
+    if (!isCollapsed) {
+      html += list.map(m => `
+        <div class="card" style="margin-bottom:.5rem;overflow:hidden">
+          <div class="bom-accordion-head" onclick="toggleBomItems(${m.id})">
+            <div>
+              <div style="display:flex;align-items:center;gap:.5rem">
+                <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
+                ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
+                <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem</span>
+              </div>
+              ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
             </div>
-            ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
+            <div style="display:flex;gap:.35rem;align-items:center" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-sm" onclick="openBOMView(${m.id})" title="Yazdır / Orijinal BOM Görünümü">📄 Gör / Yazdır</button>
+              <button class="btn btn-ghost btn-sm" onclick="shareBOM(${m.id})" title="Listeyi Paylaş (WhatsApp / Pano)">📲 Paylaş</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="openBomEditReqModal(${m.id})" title="Yöneticiye Düzenleme Talebi Gönder">📝 Düzenleme Talebi</button>
+            </div>
           </div>
-          <div style="display:flex;gap:.35rem;align-items:center" onclick="event.stopPropagation()">
-            <button class="btn btn-ghost btn-sm" onclick="openBOMView(${m.id})" title="Yazdır / Orijinal BOM Görünümü">📄 Gör / Yazdır</button>
-            <button class="btn btn-ghost btn-sm" onclick="shareBOM(${m.id})" title="Listeyi Paylaş (WhatsApp / Pano)">📲 Paylaş</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="openBomEditReqModal(${m.id})" title="Yöneticiye Düzenleme Talebi Gönder">📝 Düzenleme Talebi</button>
+          <div id="bom-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+            ${(m.items || []).length ? `
+              <table style="font-size:.8rem;width:100%">
+                <thead><tr><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
+                <tbody>${m.items.map(it => `<tr>
+                  <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
+                  <td><strong>${esc(it.product_name || '—')}</strong></td>
+                  <td style="font-family:var(--mono);font-weight:700">${it.quantity}</td>
+                  <td style="font-family:var(--mono);color:var(--text2)">${it.machine_year || '—'}</td>
+                </tr>`).join('')}</tbody>
+              </table>
+            ` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Malzeme tanımlanmamış</span>'}
           </div>
         </div>
-        <div id="bom-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
-          ${(m.items || []).length ? `
-            <table style="font-size:.8rem;width:100%">
-              <thead><tr><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
-              <tbody>${m.items.map(it => `<tr>
-                <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
-                <td><strong>${esc(it.product_name || '—')}</strong></td>
-                <td style="font-family:var(--mono);font-weight:700">${it.quantity}</td>
-                <td style="font-family:var(--mono);color:var(--text2)">${it.machine_year || '—'}</td>
-              </tr>`).join('')}</tbody>
-            </table>
-          ` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Malzeme tanımlanmamış</span>'}
-        </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
   });
   container.innerHTML = html;
 }
@@ -923,22 +978,62 @@ function renderFirmLists() {
   const blf = document.getElementById('bomListFirmFilter'); if (blf) blf.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
 }
 
-// ── PRODUCT SEARCH DROPDOWN ───────────────────────────────────────────────
+// ── PRODUCT SEARCH TYPEAHEAD & DROPDOWN (HAFİFLETİLMİŞ) ───────────────────
+let ddHighlightedIdx = -1;
+
 function buildDD(prefix) {
   const q = (document.getElementById(prefix + 'ProductSearch')?.value || '').toLowerCase();
   const dd = document.getElementById(prefix + 'DD');
+  ddHighlightedIdx = -1;
   if (!q) { dd.style.display = 'none'; return; }
-  const matches = products.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))).slice(0, 10);
+  const matches = products.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))).slice(0, 12);
   const firstCol = columns[0];
-  if (!matches.length) { dd.style.display = 'none'; return; }
+  if (!matches.length) { 
+    dd.innerHTML = '<div style="padding:.65rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:.72rem">Eşleşen malzeme yok</div>';
+    dd.style.display = 'block'; 
+    return; 
+  }
   dd.innerHTML = matches.map(p => {
     const name = firstCol ? (p.values?.[firstCol.id] || `#${p.id}`) : `#${p.id}`;
     const numCol = columns.find(c => c.data_type === 'number');
     const qty = numCol ? (p.values?.[numCol.id] || 0) : '?';
-    return `<div style="padding:.5rem .85rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.83rem;display:flex;justify-content:space-between" onmousedown="selectProd('${prefix}',${p.id},'${esc(name).replace(/'/g, "\\'")}')">${esc(name)}<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${qty}</span></div>`;
+    return `<div class="dd-item" onmousedown="selectProd('${prefix}',${p.id},'${esc(name).replace(/'/g, "\\'")}')">
+      <span><strong>${esc(name)}</strong></span>
+      <span class="badge" style="font-family:var(--mono);font-size:.65rem">${qty} stok</span>
+    </div>`;
   }).join('');
   dd.style.display = 'block';
 }
+
+function handleDDKey(e, prefix) {
+  const dd = document.getElementById(prefix + 'DD');
+  if (!dd || dd.style.display === 'none') return;
+  const items = dd.querySelectorAll('.dd-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    ddHighlightedIdx = (ddHighlightedIdx + 1) % items.length;
+    highlightDDItem(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    ddHighlightedIdx = (ddHighlightedIdx - 1 + items.length) % items.length;
+    highlightDDItem(items);
+  } else if (e.key === 'Enter') {
+    if (ddHighlightedIdx >= 0 && items[ddHighlightedIdx]) {
+      e.preventDefault();
+      items[ddHighlightedIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    }
+  } else if (e.key === 'Escape') {
+    dd.style.display = 'none';
+  }
+}
+
+function highlightDDItem(items) {
+  items.forEach((it, i) => it.classList.toggle('selected', i === ddHighlightedIdx));
+  if (items[ddHighlightedIdx]) items[ddHighlightedIdx].scrollIntoView({ block: 'nearest' });
+}
+
 function selectProd(prefix, pid, name) {
   document.getElementById(prefix + 'ProductSearch').value = name;
   document.getElementById(prefix + 'ProductId').value = pid;
