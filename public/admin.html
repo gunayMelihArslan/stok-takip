@@ -94,44 +94,69 @@
     <div style="display:flex;align-items:center;gap:.5rem"><span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span><span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Yönetici</span></div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section-label">Genel</div>
-    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
-    
-    <div class="nav-section-label">Stok</div>
-    <div class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span>Ürünler</div>
-    
-    <div class="nav-section-label">Sütun Yönetimi</div>
-    <div class="nav-item" onclick="showPage('columns')"><span class="nav-icon">⚙️</span>Sütun Yönetimi</div>
-    
-    <div class="nav-section-label">Tanımlar</div>
-    <div class="nav-item" onclick="showPage('firms')"><span class="nav-icon">🏢</span>Firma Yönetimi</div>
-    <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Yönetimi</div>
-    <div class="nav-item" onclick="showPage('bom')"><span class="nav-icon">📄</span>BOM Sütunları</div>
-    <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
-    <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü & Parametre Kütüphanesi</div>
-    
-    <div class="nav-section-label">İş Takibi</div>
-    <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
+    <!-- GRUP 1: GENEL BAKIŞ -->
+    <div class="nav-group" id="group-genel">
+      <div class="nav-group-header" onclick="toggleNavGroup('group-genel')">
+        <span>📊 Genel Bakış</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Gösterge Paneli</div>
+        <div class="nav-item" onclick="showPage('performance')"><span class="nav-icon">🏆</span>Performans</div>
+        <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
+      </div>
+    </div>
 
-    <div class="nav-section-label">Atölye & Operasyon</div>
-    <div class="nav-item" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
-    <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
-    <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
-    <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
-    <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
-    
-    <div class="nav-section-label">Performans</div>
-    <div class="nav-item" onclick="showPage('performance')"><span class="nav-icon">🏆</span>Performans</div>
-    
-    <div class="nav-section-label">İşlemler</div>
-    <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
-    
-    <div class="nav-section-label">Tedarik</div>
-    <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
-    
-    <div class="nav-section-label">Sistem & Güvenlik</div>
-    <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
-    <div class="nav-item" onclick="showPage('activity')"><span class="nav-icon">🛡️</span>Aktivite Günlüğü</div>
+    <!-- GRUP 2: STOK & SÜTUNLAR -->
+    <div class="nav-group" id="group-stok">
+      <div class="nav-group-header" onclick="toggleNavGroup('group-stok')">
+        <span>📦 Stok & Tanımlar</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('products')"><span class="nav-icon">📦</span>Ürünler</div>
+        <div class="nav-item" onclick="showPage('columns')"><span class="nav-icon">⚙️</span>Sütun Yönetimi</div>
+        <div class="nav-item" onclick="showPage('firms')"><span class="nav-icon">🏢</span>Firma Yönetimi</div>
+        <div class="nav-item" onclick="showPage('bom')"><span class="nav-icon">📄</span>BOM Sütunları</div>
+        <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
+      </div>
+    </div>
+
+    <!-- GRUP 3: İMALAT & VİNÇ -->
+    <div class="nav-group" id="group-imalat">
+      <div class="nav-group-header" onclick="toggleNavGroup('group-imalat')">
+        <span>🏗️ İmalat & Vinç</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('machines')"><span class="nav-icon">🏗️</span>Vinç Yönetimi</div>
+        <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
+        <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü Kütüphanesi</div>
+      </div>
+    </div>
+
+    <!-- GRUP 4: ATÖLYE & OPERASYON -->
+    <div class="nav-group" id="group-atolye">
+      <div class="nav-group-header" onclick="toggleNavGroup('group-atolye')">
+        <span>⚡ Atölye Operasyon</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
+        <div class="nav-item" onclick="showPage('opentasks')"><span class="nav-icon">📭</span>Açık İşler</div>
+        <div class="nav-item" onclick="showPage('take')"><span class="nav-icon">📤</span>Ürün Al</div>
+        <div class="nav-item" onclick="showPage('bulktake')"><span class="nav-icon">🏗️</span>Vinç İçin Al</div>
+        <div class="nav-item" onclick="showPage('return')"><span class="nav-icon">↩</span>Ürün İade</div>
+        <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
+      </div>
+    </div>
+
+    <!-- GRUP 5: TEDARİK & SİSTEM -->
+    <div class="nav-group" id="group-tedarik">
+      <div class="nav-group-header" onclick="toggleNavGroup('group-tedarik')">
+        <span>🛒 Tedarik & Sistem</span><span class="group-arrow">▼</span>
+      </div>
+      <div class="nav-group-items">
+        <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+        <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
+      </div>
+    </div>
   </div>
   <div class="sidebar-footer">
     <div class="user-chip"><div class="avatar" id="avatarInit">A</div><div class="info"><div class="name" id="userName">Yönetici</div><div class="role">Admin</div></div></div>
@@ -493,6 +518,14 @@
   </div>
 </div>
 
+<!-- TOPLU İŞLEM BARI (EXCEL TİPİ SEÇİM) -->
+<div id="bulkActionsBar" class="bulk-actions-bar">
+  <span class="bulk-actions-count">✓ <span id="selectedProdCount">0</span> Ürün Seçildi</span>
+  <button class="btn btn-ghost btn-sm" onclick="bulkChangeCategory()">📁 Kategori Değiştir</button>
+  <button class="btn btn-danger btn-sm" onclick="bulkDeleteProducts()">🗑️ Seçilenleri Sil</button>
+  <button class="btn btn-ghost btn-sm" onclick="clearProdSelections()" style="color:var(--muted)">Vazgeç</button>
+</div>
+
 <!-- Modals -->
 <div class="modal-overlay" id="productModal">
   <div class="modal" style="max-width:540px">
@@ -804,6 +837,12 @@ let pendingTransfers = [], activityLogs = [], me = null;
 let vfdDevices = [], vfdRecords = [], currentVfdTab = 'parameter';
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
 let firmCollapsed = {};
+let selectedProductIds = new Set();
+
+function toggleNavGroup(groupId) {
+  const el = document.getElementById(groupId);
+  if (el) el.classList.toggle('collapsed');
+}
 
 async function init() {
   me = await api('/api/me');
@@ -1003,7 +1042,15 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
   if (targetPage) targetPage.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'" + name + "'")) {
+      n.classList.add('active');
+      const grp = n.closest('.nav-group');
+      if (grp) grp.classList.remove('collapsed');
+    }
+  });
+
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
   if (name === 'transactions') { newTxCount = 0; document.getElementById('txBadge').style.display = 'none'; }
@@ -1282,7 +1329,7 @@ function renderProducts() {
   const otherCols = columns.filter(c => (c.name || '').toLowerCase() !== 'kategori');
   const theadTr = document.getElementById('productThead')?.querySelector('tr');
   if (theadTr) {
-    theadTr.innerHTML = '<th>Sıra</th><th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name || 'Sütun')}</th>`).join('') + '<th>Model Yılı (Lot)</th><th>Sıralama</th><th></th><th>İşlem</th>';
+    theadTr.innerHTML = '<th style="width:36px;text-align:center"><input type="checkbox" id="selectAllProds" class="tbl-checkbox" onchange="toggleSelectAllProds(this)"></th><th>Sıra</th><th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name || 'Sütun')}</th>`).join('') + '<th>Model Yılı (Lot)</th><th>Sıralama</th><th></th><th>İşlem</th>';
   }
   filterProducts();
 }
@@ -1294,7 +1341,7 @@ function renderProductRows(prods) {
   const tbody = document.getElementById('productTbody');
   if (!tbody) return;
   if (!prods.length) {
-    tbody.innerHTML = `<tr><td colspan="${otherCols.length + 6}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${otherCols.length + 7}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;
     return;
   }
   tbody.innerHTML = prods.map((p, idx) => {
@@ -1302,6 +1349,7 @@ function renderProductRows(prods) {
     const nm = firstCol && p.values ? (p.values[firstCol.id] || '#' + p.id) : '#' + p.id;
     const safeNm = esc(String(nm)).replace(/'/g, "\\'");
     const safeCat = esc(String(catName)).replace(/'/g, "\\'");
+    const isChecked = selectedProductIds.has(p.id);
     const catCell = `<td><span class="badge badge-admin" style="cursor:pointer" onclick="editProductCategory(${p.id}, '${safeCat}')" title="Kategoriyi değiştir">📁 ${esc(catName)}</span></td>`;
     const cells = otherCols.map(c => {
       const val = p.values?.[c.id] ?? '';
@@ -1312,6 +1360,7 @@ function renderProductRows(prods) {
     const curOrder = p.display_order !== undefined ? p.display_order : (idx + 1);
 
     return `<tr data-pid="${p.id}">
+      <td style="text-align:center"><input type="checkbox" class="tbl-checkbox prod-check" data-pid="${p.id}" ${isChecked ? 'checked' : ''} onchange="onProdCheckChange(this, ${p.id})"></td>
       <td style="font-family:var(--mono);color:var(--muted);width:50px">${curOrder}</td>
       ${catCell}
       ${cells}
@@ -1345,6 +1394,7 @@ function filterProducts() {
     });
   }
   renderProductRows(prods);
+  updateBulkActionBar();
 }
 
 function openProductModal() {
@@ -1474,9 +1524,84 @@ async function editProductCategory(pid, curCat) {
 async function deleteProduct(id) {
   if (!confirm('Silmek istediğinizden emin misiniz?')) return;
   await api('/api/products/' + id, 'DELETE');
+  selectedProductIds.delete(id);
   await loadProducts();
   renderProducts();
   toast('Silindi ✓', 'success');
+}
+
+// ── TOPLU SEÇİM & İŞLEM FONKSİYONLARI (EXCEL TİPİ) ─────────────────────────
+function onProdCheckChange(chk, pid) {
+  if (chk.checked) selectedProductIds.add(pid);
+  else selectedProductIds.delete(pid);
+  updateBulkActionBar();
+}
+
+function toggleSelectAllProds(masterChk) {
+  const checks = document.querySelectorAll('.prod-check');
+  checks.forEach(chk => {
+    const pid = parseInt(chk.getAttribute('data-pid'));
+    chk.checked = masterChk.checked;
+    if (masterChk.checked) selectedProductIds.add(pid);
+    else selectedProductIds.delete(pid);
+  });
+  updateBulkActionBar();
+}
+
+function updateBulkActionBar() {
+  const bar = document.getElementById('bulkActionsBar');
+  const cnt = document.getElementById('selectedProdCount');
+  if (!bar) return;
+  if (selectedProductIds.size > 0) {
+    cnt.textContent = selectedProductIds.size;
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function clearProdSelections() {
+  selectedProductIds.clear();
+  const master = document.getElementById('selectAllProds');
+  if (master) master.checked = false;
+  document.querySelectorAll('.prod-check').forEach(chk => chk.checked = false);
+  updateBulkActionBar();
+}
+
+async function bulkChangeCategory() {
+  if (!selectedProductIds.size) return;
+  const catOpts = bomCategories.map(c => c.name).filter(Boolean);
+  let promptMsg = `Seçilen ${selectedProductIds.size} ürün için yeni BOM Kategorisi giriniz:\n`;
+  if (catOpts.length > 0) promptMsg += 'Kategoriler: ' + catOpts.join(', ') + '\n';
+  const newCat = prompt(promptMsg, 'Genel');
+  if (newCat === null) return;
+  const trimmed = newCat.trim() || 'Genel';
+  const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
+
+  for (const pid of selectedProductIds) {
+    const p = products.find(x => x.id === pid);
+    if (p) {
+      const vals = Object.assign({}, p.values, { category: trimmed, _category: trimmed });
+      if (catCol) vals[catCol.id] = trimmed;
+      await api('/api/products/' + pid, 'PUT', { values: vals });
+    }
+  }
+  clearProdSelections();
+  await loadProducts();
+  renderProducts();
+  toast('Seçilen ürünlerin kategorisi güncellendi ✓', 'success');
+}
+
+async function bulkDeleteProducts() {
+  if (!selectedProductIds.size) return;
+  if (!confirm(`Seçilen ${selectedProductIds.size} ürünü kalıcı olarak silmek istediğinizden emin misiniz?`)) return;
+  for (const pid of selectedProductIds) {
+    await api('/api/products/' + pid, 'DELETE');
+  }
+  clearProdSelections();
+  await loadProducts();
+  renderProducts();
+  toast('Seçilen ürünler silindi ✓', 'success');
 }
 
 async function moveEntityOrder(type, id, direction) {
@@ -1518,12 +1643,35 @@ async function moveEntityOrder(type, id, direction) {
 }
 
 function startEdit(td, pid, cid, dtype) {
-  if (editingCell) cancelEdit();
+  if (editingCell) commitEdit();
   const oldVal = td.querySelector('.badge') ? td.querySelector('.badge').textContent.trim() : td.textContent.trim();
-  editingCell = { td, pid, cid, oldVal };
-  td.innerHTML = `<input class="inline-edit" type="${dtype === 'number' ? 'number' : 'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;
+  editingCell = { td, pid, cid, oldVal, dtype };
+  td.innerHTML = `<input class="inline-edit" type="${dtype === 'number' ? 'number' : 'text'}" value="${esc(oldVal)}">`;
   const inp = td.querySelector('input');
-  if (inp) { inp.focus(); inp.select(); }
+  if (inp) {
+    inp.focus(); inp.select();
+    inp.addEventListener('blur', commitEdit);
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { commitEdit(); }
+      else if (e.key === 'Escape') { cancelEdit(); }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        commitEdit();
+        moveToNextEditableCell(td, e.shiftKey ? -1 : 1);
+      }
+    });
+  }
+}
+
+function moveToNextEditableCell(currentTd, direction) {
+  const allEditables = Array.from(document.querySelectorAll('#productTbody td.editable'));
+  const currentIndex = allEditables.indexOf(currentTd);
+  if (currentIndex === -1) return;
+  const targetIndex = currentIndex + direction;
+  if (targetIndex >= 0 && targetIndex < allEditables.length) {
+    const nextTd = allEditables[targetIndex];
+    nextTd.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  }
 }
 
 async function commitEdit() {
@@ -1712,9 +1860,10 @@ async function deleteFirm(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── MACHINES ─────────────────────────────────────────────────────────────
+// ── MACHINES (VARSAYILAN KAPALI AKORDİYON) ────────────────────────────────
 function toggleFirmAccordion(fn) {
-  firmCollapsed[fn] = !firmCollapsed[fn];
+  const isCurrentlyCollapsed = firmCollapsed[fn] !== undefined ? firmCollapsed[fn] : true;
+  firmCollapsed[fn] = !isCurrentlyCollapsed;
   renderMachines();
 }
 
@@ -1744,7 +1893,8 @@ function renderMachines() {
   
   let html = '';
   Object.entries(grouped).forEach(([fn, list2]) => {
-    const isCollapsed = firmCollapsed[fn] || false;
+    // Varsayılan olarak kapalı (true) ayarlandı
+    const isCollapsed = firmCollapsed[fn] !== undefined ? firmCollapsed[fn] : true;
     html += `
       <div class="firm-divider" onclick="toggleFirmAccordion('${esc(fn).replace(/'/g, "\\'")}')">
         <div></div>
@@ -2933,7 +3083,7 @@ function makeSortable(tblId) {
   tbl.dataset.sortable = '1';
   var ths = tbl.querySelectorAll('thead th');
   ths.forEach(function(th, i) {
-    if (th.textContent.includes('İşlem') || th.textContent.includes('Sıralama')) return;
+    if (th.textContent.includes('İşlem') || th.textContent.includes('Sıralama') || th.querySelector('input')) return;
     th.style.cursor = 'pointer';
     th.style.userSelect = 'none';
     var sp = document.createElement('span');
@@ -3085,7 +3235,7 @@ function renderBomCategories() {
       <button class="btn btn-ghost btn-sm" onclick="editBomCat(${c.id})">Düzenle</button>
       <button class="btn btn-danger btn-sm" onclick="deleteBomCat(${c.id})">Sil</button>
     </td>
-  </tr>`).join('') : '<tr><td colspan="4" class="empty">Kategori yok</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">Kategori yok</td></tr>';
 }
 
 function openBomCatModal() {
