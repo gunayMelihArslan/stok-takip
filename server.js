@@ -1418,25 +1418,22 @@ app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
   try {
     const { status, admin_note, actual_qty, delivery_status, delivery_note } = req.body;
     const pr = (await query("SELECT * FROM purchase_requests WHERE id=$1", [req.params.id])).rows[0];
-    if (!pr) return res.status(404).json({ error: 'Bulunamadı' });
+    if (!pr) return res.status(404).json({ error: 'Talep bulunamadı' });
 
-    if ((status === 'approved' || status === 'rejected') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
-      return res.status(403).json({ error: 'Bu durum değişikliği için yönetici yetkisi gerekli' });
-    }
-    if ((status === 'ordered' || status === 'shipping') && req.user.role !== 'admin' && req.user.role !== 'purchase') {
-      return res.status(403).json({ error: 'Tedarik yetkisi gerekli' });
-    }
-    if (status === 'received' && req.user.role !== 'admin' && req.user.role !== 'purchase' && req.user.role !== 'personnel') {
-      return res.status(403).json({ error: 'Yetkisiz işlem' });
+    // YETKİ KONTROLÜ (Admin ve Satın Alma personeli her durumu güncelleyebilir, Personel yalnızca depoda teslim alma yapabilir)
+    const isManager = req.user.role === 'admin' || req.user.role === 'purchase';
+    
+    if (!isManager && status !== 'received') {
+      return res.status(403).json({ error: 'Bu işlem için satın alma veya yönetici yetkisi gerekli' });
     }
 
     const pVals = pr.product_values || {};
-    if (actual_qty !== undefined) pVals.actual_qty = actual_qty;
+    if (actual_qty !== undefined && actual_qty !== null) pVals.actual_qty = actual_qty;
     if (delivery_status !== undefined) pVals.delivery_status = delivery_status;
     if (delivery_note !== undefined) pVals.delivery_note = delivery_note;
 
     await query("UPDATE purchase_requests SET status=$1, admin_note=$2, product_values=$3, updated_at=NOW() WHERE id=$4", 
-      [status, admin_note !== undefined ? admin_note : (pr.admin_note || ''), JSON.stringify(pVals), req.params.id]);
+      [status || pr.status, admin_note !== undefined ? admin_note : (pr.admin_note || ''), JSON.stringify(pVals), req.params.id]);
 
     const uName = req.user.display_name || req.user.username;
 
@@ -1448,11 +1445,11 @@ app.put('/api/purchase-requests/:id/status', auth, async (req, res) => {
         }
       }
     } else {
-      const labels = { approved: '✅ İşleme Alındı', rejected: '❌ Reddedildi', ordered: '🚚 Sipariş Verildi', shipping: '🚚 Sipariş Edildi', received: '📦 Teslim Alındı' };
-      if (labels[status]) await createNotif(pr.requested_by, 'Satın Alma: ' + labels[status], pr.product_name + (admin_note ? ' — ' + admin_note : ''), 'purchase');
+      const labels = { approved: '✅ Onaylandı (Sipariş Bekliyor)', rejected: '❌ Reddedildi', ordered: '🚚 Tedarikçiden Sipariş Edildi', shipping: '🚢 Sevkiyatta', received: '📦 Depoya Ulaştı (Teslim Alındı)' };
+      if (labels[status]) await createNotif(pr.requested_by, 'Talep Durumu: ' + labels[status], pr.product_name + (admin_note ? ' — ' + admin_note : ''), 'purchase');
     }
 
-    await logActivity(req.user.id, 'Satın Alma Durumu Güncellendi: ' + status, 'purchase_request', parseInt(req.params.id), { status, admin_note, delivery_status, actual_qty }, req);
+    await logActivity(req.user.id, 'Talep Durumu Güncellendi: ' + (status || pr.status), 'purchase_request', parseInt(req.params.id), { status, admin_note, delivery_status, actual_qty }, req);
     broadcast('purchase_new', {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
