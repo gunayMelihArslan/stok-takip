@@ -50,13 +50,13 @@
       </div>
     </div>
     
-    <!-- GRUP 2: SİPARİŞ AKIŞI -->
+    <!-- GRUP 2: TALEP & TEDARİK AKIŞI -->
     <div class="nav-group" id="pgroup-siparisler">
       <div class="nav-group-header" onclick="toggleNavGroup('pgroup-siparisler')">
-        <span>🛒 Sipariş Akışı</span><span class="group-arrow">▼</span>
+        <span>🛒 Tedarik Akışı</span><span class="group-arrow">▼</span>
       </div>
       <div class="nav-group-items">
-        <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">🛒</span>Sipariş Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+        <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">📋</span>Talep Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
       </div>
@@ -81,13 +81,13 @@
     <!-- 1. DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="stats-row" id="statsRow">
-        <div class="stat-card"><div class="label">Satın Alım Aşamasında</div><div class="value" id="dashPending" style="color:var(--warning)">0</div><div class="sub">işleme alınacak</div></div>
-        <div class="stat-card"><div class="label">Sipariş Edilen / Alınan</div><div class="value" id="dashShipping" style="color:var(--accent)">0</div><div class="sub">alım tamamlandı</div></div>
+        <div class="stat-card"><div class="label">Onaylanan Talepler</div><div class="value" id="dashPending" style="color:var(--warning)">0</div><div class="sub">sipariş geçilecek</div></div>
+        <div class="stat-card"><div class="label">Sipariş Edilenler</div><div class="value" id="dashShipping" style="color:var(--accent)">0</div><div class="sub">tedarikçide</div></div>
         <div class="stat-card"><div class="label">Atölyeye Ulaşan</div><div class="value" id="dashReceived" style="color:var(--success)">0</div><div class="sub">teslim tamamlandı</div></div>
-        <div class="stat-card"><div class="label">Toplam İşlem</div><div class="value" id="dashTotal">0</div><div class="sub">kayıt</div></div>
+        <div class="stat-card"><div class="label">Toplam Talep</div><div class="value" id="dashTotal">0</div><div class="sub">kayıt</div></div>
       </div>
       <div class="card" style="margin-top:1rem">
-        <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">⚡ İşlem Bekleyen Siparişler</div>
+        <div style="padding:.8rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem">⚡ Sipariş Bekleyen Talepler</div>
         <div class="table-wrap"><table>
           <thead><tr><th>Tarih</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
           <tbody id="dashUrgentTbody"></tbody>
@@ -95,18 +95,18 @@
       </div>
     </div>
 
-    <!-- 2. SİPARİŞ HAVUZU (ORDERS) -->
+    <!-- 2. TALEP HAVUZU (ORDERS) -->
     <div class="page" id="page-orders">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
           <div class="search-box-wrap">
-            <input type="text" id="orderSearch" placeholder="🔍 Sipariş veya iş ara..." oninput="handleSearchInput(this, renderOrders)">
+            <input type="text" id="orderSearch" placeholder="🔍 Talep veya iş ara..." oninput="handleSearchInput(this, renderOrders)">
             <button class="search-clear-btn" onclick="clearSearchInput('orderSearch', renderOrders)">✕</button>
           </div>
-          <select id="orderStatusFilter" style="max-width:180px" onchange="renderOrders()">
+          <select id="orderStatusFilter" style="max-width:210px" onchange="renderOrders()">
             <option value="">Tüm Aktif Durumlar</option>
-            <option value="approved">⏳ Satın Alım Aşamasında</option>
-            <option value="ordered">🚚 Sipariş Edildi / Alım Yapıldı</option>
+            <option value="approved">⏳ Onaylandı (Sipariş Bekliyor)</option>
+            <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
           </select>
         </div>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
@@ -125,7 +125,7 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Alım & Tedarik Notu</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Talep Tarihi</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Tedarik & Sipariş Notu</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="shippingTbody"></tbody>
       </table></div></div>
     </div>
@@ -140,7 +140,7 @@
         <button class="btn btn-ghost" onclick="loadPurchases();renderCompleted()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Kayıt Tarihi</th><th>Teslim Edilen Ürün & Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Alım Notu</th><th>Son Durum</th></tr></thead>
+        <thead><tr><th>Talep Tarihi</th><th>Teslim Edilen Ürün & Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Tedarik / Fatura Notu</th><th>Son Durum</th></tr></thead>
         <tbody id="completedTbody"></tbody>
       </table></div></div>
     </div>
@@ -148,7 +148,7 @@
   </div>
 </div>
 
-<!-- SİPARİŞ DURUMU GÜNCELLEME MODALI -->
+<!-- TEDARİK DURUMU GÜNCELLEME MODALI -->
 <div class="modal-overlay" id="processModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
@@ -164,20 +164,20 @@
       </div>
       
       <div class="form-group">
-        <label>Gerçek Gelen / Alınan Miktar</label>
-        <input type="number" id="processActualQty" min="0.01" step="any" placeholder="Farklı miktar geldiyse yazın (Opsiyonel)">
+        <label>Gerçek Gelen / Sipariş Edilen Miktar</label>
+        <input type="number" id="processActualQty" min="0.01" step="any" placeholder="Farklı miktar alındıysa yazın (Opsiyonel)">
       </div>
 
       <div class="form-group">
         <label>Tedarik Aşaması *</label>
         <select id="processStatusSelect" style="width:100%">
-          <option value="ordered">🚚 Sipariş Edildi / Alım Yapıldı</option>
-          <option value="approved">⏳ Satın Alım Aşamasında (İşleme Alındı)</option>
+          <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
+          <option value="approved">⏳ Onaylandı (Sipariş Bekliyor)</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Tedarikçi / Alım Notu</label>
-        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından şu kadar alındı, fatura no vb..."></textarea>
+        <label>Tedarikçi / Sipariş / Fatura Notu</label>
+        <textarea id="processAdminNote" rows="3" placeholder="Örn: X firmasından sipariş geçildi, teslimat Cuma günü..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -289,15 +289,15 @@ function updateBadges() {
 
 const PRST = {
   pending: { l: '⏳ Onay Bekliyor', c: 'var(--muted)' },
-  approved: { l: '⏳ Satın Alım Aşamasında', c: 'var(--warning)' },
-  ordered: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' },
-  received: { l: '📦 Depoya Ulaştı (Teslim)', c: 'var(--success)' },
-  rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
+  approved: { l: '⏳ Onaylandı (Sipariş Bekliyor)', c: 'var(--warning)' },
+  ordered: { l: '🚚 Tedarikçiden Sipariş Edildi', c: 'var(--accent)' },
+  received: { l: '📦 Depoya Ulaştı (Teslim Alındı)', c: 'var(--success)' },
+  rejected: { l: '❌ Talep Reddedildi', c: 'var(--danger)' }
 };
 
 const pageTitles = {
   dashboard: 'Tedarik Paneli',
-  orders: 'Sipariş & Tedarik Havuzu',
+  orders: 'Talep & Tedarik Havuzu',
   shipping: 'Sipariş Edilenler',
   completed: 'Teslim Alınanlar Arşivi'
 };
@@ -338,7 +338,7 @@ function renderExtraTags(p) {
   }).filter(Boolean).join('');
 
   if (product_values.actual_qty && parseFloat(product_values.actual_qty) !== parseFloat(p.quantity)) {
-    html += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gerçek Alınan:</strong> ${product_values.actual_qty} ${esc(p.unit || 'adet')}</span>`;
+    html += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gerçek Sipariş / Alınan:</strong> ${product_values.actual_qty} ${esc(p.unit || 'adet')}</span>`;
   }
   return html;
 }
@@ -358,7 +358,7 @@ function renderDashboard() {
   const tbody = document.getElementById('dashUrgentTbody');
   if (!tbody) return;
   if (!urgent.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">İşlem bekleyen sipariş yok</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">İşlem bekleyen talep yok</td></tr>';
     return;
   }
   tbody.innerHTML = urgent.map(p => {
@@ -373,12 +373,12 @@ function renderDashboard() {
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span></td>
-      <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ İşle</button></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Et</button></td>
     </tr>`;
   }).join('');
 }
 
-// ── 2. ORDERS ─────────────────────────────────────────────────────────────
+// ── 2. TALEP HAVUZU (ORDERS) ──────────────────────────────────────────────
 function renderOrders() {
   const q = (document.getElementById('orderSearch')?.value || '').toLowerCase();
   const f = document.getElementById('orderStatusFilter')?.value || '';
@@ -398,7 +398,7 @@ function renderOrders() {
   const cont = document.getElementById('ordersContainer');
   if (!cont) return;
   if (!list.length) {
-    cont.innerHTML = '<div class="card empty"><div class="icon">🛒</div>Sipariş havuzunda ürün bulunamadı</div>';
+    cont.innerHTML = '<div class="card empty"><div class="icon">🛒</div>Talep havuzunda ürün bulunamadı</div>';
     return;
   }
 
@@ -419,7 +419,7 @@ function renderOrders() {
           </div>
           <div style="display:flex;gap:.4rem;align-items:center">
             <span style="font-family:var(--mono);font-size:.72rem;color:${st.c};font-weight:700">${st.l}</span>
-            <button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Güncelle</button>
+            <button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Bilgisi Gir</button>
           </div>
         </div>
         <div class="purchase-body">
@@ -428,15 +428,15 @@ function renderOrders() {
             <div style="font-size:.82rem;color:var(--text2)">${p.reason ? `<strong>Talep Açıklaması:</strong> ${esc(p.reason)}` : 'Açıklama girilmedi.'}</div>
             <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">İlgili İş / Vinç: <strong>${esc(p.task_title || 'Genel Atölye İhtiyacı')}</strong></div>
             <div class="status-timeline">
-              <div class="timeline-step completed">✓ 1. Admin Onayı</div>
-              <div class="timeline-step ${isOrdered || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Satın Alım Aşamasında</div>
-              <div class="timeline-step ${isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Sipariş Edildi / Alındı</div>
-              <div class="timeline-step ${isReceived ? 'completed' : ''}">4. Depoya Teslim</div>
+              <div class="timeline-step completed">✓ 1. Talep Oluşturuldu</div>
+              <div class="timeline-step ${isOrdered || isReceived ? 'completed' : isApproved ? 'active' : ''}">2. Yönetici Onayladı</div>
+              <div class="timeline-step ${isReceived ? 'completed' : isOrdered ? 'active' : ''}">3. Tedarikçiden Sipariş Edildi</div>
+              <div class="timeline-step ${isReceived ? 'completed' : ''}">4. Atölyeye Teslim Edildi</div>
             </div>
           </div>
           <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem;font-size:.75rem">
-            <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Alım Notu:</div>
-            <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz alım/tedarikçi bilgisi girilmedi.</span>'}</div>
+            <div style="color:var(--muted);font-weight:700;margin-bottom:.2rem">Tedarikçi & Sipariş Notu:</div>
+            <div style="color:var(--text)">${p.admin_note ? esc(p.admin_note) : '<span style="color:var(--muted)">Henüz sipariş/tedarikçi bilgisi girilmedi.</span>'}</div>
             <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.4rem">Kayıt: ${fmtDate(p.created_at)}</div>
           </div>
         </div>
@@ -462,7 +462,7 @@ function renderShipping() {
   const tbody = document.getElementById('shippingTbody');
   if (!tbody) return;
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Sipariş edilmiş / alınan ürün bulunmuyor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Tedarikçiye sipariş edilmiş ürün bulunmuyor</td></tr>';
     return;
   }
 
@@ -540,7 +540,7 @@ async function saveProcessOrder() {
   const admin_note = document.getElementById('processAdminNote').value.trim();
   const actual_qty = parseFloat(document.getElementById('processActualQty').value) || null;
 
-  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { status, admin_note, actual_qty });
+  const r = await api('/api/purchase-requests/' + id, 'PUT', { status, admin_note, actual_qty });
   if (!r) return;
 
   closeModal('processModal');
