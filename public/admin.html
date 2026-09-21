@@ -127,7 +127,7 @@
     <div class="nav-item" onclick="showPage('transactions')"><span class="nav-icon">📑</span>İşlem Geçmişi <span id="txBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
     
     <div class="nav-section-label">Tedarik</div>
-    <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+    <div class="nav-item" onclick="showPage('purchases')"><span class="nav-icon">🛒</span>Satın Alma Talepleri <span id="purchaseBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
     
     <div class="nav-section-label">Sistem & Güvenlik</div>
     <div class="nav-item" onclick="showPage('users')"><span class="nav-icon">👥</span>Kullanıcılar</div>
@@ -385,7 +385,7 @@
       <div class="card"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>Firma</th><th>Miktar</th><th>Tür</th><th>Not</th><th></th></tr></thead><tbody id="txTbody"></tbody></table></div></div>
     </div>
 
-    <!-- PURCHASES -->
+    <!-- PURCHASES (SATIN ALMA TALEPLERİ) -->
     <div class="page" id="page-purchases">
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -393,22 +393,22 @@
             <input type="text" id="purchaseSearch" placeholder="🔍 Talep / Ürün / İş ara..." oninput="handleSearchInput(this, renderPurchases)">
             <button class="search-clear-btn" onclick="clearSearchInput('purchaseSearch', renderPurchases)">✕</button>
           </div>
-          <select id="prFilter" style="max-width:170px" onchange="renderPurchases()">
+          <select id="prFilter" style="max-width:210px" onchange="renderPurchases()">
             <option value="">Tüm Durumlar</option>
-            <option value="pending">⏳ Bekliyor</option>
-            <option value="approved">✅ Onaylandı</option>
-            <option value="ordered">🚚 Sipariş</option>
+            <option value="pending">⏳ Onay Bekliyor</option>
+            <option value="approved">✅ Onaylandı (Sipariş Bekliyor)</option>
+            <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
             <option value="shipping">🚢 Sevkiyatta</option>
-            <option value="received">📦 Teslim</option>
-            <option value="rejected">❌ Reddedildi</option>
+            <option value="received">📦 Depoya Ulaştı (Teslim Alındı)</option>
+            <option value="rejected">❌ Talep Reddedildi</option>
           </select>
         </div>
-        <button class="btn btn-primary" onclick="openPurchaseModal()">+ Yeni Sipariş / Talep Oluştur</button>
+        <button class="btn btn-primary" onclick="openPurchaseModal()">+ Yeni Malzeme Talebi Oluştur</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderPurchases()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table id="purchaseTable">
-        <thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>Neden</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Talep Tarihi</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>Talep Nedeni</th><th>İş / Vinç</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="purchaseTbody"></tbody>
       </table></div></div>
     </div>
@@ -688,9 +688,10 @@
   </div>
 </div>
 
+<!-- SATIN ALMA / MALZEME TALEBİ MODALI -->
 <div class="modal-overlay" id="purchaseModal">
   <div class="modal" style="max-width:540px">
-    <div class="modal-header"><h3 id="purchaseModalTitle">🛒 Satın Alma / Sipariş Talebi</h3><button class="modal-close" onclick="closeModal('purchaseModal')">×</button></div>
+    <div class="modal-header"><h3 id="purchaseModalTitle">🛒 Yeni Malzeme Talebi Oluştur</h3><button class="modal-close" onclick="closeModal('purchaseModal')">×</button></div>
     <div class="modal-body" style="max-height:75vh;overflow-y:auto">
       <input type="hidden" id="editPurchaseId">
       <div class="form-group"><label>Malzeme / Ürün Adı *</label><input type="text" id="prModalName" placeholder="Örn: 10mm² NYY Kablo"></div>
@@ -699,12 +700,20 @@
         <div class="form-group"><label>Birim</label><input type="text" id="prModalUnit" value="adet" placeholder="adet"></div>
       </div>
       <div class="form-group"><label>İlgili İş / Vinç (Opsiyonel)</label><select id="prModalTask" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
-      <div class="form-group"><label>Talep / Sipariş Nedeni</label><textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea></div>
-      <div class="form-group"><label>Sipariş Durumu</label><select id="prModalStatus" style="width:100%"><option value="approved">✅ Onaylandı</option><option value="pending">⏳ Beklemede</option><option value="ordered">🚚 Sipariş Verildi</option><option value="shipping">🚢 Sevkiyatta</option><option value="received">📦 Teslim Alındı</option></select></div>
+      <div class="form-group"><label>Talep Nedeni / Açıklama</label><textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea></div>
+      <div class="form-group"><label>Tedarik / Talep Durumu</label>
+        <select id="prModalStatus" style="width:100%">
+          <option value="approved">✅ Onaylandı (Sipariş Bekliyor)</option>
+          <option value="pending">⏳ Onay Bekliyor</option>
+          <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
+          <option value="shipping">🚢 Sevkiyatta</option>
+          <option value="received">📦 Depoya Ulaştı (Teslim Alındı)</option>
+        </select>
+      </div>
       <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem"></div>
-      <div class="form-group" style="margin-top:.75rem"><label>Tedarikçi / Kargo / Yönetici Notu</label><input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, takip no veya özel not..."></div>
+      <div class="form-group" style="margin-top:.75rem"><label>Tedarikçi / Sipariş / Kargo Notu</label><input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, sipariş no, kargo takip veya özel not..."></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Siparişi Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Talebi Kaydet</button></div>
   </div>
 </div>
 
@@ -1322,8 +1331,8 @@ function renderProductRows(prods) {
       </td>
       <td>
         <div class="order-btn-wrap">
-          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, -1)" title="Yukarı Taşı">▲</button>
-          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, 1)" title="Aşağı Taşı">▼</button>
+          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, -1)">▲</button>
+          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, 1)">▼</button>
         </div>
       </td>
       <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})" title="Stok Geçmişi">📋</button></td>
@@ -2744,7 +2753,7 @@ async function saveComment() {
   await loadComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA TALEP / SİPARİŞ YÖNETİMİ ──────────────────────────────────
+// ── SATIN ALMA / TALEP YÖNETİMİ ──────────────────────────────────────────
 var _purchases = [];
 async function loadPurchases() { _purchases = await api('/api/purchase-requests') || []; renderPurchaseBadge(); }
 function renderPurchaseBadge() {
@@ -2753,7 +2762,14 @@ function renderPurchaseBadge() {
   if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline' : 'none'; }
 }
 
-var PRST = { pending: { l: '⏳ Bekliyor', c: 'var(--warning)' }, approved: { l: '✅ Onaylandı', c: 'var(--success)' }, rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }, ordered: { l: '🚚 Sipariş', c: 'var(--accent)' }, shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' }, received: { l: '📦 Teslim', c: '#1a6b56' } };
+var PRST = {
+  pending: { l: '⏳ Onay Bekliyor', c: 'var(--warning)' },
+  approved: { l: '✅ Onaylandı (Sipariş Bekliyor)', c: 'var(--success)' },
+  rejected: { l: '❌ Talep Reddedildi', c: 'var(--danger)' },
+  ordered: { l: '🚚 Tedarikçiden Sipariş Edildi', c: 'var(--accent)' },
+  shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' },
+  received: { l: '📦 Depoya Ulaştı (Teslim Alındı)', c: '#1a6b56' }
+};
 
 function renderPurchases() {
   var sq = (document.getElementById('purchaseSearch')?.value || '').toLowerCase();
@@ -2795,11 +2811,11 @@ function renderPurchases() {
       ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏️</button>
-        ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Reddet">✗</button> ` : ''}
-        ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Sipariş Ver">🚚</button> ` : ''}
-        ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Kargoya Ver">🚢</button> ` : ''}
-        ${p.status === 'shipping' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'received')" title="Teslim Al">📦</button> ` : ''}
-        <button class="btn btn-danger btn-sm" onclick="delPR(${p.id})" title="Sil">×</button>
+        ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Talebi Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Talebi Reddet">✗</button> ` : ''}
+        ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Tedarikçiye Sipariş Ver">🚚</button> ` : ''}
+        ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Sevkiyata Ver">🚢</button> ` : ''}
+        ${p.status === 'shipping' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'received')" title="Depoda Teslim Al">📦</button> ` : ''}
+        <button class="btn btn-danger btn-sm" onclick="delPR(${p.id})" title="Talebi Sil">×</button>
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="8" class="empty">Talep yok</td></tr>';
@@ -2813,7 +2829,7 @@ function openPurchaseModal() {
   document.getElementById('prModalReason').value = '';
   document.getElementById('prModalStatus').value = 'approved';
   document.getElementById('prModalAdminNote').value = '';
-  document.getElementById('purchaseModalTitle').textContent = '🛒 Yeni Satın Alma / Sipariş Oluştur';
+  document.getElementById('purchaseModalTitle').textContent = '🛒 Yeni Malzeme Talebi Oluştur';
 
   const tsel = document.getElementById('prModalTask');
   tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.filter(t => t.status !== 'completed').map(t => `<option value="${t.id}">${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
@@ -2832,7 +2848,7 @@ function editPurchaseModal(id) {
   document.getElementById('prModalReason').value = p.reason || '';
   document.getElementById('prModalStatus').value = p.status || 'approved';
   document.getElementById('prModalAdminNote').value = p.admin_note || '';
-  document.getElementById('purchaseModalTitle').textContent = '✏️ Satın Alma Talebini Düzenle';
+  document.getElementById('purchaseModalTitle').textContent = '✏️ Malzeme Talebini Düzenle';
 
   const tsel = document.getElementById('prModalTask');
   tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.map(t => `<option value="${t.id}" ${t.id == p.task_id ? 'selected' : ''}>${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
@@ -2885,17 +2901,17 @@ async function savePurchaseRequest() {
   closeModal('purchaseModal');
   await loadPurchases();
   renderPurchases();
-  toast(id ? 'Sipariş güncellendi ✓' : 'Yeni sipariş oluşturuldu ✓', 'success');
+  toast(id ? 'Talep güncellendi ✓' : 'Yeni talep oluşturuldu ✓', 'success');
 }
 
 async function setPR(id, status) {
-  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Red' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Sipariş') + ' notu:') || '') : '';
-  await api('/api/purchase-requests/' + id + '/status', 'PUT', { status: status, admin_note: note });
+  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Talep Reddetme' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Tedarikçi / Sipariş') + ' notu:') || '') : '';
+  await api('/api/purchase-requests/' + id, 'PUT', { status: status, admin_note: note });
   await loadPurchases(); renderPurchases(); toast('Güncellendi ✓', 'success');
 }
 
 async function delPR(id) {
-  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  if (!confirm('Talebi silmek istediğinizden emin misiniz?')) return;
   await api('/api/purchase-requests/' + id, 'DELETE');
   await loadPurchases(); renderPurchases(); toast('Silindi ✓', 'success');
 }
