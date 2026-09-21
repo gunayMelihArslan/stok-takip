@@ -96,7 +96,7 @@
       </div>
       <div class="nav-group-items">
         <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü Kılavuzu</div>
-        <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Satın Alma & Siparişler</div>
+        <div class="nav-item" onclick="showPage('purchase')"><span class="nav-icon">🛒</span>Malzeme Taleplerim</div>
       </div>
     </div>
   </div>
@@ -252,13 +252,13 @@
       </div></div>
     </div>
 
-    <!-- PURCHASE (Satın Alma & Tüm Sipariş Havuzu) -->
+    <!-- PURCHASE (Satın Alma / Malzeme Talebi & Tedarik Havuzu) -->
     <div class="page" id="page-purchase">
       <div style="max-width:540px;margin-bottom:1.25rem">
         <div class="card">
           <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
-            <h3 style="font-size:.92rem;font-weight:800">📦 Yeni Satın Alma Talebi</h3>
-            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">İhtiyaç duyulan malzemeyi yazın, yönetici onayına iletilecektir</p>
+            <h3 style="font-size:.92rem;font-weight:800">📦 Yeni Malzeme Talebi Oluştur</h3>
+            <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">İhtiyaç duyulan malzemeyi girin, yönetici onayına ve satın almaya iletilecektir</p>
           </div>
           <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.75rem">
             <div class="form-group" style="margin:0"><label>Ürün / Malzeme Adı *</label><input type="text" id="prName" placeholder="Örn: 10mm² NYY Kablo"></div>
@@ -267,7 +267,7 @@
               <div class="form-group" style="margin:0"><label>Birim</label><input type="text" id="prUnit" value="adet" placeholder="adet"></div>
             </div>
             <div class="form-group" style="margin:0"><label>Hangi İş İçin?</label><select id="prTaskSel"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
-            <div class="form-group" style="margin:0"><label>Neden Gerekiyor?</label><textarea id="prReason" rows="2" placeholder="Kısa açıklama..."></textarea></div>
+            <div class="form-group" style="margin:0"><label>Talep Nedeni / Açıklama</label><textarea id="prReason" rows="2" placeholder="Kısa açıklama..."></textarea></div>
             <button type="button" class="btn btn-primary btn-full" onclick="submitPR()">📤 Talebi Gönder</button>
           </div>
         </div>
@@ -275,12 +275,12 @@
       <div class="card">
         <div style="padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
           <div>
-            <div style="font-weight:800;font-size:.88rem">🛒 Atölye Sipariş & Tedarik Havuzu</div>
-            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.15rem">Tüm siparişlerin durumunu görebilir, gelen malzemeleri teslim alabilirsiniz</div>
+            <div style="font-weight:800;font-size:.88rem">🛒 Atölye Talep & Tedarik Havuzu</div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.15rem">Taleplerinizin durumunu görebilir, tedarikçiden gelen malzemeleri teslim alabilirsiniz</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="loadMyPurchases();renderMyPurchases()">↺ Yenile</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <div class="table-wrap"><table><thead><tr><th>Talep Tarihi</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
           <tbody id="myPurchaseTbody"></tbody></table></div>
       </div>
     </div>
@@ -338,7 +338,7 @@
       <input type="hidden" id="receiveOrderId">
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
         <div>Ürün: <strong id="receiveProdName">—</strong></div>
-        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="receiveReqInfo">Sipariş Miktar: —</div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="receiveReqInfo">Sipariş Edilen Miktar: —</div>
       </div>
       <div class="form-group">
         <label>Gelen / Teslim Alınan Gerçek Miktar *</label>
@@ -557,7 +557,7 @@ const pageTitles = {
   bulktake: 'Vinç İçin Al', 
   return: 'Ürün İade', 
   history: 'İşlem Geçmişim', 
-  purchase: 'Satın Alma & Siparişler' 
+  purchase: 'Malzeme Taleplerim' 
 };
 
 function showPage(name) {
@@ -1413,7 +1413,7 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA ────────────────────────────────────────────────────────────
+// ── SATIN ALMA / TALEP YÖNETİMİ (PERSONEL) ────────────────────────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1426,10 +1426,10 @@ function renderMyPurchases() {
   }
   var PRST = { 
     pending: { l: '⏳ Onay Bekliyor', c: 'var(--warning)' }, 
-    approved: { l: '⏳ Satın Alım Aşamasında', c: 'var(--warning)' }, 
-    ordered: { l: '🚚 Sipariş Edildi / Alındı', c: 'var(--accent)' }, 
-    received: { l: '📦 Teslim Alındı', c: '#1a6b56' },
-    rejected: { l: '❌ Reddedildi', c: 'var(--danger)' }
+    approved: { l: '✅ Onaylandı (Sipariş Bekliyor)', c: 'var(--success)' }, 
+    ordered: { l: '🚚 Tedarikçiden Sipariş Edildi', c: 'var(--accent)' }, 
+    received: { l: '📦 Depoya Ulaştı (Teslim Alındı)', c: '#1a6b56' },
+    rejected: { l: '❌ Talep Reddedildi', c: 'var(--danger)' }
   };
   
   var tbody = document.getElementById('myPurchaseTbody'); if (!tbody) return;
@@ -1469,7 +1469,7 @@ function renderMyPurchases() {
         ${canReceive ? `<button class="btn btn-success btn-sm" onclick="openReceiveModal(${p.id})">📦 Teslim Al</button>` : p.status === 'received' ? '<span class="badge badge-ok">✅ Depoda</span>' : '—'}
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty">Sipariş havuzu boş</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">Talep havuzu boş</td></tr>';
   setTimeout(pAutoSort, 50);
 }
 
@@ -1478,7 +1478,7 @@ function openReceiveModal(id) {
   if (!p) return;
   document.getElementById('receiveOrderId').value = p.id;
   document.getElementById('receiveProdName').textContent = p.product_name;
-  document.getElementById('receiveReqInfo').textContent = `Sipariş Edilen: ${p.quantity} ${p.unit || 'adet'}`;
+  document.getElementById('receiveReqInfo').textContent = `Tedarikçiden Sipariş Edilen: ${p.quantity} ${p.unit || 'adet'}`;
   document.getElementById('receiveActualQty').value = p.product_values?.actual_qty || p.quantity;
   document.getElementById('receiveStatusType').value = 'exact';
   document.getElementById('receiveDeliveryNote').value = '';
