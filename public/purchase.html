@@ -529,18 +529,26 @@ function openProcessModal(id) {
   document.getElementById('processReqInfo').textContent = `Talep Edilen Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
   document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p);
   document.getElementById('processActualQty').value = p.product_values?.actual_qty || p.quantity;
-  document.getElementById('processStatusSelect').value = p.status === 'approved' ? 'ordered' : p.status;
+  
+  // Burada varsayılan olarak her zaman 'ordered' (Sipariş Edildi) seçili gelsin:
+  document.getElementById('processStatusSelect').value = 'ordered';
+  
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
 }
 
 async function saveProcessOrder() {
   const id = document.getElementById('processOrderId').value;
-  const status = document.getElementById('processStatusSelect').value;
+  const status = document.getElementById('processStatusSelect').value || 'ordered';
   const admin_note = document.getElementById('processAdminNote').value.trim();
   const actual_qty = parseFloat(document.getElementById('processActualQty').value) || null;
 
-  const r = await api('/api/purchase-requests/' + id, 'PUT', { status, admin_note, actual_qty });
+  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { 
+    status: status, 
+    admin_note: admin_note, 
+    actual_qty: actual_qty 
+  });
+  
   if (!r) return;
 
   closeModal('processModal');
