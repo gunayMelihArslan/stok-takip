@@ -182,7 +182,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('processModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveProcessOrder()">💾 Kaydet & Bildir</button>
+      <button class="btn btn-primary" id="processSaveBtn" onclick="saveProcessOrder()">💾 Kaydet & Bildir</button>
     </div>
   </div>
 </div>
@@ -520,7 +520,7 @@ function renderCompleted() {
   }).join('');
 }
 
-// ── PROCESS MODAL ACTIONS ─────────────────────────────────────────────────
+// ── PROCESS MODAL ACTIONS (Buton Korumalı & Güvenli) ─────────────────────
 function openProcessModal(id) {
   const p = purchases.find(x => x.id == id);
   if (!p) return;
@@ -530,35 +530,62 @@ function openProcessModal(id) {
   document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p);
   document.getElementById('processActualQty').value = p.product_values?.actual_qty || p.quantity;
   
-  // Burada varsayılan olarak her zaman 'ordered' (Sipariş Edildi) seçili gelsin:
+  // Varsayılan olarak her zaman 'ordered' (Sipariş Edildi) seçili gelsin:
   document.getElementById('processStatusSelect').value = 'ordered';
-  
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
 }
 
 async function saveProcessOrder() {
-  const id = document.getElementById('processOrderId').value;
-  const status = document.getElementById('processStatusSelect').value || 'ordered';
-  const admin_note = document.getElementById('processAdminNote').value.trim();
-  const actual_qty = parseFloat(document.getElementById('processActualQty').value) || null;
+  await withButtonLock('processSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('processOrderId').value;
+    const status = document.getElementById('processStatusSelect').value || 'ordered';
+    const admin_note = document.getElementById('processAdminNote').value.trim();
+    const actual_qty = parseFloat(document.getElementById('processActualQty').value) || null;
 
-  const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { 
-    status: status, 
-    admin_note: admin_note, 
-    actual_qty: actual_qty 
+    const r = await api('/api/purchase-requests/' + id + '/status', 'PUT', { 
+      status: status, 
+      admin_note: admin_note, 
+      actual_qty: actual_qty 
+    });
+    
+    if (!r) return;
+
+    closeModal('processModal');
+    await loadPurchases();
+    showPage(currentPage);
+    toast('Tedarik aşaması güncellendi ✓', 'success');
   });
-  
-  if (!r) return;
-
-  closeModal('processModal');
-  await loadPurchases();
-  showPage(currentPage);
-  toast('Tedarik aşaması güncellendi ✓', 'success');
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────
-function openModal(id) { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+// Buton Kilitleme & Yükleniyor Güvencesi Yardımcısı
+async function withButtonLock(btnId, loadingText, asyncAction) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return await asyncAction();
+  if (btn.disabled) return;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  if (loadingText) btn.innerHTML = loadingText;
+  try {
+    return await asyncAction();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+// ── UTILS (Otomatik Odaklanma & Akıcı Arama) ─────────────────────────────
+function openModal(id) { 
+  const el = document.getElementById(id); 
+  if (el) {
+    el.classList.add('open');
+    setTimeout(() => {
+      const firstInput = el.querySelector('input:not([type="hidden"]), select, textarea');
+      if (firstInput) firstInput.focus();
+    }, 150);
+  }
+}
+
 function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -573,10 +600,15 @@ function toast(msg, type = 'success') {
   toastTimer = setTimeout(() => el.className = '', 3000);
 }
 
+let searchDebounceTimers = {};
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
   if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
-  if (callbackFn) callbackFn();
+  const key = inputEl.id || 'default';
+  clearTimeout(searchDebounceTimers[key]);
+  searchDebounceTimers[key] = setTimeout(() => {
+    if (callbackFn) callbackFn();
+  }, 180);
 }
 
 function clearSearchInput(inputId, callbackFn) {
