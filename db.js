@@ -12,10 +12,30 @@ pool.on('error', (err) => {
   console.warn('⚠️ Veritabanı havuzu bağlantı yenilemesi:', err.message);
 });
 
+// Standart tekil sorgu çalıştırıcı
 async function query(sql, params = []) {
   const client = await pool.connect();
-  try { return await client.query(sql, params); }
-  finally { client.release(); }
+  try {
+    return await client.query(sql, params);
+  } finally {
+    client.release();
+  }
+}
+
+// Güvenli ve atomik çoklu işlem yardımcısı (Transaction)
+async function withTransaction(callback) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function init() {
@@ -221,6 +241,19 @@ async function init() {
     );
   `);
 
+  // ── HIZ VE PERFORMANS İNDEKSLERİ (Ağırlaşmayı Önler) ──
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_products_order ON products(display_order ASC);
+    CREATE INDEX IF NOT EXISTS idx_machines_firm ON machines(firm_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_machine ON tasks(machine_id);
+    CREATE INDEX IF NOT EXISTS idx_task_stages_task ON task_stages(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_stages_user ON task_stages(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_transactions_product ON transactions(product_id);
+    CREATE INDEX IF NOT EXISTS idx_product_lots_pid ON product_lots(product_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchase_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_vfd_records_device ON vfd_records(device_id);
+  `);
+
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
   if (parseInt(bomCheck.c) === 0) {
     await query("INSERT INTO bom_columns(name, display_order, is_default, mapped_field) VALUES('Sıra No', 1, true, 'auto_no'),('Malzeme Adı', 2, true, 'auto_name'),('Miktar', 3, true, 'auto_qty'),('Birim', 4, true, 'auto_unit'),('Açıklama', 5, true, 'auto_desc')");
@@ -243,4 +276,4 @@ async function init() {
   }
 }
 
-module.exports = { query, init, pool };
+module.exports = { query, withTransaction, init, pool };
