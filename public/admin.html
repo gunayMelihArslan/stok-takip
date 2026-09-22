@@ -327,7 +327,7 @@
           <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="takeCompany" list="firmList" placeholder="Firma..."><datalist id="firmList"></datalist></div>
           <div class="form-group" style="margin:0"><label>Miktar</label><input type="number" id="takeQty" min="0.01" step="any" placeholder="0"></div>
           <div class="form-group" style="margin:0"><label>Not</label><input type="text" id="takeNote"></div>
-          <button class="btn btn-primary btn-full" onclick="submitTake()">📤 Alımı Kaydet</button>
+          <button class="btn btn-primary btn-full" id="takeSubmitBtn" onclick="submitTake()">📤 Alımı Kaydet</button>
         </div>
       </div></div>
     </div>
@@ -360,7 +360,7 @@
           <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="retCompany" list="firmList3"><datalist id="firmList3"></datalist></div>
           <div class="form-group" style="margin:0"><label>Miktar</label><input type="number" id="retQty" min="0.01" step="any" placeholder="0"></div>
           <div class="form-group" style="margin:0"><label>İade Nedeni</label><input type="text" id="retNote"></div>
-          <button class="btn btn-success btn-full" onclick="submitReturn()">↩ İadeyi Kaydet</button>
+          <button class="btn btn-success btn-full" id="retSubmitBtn" onclick="submitReturn()">↩ İadeyi Kaydet</button>
         </div>
       </div></div>
     </div>
@@ -498,7 +498,7 @@
   <div class="modal" style="max-width:540px">
     <div class="modal-header"><h3 id="productModalTitle">Yeni Ürün Ekle</h3><button class="modal-close" onclick="closeModal('productModal')">×</button></div>
     <div class="modal-body" id="productModalBody" style="max-height:70vh;overflow-y:auto"></div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button><button class="btn btn-primary" onclick="saveProductModal()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button><button class="btn btn-primary" id="prodModalSaveBtn" onclick="saveProductModal()">Kaydet</button></div>
   </div>
 </div>
 
@@ -511,7 +511,7 @@
       <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
       <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok</label><input type="number" id="colMinStock" value="5"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" onclick="saveColumn()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" id="colModalSaveBtn" onclick="saveColumn()">Kaydet</button></div>
   </div>
 </div>
 
@@ -523,7 +523,7 @@
       <div class="form-group"><label>Sütun Başlığı</label><input type="text" id="bomColName" placeholder="Örn: Marka"></div>
       <div class="form-group"><label>BOM Çıktısında Yazılacak Değişken (Eşleşme)</label><select id="bomColMappedField"></select><small style="color:var(--muted);font-size:.68rem">Bu sütunun altında ürünün hangi özelliğinin yazılacağını seçin.</small></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button><button class="btn btn-primary" onclick="saveBomCol()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button><button class="btn btn-primary" id="bomColSaveBtn" onclick="saveBomCol()">Kaydet</button></div>
   </div>
 </div>
 
@@ -531,7 +531,7 @@
   <div class="modal">
     <div class="modal-header"><h3 id="bomCatModalTitle">Yeni Kategori</h3><button class="modal-close" onclick="closeModal('bomCatModal')">×</button></div>
     <div class="modal-body"><input type="hidden" id="editBomCatId"><div class="form-group"><label>Kategori Adı</label><input type="text" id="bomCatName" placeholder="Örn: Kanca Cihazı"></div></div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button><button class="btn btn-primary" onclick="saveBomCat()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button><button class="btn btn-primary" id="bomCatSaveBtn" onclick="saveBomCat()">Kaydet</button></div>
   </div>
 </div>
 
@@ -539,7 +539,7 @@
   <div class="modal">
     <div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
     <div class="modal-body"><input type="hidden" id="editFirmId"><div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div><div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div></div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" onclick="saveFirm()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" id="firmSaveBtn" onclick="saveFirm()">Kaydet</button></div>
   </div>
 </div>
 
@@ -559,7 +559,7 @@
         <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" onclick="saveMachine()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" id="machineSaveBtn" onclick="saveMachine()">Kaydet</button></div>
   </div>
 </div>
 
@@ -576,7 +576,7 @@
       <div class="form-group"><label>Yeni Vinç Adı / Modeli / Seri No *</label><input type="text" id="cloneNewName" placeholder="Yeni vinç adı giriniz..."></div>
       <div class="form-group"><label>Yeni Tonaj / Kapasite</label><input type="text" id="cloneNewCapacity" placeholder="Örn: 10 Ton, 20T"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button><button class="btn btn-primary" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button><button class="btn btn-primary" id="cloneExecuteBtn" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button></div>
   </div>
 </div>
 
@@ -595,7 +595,7 @@
       </div>
       <div class="form-group"><label>Not</label><textarea id="taskNotes" rows="2"></textarea></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" onclick="saveTask()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" id="taskSaveBtn" onclick="saveTask()">Kaydet</button></div>
   </div>
 </div>
 
@@ -605,7 +605,7 @@
     <div class="modal-body"><input type="hidden" id="assignStageId">
       <div class="form-group"><label>Personel / Satın Alma / Yönetici</label><select id="assignUser"><option value="">— Atamayı Kaldır —</option></select></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" onclick="doAssign()">Ata</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" id="assignDoBtn" onclick="doAssign()">Ata</button></div>
   </div>
 </div>
 
@@ -631,7 +631,7 @@
         </select>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" onclick="saveUser()">Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" id="userSaveBtn" onclick="saveUser()">Kaydet</button></div>
   </div>
 </div>
 
@@ -651,7 +651,7 @@
           <div class="form-group" style="margin:0"><label>Adet (Miktar)</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
         </div>
         <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder="Örn: Yeni sevkiyat"></div>
-        <button type="button" class="btn btn-primary" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
+        <button type="button" class="btn btn-primary" id="lotSaveBtn" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
         <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
       </div>
     </div>
@@ -663,14 +663,14 @@
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
     <div class="modal-body"><div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div><div class="form-group" style="margin:0"><label>Yeni Not</label><textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea></div></div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button><button class="btn btn-primary" onclick="saveComment()">💬 Not Ekle</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button><button class="btn btn-primary" id="commentSaveBtn" onclick="saveComment()">💬 Not Ekle</button></div>
   </div>
 </div>
 
 <div class="modal-overlay" id="transferModal">
   <div class="modal"><div class="modal-header"><h3 id="transferModalTitle">Aşamayı Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
   <div class="modal-body"><input type="hidden" id="transferStageId"><div class="form-group"><label>Devredilecek Kullanıcı</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div><div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div></div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" id="transferDoBtn" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
 <div class="modal-overlay" id="actDetailModal">
@@ -713,7 +713,7 @@
       <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem"></div>
       <div class="form-group" style="margin-top:.75rem"><label>Tedarikçi / Sipariş / Kargo Notu</label><input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, sipariş no, kargo takip veya özel not..."></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" onclick="savePurchaseRequest()">💾 Talebi Kaydet</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" id="prModalSaveBtn" onclick="savePurchaseRequest()">💾 Talebi Kaydet</button></div>
   </div>
 </div>
 
@@ -734,7 +734,7 @@
         <div class="form-group" style="margin:0 0 .5rem"><label>Açıklama / Not</label><input type="text" id="vfdDevNotes" placeholder="Örn: Vinç kedi/yürütme sürücüsü"></div>
         <div style="display:flex;justify-content:flex-end;gap:.4rem">
           <button type="button" class="btn btn-ghost btn-sm" id="vfdDevCancelEditBtn" style="display:none" onclick="cancelVfdDevEdit()">Vazgeç</button>
-          <button type="button" class="btn btn-primary btn-sm" onclick="saveVfdDevice()">💾 Cihazı Kaydet</button>
+          <button type="button" class="btn btn-primary btn-sm" id="vfdDevSaveBtn" onclick="saveVfdDevice()">💾 Cihazı Kaydet</button>
         </div>
       </div>
       <div class="table-wrap"><table style="font-size:.8rem">
@@ -789,7 +789,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('vfdRecordModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveVfdRecord()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="vfdRecSaveBtn" onclick="saveVfdRecord()">💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -968,10 +968,32 @@ function downloadCSV(url) {
   window.location.href = url + '?token=' + encodeURIComponent(token);
 }
 
+// Buton Kilitleme & Yükleniyor Güvencesi Yardımcısı
+async function withButtonLock(btnId, loadingText, asyncAction) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return await asyncAction();
+  if (btn.disabled) return;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  if (loadingText) btn.innerHTML = loadingText;
+  try {
+    return await asyncAction();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+// Akıcı Arama İçin Hafif Gecikme (Debounce)
+let searchDebounceTimers = {};
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
   if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
-  if (callbackFn) callbackFn();
+  const key = inputEl.id || 'default';
+  clearTimeout(searchDebounceTimers[key]);
+  searchDebounceTimers[key] = setTimeout(() => {
+    if (callbackFn) callbackFn();
+  }, 180);
 }
 
 function clearSearchInput(inputId, callbackFn) {
@@ -1132,26 +1154,28 @@ function updateVfdRecordLabels() {
 }
 
 async function saveVfdRecord() {
-  const id = document.getElementById('editVfdRecId').value;
-  const record_type = document.getElementById('vfdRecType').value;
-  const device_id = document.getElementById('vfdRecDeviceId').value;
-  const code = document.getElementById('vfdRecCode').value.trim();
-  const title = document.getElementById('vfdRecTitle').value.trim();
-  const description = document.getElementById('vfdRecDesc').value.trim();
-  const solution_steps = document.getElementById('vfdRecSteps').value.trim();
+  await withButtonLock('vfdRecSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editVfdRecId').value;
+    const record_type = document.getElementById('vfdRecType').value;
+    const device_id = document.getElementById('vfdRecDeviceId').value;
+    const code = document.getElementById('vfdRecCode').value.trim();
+    const title = document.getElementById('vfdRecTitle').value.trim();
+    const description = document.getElementById('vfdRecDesc').value.trim();
+    const solution_steps = document.getElementById('vfdRecSteps').value.trim();
 
-  if (!device_id || !code || !title) { toast('Cihaz, kod ve başlık zorunludur', 'error'); return; }
+    if (!device_id || !code || !title) { toast('Cihaz, kod ve başlık zorunludur', 'error'); return; }
 
-  const payload = { record_type, device_id, code, title, description, solution_steps };
-  let r;
-  if (id) r = await api('/api/vfd/records/' + id, 'PUT', payload);
-  else r = await api('/api/vfd/records', 'POST', payload);
+    const payload = { record_type, device_id, code, title, description, solution_steps };
+    let r;
+    if (id) r = await api('/api/vfd/records/' + id, 'PUT', payload);
+    else r = await api('/api/vfd/records', 'POST', payload);
 
-  if (!r) return;
-  closeModal('vfdRecordModal');
-  await loadVfdRecords();
-  renderVfdRecords();
-  toast('Kayıt kaydedildi ✓', 'success');
+    if (!r) return;
+    closeModal('vfdRecordModal');
+    await loadVfdRecords();
+    renderVfdRecords();
+    toast('Kayıt kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteVfdRecord(id) {
@@ -1202,23 +1226,25 @@ function cancelVfdDevEdit() {
 }
 
 async function saveVfdDevice() {
-  const id = document.getElementById('editVfdDevId').value;
-  const brand = document.getElementById('vfdDevBrand').value.trim();
-  const model = document.getElementById('vfdDevModel').value.trim();
-  const notes = document.getElementById('vfdDevNotes').value.trim();
+  await withButtonLock('vfdDevSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editVfdDevId').value;
+    const brand = document.getElementById('vfdDevBrand').value.trim();
+    const model = document.getElementById('vfdDevModel').value.trim();
+    const notes = document.getElementById('vfdDevNotes').value.trim();
 
-  if (!brand || !model) { toast('Marka ve model zorunludur', 'error'); return; }
+    if (!brand || !model) { toast('Marka ve model zorunludur', 'error'); return; }
 
-  let r;
-  if (id) r = await api('/api/vfd/devices/' + id, 'PUT', { brand, model, notes });
-  else r = await api('/api/vfd/devices', 'POST', { brand, model, notes });
+    let r;
+    if (id) r = await api('/api/vfd/devices/' + id, 'PUT', { brand, model, notes });
+    else r = await api('/api/vfd/devices', 'POST', { brand, model, notes });
 
-  if (!r) return;
-  cancelVfdDevEdit();
-  await loadVfdDevices();
-  renderVfdDevicesTable();
-  renderVfdRecords();
-  toast('Cihaz kaydedildi ✓', 'success');
+    if (!r) return;
+    cancelVfdDevEdit();
+    await loadVfdDevices();
+    renderVfdDevicesTable();
+    renderVfdRecords();
+    toast('Cihaz kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteVfdDevice(id) {
@@ -1415,51 +1441,53 @@ function addModalLotRow() {
 }
 
 async function saveProductModal() {
-  const inputs = document.querySelectorAll('#productModalBody .prod-input');
-  const catVal = document.getElementById('prodModalCat')?.value || 'Genel';
+  await withButtonLock('prodModalSaveBtn', 'Kaydediliyor...', async () => {
+    const inputs = document.querySelectorAll('#productModalBody .prod-input');
+    const catVal = document.getElementById('prodModalCat')?.value || 'Genel';
 
-  const values = {};
-  inputs.forEach(inp => {
-    const cid = inp.getAttribute('data-cid');
-    if (cid) values[cid] = inp.value.trim();
-  });
+    const values = {};
+    inputs.forEach(inp => {
+      const cid = inp.getAttribute('data-cid');
+      if (cid) values[cid] = inp.value.trim();
+    });
 
-  const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
-  if (catCol) values[catCol.id] = catVal;
-  values.category = catVal;
-  values._category = catVal;
+    const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
+    if (catCol) values[catCol.id] = catVal;
+    values.category = catVal;
+    values._category = catVal;
 
-  const lotRows = document.querySelectorAll('#modalLotList .lot-row-item');
-  const validLots = [];
-  let totalLotQty = 0;
+    const lotRows = document.querySelectorAll('#modalLotList .lot-row-item');
+    const validLots = [];
+    let totalLotQty = 0;
 
-  lotRows.forEach(row => {
-    const yr = parseInt(row.querySelector('.modal-lot-year')?.value);
-    const qty = parseFloat(row.querySelector('.modal-lot-qty')?.value);
-    const note = row.querySelector('.modal-lot-note')?.value.trim() || '';
-    if (!isNaN(yr) && yr >= 1980 && !isNaN(qty) && qty >= 0) {
-      validLots.push({ production_year: yr, quantity: qty, notes: note });
-      totalLotQty += qty;
+    lotRows.forEach(row => {
+      const yr = parseInt(row.querySelector('.modal-lot-year')?.value);
+      const qty = parseFloat(row.querySelector('.modal-lot-qty')?.value);
+      const note = row.querySelector('.modal-lot-note')?.value.trim() || '';
+      if (!isNaN(yr) && yr >= 1980 && !isNaN(qty) && qty >= 0) {
+        validLots.push({ production_year: yr, quantity: qty, notes: note });
+        totalLotQty += qty;
+      }
+    });
+
+    const numCol = columns.find(c => c.data_type === 'number');
+    if (numCol) {
+      if (validLots.length > 0) values[numCol.id] = String(totalLotQty);
+      else if (!values[numCol.id]) values[numCol.id] = '0';
     }
+
+    const r = await api('/api/products', 'POST', { values });
+    if (!r) return;
+
+    if (validLots.length > 0) {
+      for (const lot of validLots) { await api('/api/products/' + r.id + '/lots', 'POST', lot); }
+    }
+
+    closeModal('productModal');
+    await loadProducts();
+    renderProducts();
+    toast('Ürün başarıyla kaydedildi ✓', 'success');
   });
-
-  const numCol = columns.find(c => c.data_type === 'number');
-  if (numCol) {
-    if (validLots.length > 0) values[numCol.id] = String(totalLotQty);
-    else if (!values[numCol.id]) values[numCol.id] = '0';
-  }
-
-  const r = await api('/api/products', 'POST', { values });
-  if (!r) return;
-
-  if (validLots.length > 0) {
-    for (const lot of validLots) { await api('/api/products/' + r.id + '/lots', 'POST', lot); }
-  }
-
-  closeModal('productModal');
-  await loadProducts();
-  renderProducts();
-  toast('Ürün başarıyla kaydedildi ✓', 'success');
 }
 
 async function editProductCategory(pid, curCat) {
@@ -1543,9 +1571,11 @@ async function commitEdit() {
   editingCell = null;
   td.textContent = newVal;
   if (newVal !== oldVal) {
+    const prevScroll = window.scrollY;
     await api('/api/products/' + pid, 'PUT', { values: { [cid]: newVal } });
     await loadProducts();
     renderProducts();
+    window.scrollTo(0, prevScroll);
   }
 }
 
@@ -1612,25 +1642,27 @@ function editColumn(id) {
 }
 
 async function saveColumn() {
-  const id = document.getElementById('editColId').value;
-  const name = document.getElementById('colName').value.trim();
-  const data_type = document.getElementById('colType').value;
-  const min_stock = parseInt(document.getElementById('colMinStock').value) || 0;
-  if (!name) { toast('Sütun adı gerekli', 'error'); return; }
-  
-  if (id) {
-    const existing = columns.find(c => c.id == id);
-    const display_order = existing ? existing.display_order : 0;
-    await api('/api/columns/' + id, 'PUT', { name, data_type, display_order, min_stock });
-  } else {
-    await api('/api/columns', 'POST', { name, data_type, min_stock });
-  }
-  closeModal('columnModal');
-  await loadColumns();
-  await loadProducts();
-  renderColumns();
-  if (currentPage === 'products') renderProducts();
-  toast('Kaydedildi ✓', 'success');
+  await withButtonLock('colModalSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editColId').value;
+    const name = document.getElementById('colName').value.trim();
+    const data_type = document.getElementById('colType').value;
+    const min_stock = parseInt(document.getElementById('colMinStock').value) || 0;
+    if (!name) { toast('Sütun adı gerekli', 'error'); return; }
+    
+    if (id) {
+      const existing = columns.find(c => c.id == id);
+      const display_order = existing ? existing.display_order : 0;
+      await api('/api/columns/' + id, 'PUT', { name, data_type, display_order, min_stock });
+    } else {
+      await api('/api/columns', 'POST', { name, data_type, min_stock });
+    }
+    closeModal('columnModal');
+    await loadColumns();
+    await loadProducts();
+    renderColumns();
+    if (currentPage === 'products') renderProducts();
+    toast('Kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteColumn(id) {
@@ -1699,17 +1731,19 @@ function editFirm(id) {
 }
 
 async function saveFirm() {
-  const id = document.getElementById('editFirmId').value;
-  const name = document.getElementById('firmName').value.trim();
-  const notes = document.getElementById('firmNotes').value.trim();
-  if (!name) { toast('Firma adı gerekli', 'error'); return; }
-  if (id) await api('/api/firms/' + id, 'PUT', { name, notes });
-  else await api('/api/firms', 'POST', { name, notes });
-  closeModal('firmModal');
-  await loadFirms();
-  await loadMachines();
-  renderFirms();
-  toast('Kaydedildi ✓', 'success');
+  await withButtonLock('firmSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editFirmId').value;
+    const name = document.getElementById('firmName').value.trim();
+    const notes = document.getElementById('firmNotes').value.trim();
+    if (!name) { toast('Firma adı gerekli', 'error'); return; }
+    if (id) await api('/api/firms/' + id, 'PUT', { name, notes });
+    else await api('/api/firms', 'POST', { name, notes });
+    closeModal('firmModal');
+    await loadFirms();
+    await loadMachines();
+    renderFirms();
+    toast('Kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteFirm(id) {
@@ -1842,22 +1876,24 @@ function openCloneMachineModal(id) {
 }
 
 async function executeCloneMachine() {
-  const sourceId = document.getElementById('cloneSourceId').value;
-  const targetFirmId = document.getElementById('cloneTargetFirm').value || null;
-  const newName = document.getElementById('cloneNewName').value.trim();
-  const newCapacity = document.getElementById('cloneNewCapacity').value.trim();
+  await withButtonLock('cloneExecuteBtn', 'Kopyalanıyor...', async () => {
+    const sourceId = document.getElementById('cloneSourceId').value;
+    const targetFirmId = document.getElementById('cloneTargetFirm').value || null;
+    const newName = document.getElementById('cloneNewName').value.trim();
+    const newCapacity = document.getElementById('cloneNewCapacity').value.trim();
 
-  if (!newName) { toast('Yeni vinç adı / seri no gerekli', 'error'); return; }
-  const sourceMachine = machines.find(x => x.id == sourceId);
-  if (!sourceMachine) return;
+    if (!newName) { toast('Yeni vinç adı / seri no gerekli', 'error'); return; }
+    const sourceMachine = machines.find(x => x.id == sourceId);
+    if (!sourceMachine) return;
 
-  const payload = { machine_name: newName, firm_id: targetFirmId, capacity: newCapacity, notes: sourceMachine.notes || '', items: sourceMachine.items || [] };
-  const r = await api('/api/machines', 'POST', payload);
-  if (!r) return;
-  closeModal('cloneMachineModal');
-  await Promise.all([loadMachines(), loadTasks()]);
-  renderMachines();
-  toast('Vinç başarıyla kopyalandı ve yeni iş açıldı ✓', 'success');
+    const payload = { machine_name: newName, firm_id: targetFirmId, capacity: newCapacity, notes: sourceMachine.notes || '', items: sourceMachine.items || [] };
+    const r = await api('/api/machines', 'POST', payload);
+    if (!r) return;
+    closeModal('cloneMachineModal');
+    await Promise.all([loadMachines(), loadTasks()]);
+    renderMachines();
+    toast('Vinç başarıyla kopyalandı ve yeni iş açıldı ✓', 'success');
+  });
 }
 
 function addMachineItem(pid, qty, machineYear, catName) {
@@ -1933,29 +1969,31 @@ document.addEventListener('click', function(e) {
 });
 
 async function saveMachine() {
-  const id = document.getElementById('editMachineId').value;
-  const machine_name = document.getElementById('machineName').value.trim();
-  const capacity = document.getElementById('machineCapacity').value.trim();
-  const notes = document.getElementById('machineNotes').value.trim();
-  const firm_id = document.getElementById('machineFirm').value || null;
-  if (!machine_name) { toast('Vinç adı gerekli', 'error'); return; }
-  
-  const rows = document.getElementById('machineItems').children;
-  const items = Array.from(rows).map(r => {
-    return {
-      product_id: r.querySelector('.mi-pid').value,
-      quantity: parseFloat(r.querySelector('.mi-qty').value) || 1,
-      machine_year: r.querySelector('.mi-year').value ? parseInt(r.querySelector('.mi-year').value) : null,
-      category_name: r.querySelector('.mi-cat').value || null
-    };
-  }).filter(i => i.product_id);
+  await withButtonLock('machineSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editMachineId').value;
+    const machine_name = document.getElementById('machineName').value.trim();
+    const capacity = document.getElementById('machineCapacity').value.trim();
+    const notes = document.getElementById('machineNotes').value.trim();
+    const firm_id = document.getElementById('machineFirm').value || null;
+    if (!machine_name) { toast('Vinç adı gerekli', 'error'); return; }
+    
+    const rows = document.getElementById('machineItems').children;
+    const items = Array.from(rows).map(r => {
+      return {
+        product_id: r.querySelector('.mi-pid').value,
+        quantity: parseFloat(r.querySelector('.mi-qty').value) || 1,
+        machine_year: r.querySelector('.mi-year').value ? parseInt(r.querySelector('.mi-year').value) : null,
+        category_name: r.querySelector('.mi-cat').value || null
+      };
+    }).filter(i => i.product_id);
 
-  if (id) await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items });
-  else await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items });
-  closeModal('machineModal');
-  await Promise.all([loadMachines(), loadTasks()]);
-  renderMachines();
-  toast('Vinç kaydedildi ✓', 'success');
+    if (id) await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items });
+    else await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items });
+    closeModal('machineModal');
+    await Promise.all([loadMachines(), loadTasks()]);
+    renderMachines();
+    toast('Vinç kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteMachine(id) {
@@ -2030,17 +2068,19 @@ function openAssignModal(stageId, stageName) {
 }
 
 async function doAssign() {
-  const stage_id = document.getElementById('assignStageId').value;
-  const user_id = document.getElementById('assignUser').value || null;
-  const r = await api('/api/task-stages/' + stage_id + '/assign', 'POST', { user_id });
-  if (!r) return;
-  closeModal('assignModal');
-  await loadTasks();
-  renderTasks();
-  renderLiveBoard();
-  if (currentPage === 'mytasks') renderMyTasks();
-  if (currentPage === 'opentasks') renderOpenTasks();
-  toast(user_id ? 'Atandı ✓' : 'Atama kaldırıldı', 'success');
+  await withButtonLock('assignDoBtn', 'Atanıyor...', async () => {
+    const stage_id = document.getElementById('assignStageId').value;
+    const user_id = document.getElementById('assignUser').value || null;
+    const r = await api('/api/task-stages/' + stage_id + '/assign', 'POST', { user_id });
+    if (!r) return;
+    closeModal('assignModal');
+    await loadTasks();
+    renderTasks();
+    renderLiveBoard();
+    if (currentPage === 'mytasks') renderMyTasks();
+    if (currentPage === 'opentasks') renderOpenTasks();
+    toast(user_id ? 'Atandı ✓' : 'Atama kaldırıldı', 'success');
+  });
 }
 
 async function completeStage(stageId, taskId) {
@@ -2070,18 +2110,20 @@ function filterTaskMachines() {
 }
 
 async function saveTask() {
-  const title = document.getElementById('taskTitle').value.trim();
-  const firm_id = document.getElementById('taskFirm').value || null;
-  const machine_id = document.getElementById('taskMachine').value || null;
-  const priority = document.getElementById('taskPriority').value;
-  const notes = document.getElementById('taskNotes').value.trim();
-  const stage_names = document.getElementById('taskStages').value.split(',').map(s => s.trim()).filter(Boolean);
-  if (!title) { toast('Başlık gerekli', 'error'); return; }
-  await api('/api/tasks', 'POST', { title, firm_id, machine_id, priority, notes, stage_names });
-  closeModal('taskModal');
-  await loadTasks();
-  renderTasks();
-  toast('İş oluşturuldu ✓', 'success');
+  await withButtonLock('taskSaveBtn', 'Kaydediliyor...', async () => {
+    const title = document.getElementById('taskTitle').value.trim();
+    const firm_id = document.getElementById('taskFirm').value || null;
+    const machine_id = document.getElementById('taskMachine').value || null;
+    const priority = document.getElementById('taskPriority').value;
+    const notes = document.getElementById('taskNotes').value.trim();
+    const stage_names = document.getElementById('taskStages').value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!title) { toast('Başlık gerekli', 'error'); return; }
+    await api('/api/tasks', 'POST', { title, firm_id, machine_id, priority, notes, stage_names });
+    closeModal('taskModal');
+    await loadTasks();
+    renderTasks();
+    toast('İş oluşturuldu ✓', 'success');
+  });
 }
 
 async function deleteTask(id) {
@@ -2228,16 +2270,18 @@ function openTransferModal(stageId, stageName) {
 }
 
 async function doTransfer() {
-  const stage_id = document.getElementById('transferStageId').value;
-  const to_user_id = document.getElementById('transferTo').value;
-  const message = document.getElementById('transferMsg').value.trim();
-  if (!to_user_id) { toast('Kullanıcı seçin', 'error'); return; }
-  await api('/api/task-stages/' + stage_id + '/transfer', 'POST', { to_user_id, message });
-  closeModal('transferModal'); 
-  await loadTasks(); 
-  renderMyTasks(); 
-  renderTasks();
-  toast('Devir işlemi gerçekleştirildi ✓', 'success');
+  await withButtonLock('transferDoBtn', 'Devrediliyor...', async () => {
+    const stage_id = document.getElementById('transferStageId').value;
+    const to_user_id = document.getElementById('transferTo').value;
+    const message = document.getElementById('transferMsg').value.trim();
+    if (!to_user_id) { toast('Kullanıcı seçin', 'error'); return; }
+    await api('/api/task-stages/' + stage_id + '/transfer', 'POST', { to_user_id, message });
+    closeModal('transferModal'); 
+    await loadTasks(); 
+    renderMyTasks(); 
+    renderTasks();
+    toast('Devir işlemi gerçekleştirildi ✓', 'success');
+  });
 }
 
 async function respondTransfer(transferId, accept) {
@@ -2292,22 +2336,24 @@ function updateProductInfo() {
 }
 
 async function submitTake() {
-  const product_id = document.getElementById('takeProductId').value;
-  const company = document.getElementById('takeCompany').value.trim();
-  const quantity = parseFloat(document.getElementById('takeQty').value);
-  const notes = document.getElementById('takeNote').value.trim();
-  if (!product_id) { toast('Ürün seçin', 'error'); return; }
-  if (!company) { toast('Firma girin', 'error'); return; }
-  if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
-  const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes });
-  if (!r) return;
-  document.getElementById('takeProductSearch').value = '';
-  document.getElementById('takeProductId').value = '';
-  document.getElementById('takeCompany').value = '';
-  document.getElementById('takeQty').value = '';
-  document.getElementById('takeNote').value = '';
-  document.getElementById('productInfoBox').style.display = 'none';
-  await loadProducts(); renderProducts(); toast(`${quantity} adet çıkış kaydedildi ✓`, 'success');
+  await withButtonLock('takeSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('takeProductId').value;
+    const company = document.getElementById('takeCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('takeQty').value);
+    const notes = document.getElementById('takeNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes });
+    if (!r) return;
+    document.getElementById('takeProductSearch').value = '';
+    document.getElementById('takeProductId').value = '';
+    document.getElementById('takeCompany').value = '';
+    document.getElementById('takeQty').value = '';
+    document.getElementById('takeNote').value = '';
+    document.getElementById('productInfoBox').style.display = 'none';
+    await loadProducts(); renderProducts(); toast(`${quantity} adet çıkış kaydedildi ✓`, 'success');
+  });
 }
 
 function filterBulkMachines() {
@@ -2445,32 +2491,36 @@ async function submitBulkTake() {
   if (!items_to_take.length) { toast('Lütfen alınacak en az bir ürünü işaretleyin', 'error'); return; }
   if (!confirm(`"${m?.machine_name}" için seçilen ${items_to_take.length} ürünü teslim alıyorsunuz. Onaylıyor musunuz?`)) return;
   
-  const r = await api('/api/transactions/bulk', 'POST', { machine_id, company, notes, items_to_take });
-  if (!r) return;
-  
-  document.getElementById('bulkNote').value = '';
-  await loadMachinePreview();
-  await loadProducts();
-  renderProducts();
-  toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
+  await withButtonLock('bulkSubmitBtn', 'Kaydediliyor...', async () => {
+    const r = await api('/api/transactions/bulk', 'POST', { machine_id, company, notes, items_to_take });
+    if (!r) return;
+    
+    document.getElementById('bulkNote').value = '';
+    await loadMachinePreview();
+    await loadProducts();
+    renderProducts();
+    toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
+  });
 }
 
 async function submitReturn() {
-  const product_id = document.getElementById('retProductId').value;
-  const company = document.getElementById('retCompany').value.trim();
-  const quantity = parseFloat(document.getElementById('retQty').value);
-  const notes = document.getElementById('retNote').value.trim();
-  if (!product_id) { toast('Ürün seçin', 'error'); return; }
-  if (!company) { toast('Firma girin', 'error'); return; }
-  if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
-  const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes, tx_type: 'return' });
-  if (!r) return;
-  document.getElementById('retProductSearch').value = '';
-  document.getElementById('retProductId').value = '';
-  document.getElementById('retCompany').value = '';
-  document.getElementById('retQty').value = '';
-  document.getElementById('retNote').value = '';
-  await loadProducts(); renderProducts(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  await withButtonLock('retSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('retProductId').value;
+    const company = document.getElementById('retCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('retQty').value);
+    const notes = document.getElementById('retNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes, tx_type: 'return' });
+    if (!r) return;
+    document.getElementById('retProductSearch').value = '';
+    document.getElementById('retProductId').value = '';
+    document.getElementById('retCompany').value = '';
+    document.getElementById('retQty').value = '';
+    document.getElementById('retNote').value = '';
+    await loadProducts(); renderProducts(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  });
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────────
@@ -2522,20 +2572,22 @@ function editUser(id) {
 }
 
 async function saveUser() {
-  const id = document.getElementById('editUserId').value;
-  const display_name = document.getElementById('userDisplayName').value.trim();
-  const username = document.getElementById('userUsername').value.trim();
-  const password = document.getElementById('userPassword').value;
-  const role = document.getElementById('userRole').value;
-  if (!display_name || (!id && !username) || (!id && !password)) { toast('Tüm alanları doldurun', 'error'); return; }
-  let r;
-  if (id) r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
-  else r = await api('/api/users', 'POST', { username, password, role, display_name });
-  if (!r) return;
-  closeModal('userModal');
-  await loadUsers();
-  renderUsers();
-  toast('Kaydedildi ✓', 'success');
+  await withButtonLock('userSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editUserId').value;
+    const display_name = document.getElementById('userDisplayName').value.trim();
+    const username = document.getElementById('userUsername').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+    if (!display_name || (!id && !username) || (!id && !password)) { toast('Tüm alanları doldurun', 'error'); return; }
+    let r;
+    if (id) r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
+    else r = await api('/api/users', 'POST', { username, password, role, display_name });
+    if (!r) return;
+    closeModal('userModal');
+    await loadUsers();
+    renderUsers();
+    toast('Kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteUser(id) {
@@ -2745,12 +2797,14 @@ async function loadComments() {
 }
 
 async function saveComment() {
-  var b = document.getElementById('commentBody').value;
-  if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
-  var r = await api('/api/task-stages/' + _commentSid + '/comments', 'POST', { body: b.trim() });
-  if (!r) return;
-  document.getElementById('commentBody').value = '';
-  await loadComments(); toast('Not eklendi ✓', 'success');
+  await withButtonLock('commentSaveBtn', 'Ekleniyor...', async () => {
+    var b = document.getElementById('commentBody').value;
+    if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
+    var r = await api('/api/task-stages/' + _commentSid + '/comments', 'POST', { body: b.trim() });
+    if (!r) return;
+    document.getElementById('commentBody').value = '';
+    await loadComments(); toast('Not eklendi ✓', 'success');
+  });
 }
 
 // ── SATIN ALMA / TALEP YÖNETİMİ ──────────────────────────────────────────
@@ -2874,34 +2928,36 @@ function renderPurchaseColFields(existingVals) {
 }
 
 async function savePurchaseRequest() {
-  const id = document.getElementById('editPurchaseId').value;
-  const product_name = document.getElementById('prModalName').value.trim();
-  const quantity = parseFloat(document.getElementById('prModalQty').value);
-  const unit = document.getElementById('prModalUnit').value.trim() || 'adet';
-  const task_id = document.getElementById('prModalTask').value || null;
-  const reason = document.getElementById('prModalReason').value.trim();
-  const status = document.getElementById('prModalStatus').value;
-  const admin_note = document.getElementById('prModalAdminNote').value.trim();
+  await withButtonLock('prModalSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editPurchaseId').value;
+    const product_name = document.getElementById('prModalName').value.trim();
+    const quantity = parseFloat(document.getElementById('prModalQty').value);
+    const unit = document.getElementById('prModalUnit').value.trim() || 'adet';
+    const task_id = document.getElementById('prModalTask').value || null;
+    const reason = document.getElementById('prModalReason').value.trim();
+    const status = document.getElementById('prModalStatus').value;
+    const admin_note = document.getElementById('prModalAdminNote').value.trim();
 
-  if (!product_name) { toast('Ürün / Malzeme adı gerekli', 'error'); return; }
-  if (isNaN(quantity) || quantity <= 0) { toast('Geçerli bir miktar giriniz', 'error'); return; }
+    if (!product_name) { toast('Ürün / Malzeme adı gerekli', 'error'); return; }
+    if (isNaN(quantity) || quantity <= 0) { toast('Geçerli bir miktar giriniz', 'error'); return; }
 
-  const product_values = {};
-  document.querySelectorAll('#prModalColFields .pr-col-input').forEach(inp => {
-    const cid = inp.getAttribute('data-cid');
-    if (cid && inp.value.trim()) product_values[cid] = inp.value.trim();
+    const product_values = {};
+    document.querySelectorAll('#prModalColFields .pr-col-input').forEach(inp => {
+      const cid = inp.getAttribute('data-cid');
+      if (cid && inp.value.trim()) product_values[cid] = inp.value.trim();
+    });
+
+    const payload = { product_name, quantity, unit, task_id, reason, status, admin_note, product_values };
+    let r;
+    if (id) r = await api('/api/purchase-requests/' + id, 'PUT', payload);
+    else r = await api('/api/purchase-requests', 'POST', payload);
+
+    if (!r) return;
+    closeModal('purchaseModal');
+    await loadPurchases();
+    renderPurchases();
+    toast(id ? 'Talep güncellendi ✓' : 'Yeni talep oluşturuldu ✓', 'success');
   });
-
-  const payload = { product_name, quantity, unit, task_id, reason, status, admin_note, product_values };
-  let r;
-  if (id) r = await api('/api/purchase-requests/' + id, 'PUT', payload);
-  else r = await api('/api/purchase-requests', 'POST', payload);
-
-  if (!r) return;
-  closeModal('purchaseModal');
-  await loadPurchases();
-  renderPurchases();
-  toast(id ? 'Talep güncellendi ✓' : 'Yeni talep oluşturuldu ✓', 'success');
 }
 
 async function setPR(id, status) {
@@ -2916,8 +2972,18 @@ async function delPR(id) {
   await loadPurchases(); renderPurchases(); toast('Silindi ✓', 'success');
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────
-function openModal(id) { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+// ── UTILS (Otomatik Odaklanma & Modal Yönetimi) ──────────────────────────
+function openModal(id) { 
+  const el = document.getElementById(id); 
+  if (el) {
+    el.classList.add('open');
+    setTimeout(() => {
+      const firstInput = el.querySelector('input:not([type="hidden"]), select, textarea');
+      if (firstInput) firstInput.focus();
+    }, 150);
+  }
+}
+
 function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -3058,24 +3124,26 @@ function lotEdit(yr, qty) {
 }
 
 async function lotSave() {
-  const msg = document.getElementById('lotMsg');
-  const pid = document.getElementById('lotPid').value;
-  const yr = parseInt(document.getElementById('lotYear').value);
-  const qty = parseFloat(document.getElementById('lotQty').value);
-  const notes = document.getElementById('lotNotes').value.trim();
-  if (!pid) { msg.style.color = 'var(--danger)'; msg.textContent = 'Ürün ID yok'; return; }
-  if (!yr || yr < 1980 || yr > 2099) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli yıl girin (1980-2099)'; return; }
-  if (isNaN(qty) || qty < 0) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli adet girin'; return; }
-  msg.style.color = 'var(--muted)'; msg.textContent = 'Kaydediliyor...';
-  const r = await api('/api/products/' + pid, 'POST', { production_year: yr, quantity: qty, notes: notes });
-  if (!r) { msg.style.color = 'var(--danger)'; msg.textContent = 'Kaydedilemedi'; return; }
-  document.getElementById('lotYear').value = '';
-  document.getElementById('lotQty').value = '';
-  document.getElementById('lotNotes').value = '';
-  msg.style.color = 'var(--success)'; msg.textContent = '✓ Kaydedildi';
-  await lotLoad(pid);
-  await loadProducts();
-  renderProducts();
+  await withButtonLock('lotSaveBtn', 'Kaydediliyor...', async () => {
+    const msg = document.getElementById('lotMsg');
+    const pid = document.getElementById('lotPid').value;
+    const yr = parseInt(document.getElementById('lotYear').value);
+    const qty = parseFloat(document.getElementById('lotQty').value);
+    const notes = document.getElementById('lotNotes').value.trim();
+    if (!pid) { msg.style.color = 'var(--danger)'; msg.textContent = 'Ürün ID yok'; return; }
+    if (!yr || yr < 1980 || yr > 2099) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli yıl girin (1980-2099)'; return; }
+    if (isNaN(qty) || qty < 0) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli adet girin'; return; }
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Kaydediliyor...';
+    const r = await api('/api/products/' + pid, 'POST', { production_year: yr, quantity: qty, notes: notes });
+    if (!r) { msg.style.color = 'var(--danger)'; msg.textContent = 'Kaydedilemedi'; return; }
+    document.getElementById('lotYear').value = '';
+    document.getElementById('lotQty').value = '';
+    document.getElementById('lotNotes').value = '';
+    msg.style.color = 'var(--success)'; msg.textContent = '✓ Kaydedildi';
+    await lotLoad(pid);
+    await loadProducts();
+    renderProducts();
+  });
 }
 
 async function lotDel(lotId, pid) {
@@ -3121,16 +3189,18 @@ function editBomCat(id) {
 }
 
 async function saveBomCat() {
-  const id = document.getElementById('editBomCatId').value;
-  const name = document.getElementById('bomCatName').value.trim();
-  if (!name) { toast('Kategori adı gerekli', 'error'); return; }
-  if (id) await api('/api/bom-categories/' + id, 'PUT', { name, display_order: bomCategories.find(c => c.id == id)?.display_order || 0 });
-  else await api('/api/bom-categories', 'POST', { name });
-  closeModal('bomCatModal');
-  await loadBomCategories();
-  renderBomCategories();
-  if (currentPage === 'products') renderProducts();
-  toast('Kaydedildi ✓', 'success');
+  await withButtonLock('bomCatSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editBomCatId').value;
+    const name = document.getElementById('bomCatName').value.trim();
+    if (!name) { toast('Kategori adı gerekli', 'error'); return; }
+    if (id) await api('/api/bom-categories/' + id, 'PUT', { name, display_order: bomCategories.find(c => c.id == id)?.display_order || 0 });
+    else await api('/api/bom-categories', 'POST', { name });
+    closeModal('bomCatModal');
+    await loadBomCategories();
+    renderBomCategories();
+    if (currentPage === 'products') renderProducts();
+    toast('Kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteBomCat(id) {
@@ -3218,20 +3288,22 @@ function editBomCol(id) {
 }
 
 async function saveBomCol() {
-  const id = document.getElementById('editBomColId').value;
-  const name = document.getElementById('bomColName').value.trim();
-  const mapped_field = document.getElementById('bomColMappedField').value || null;
-  if (!name) { toast('Sütun adı gerekli', 'error'); return; }
-  if (id) {
-    const col = bomColumns.find(c => c.id == id);
-    await api('/api/bom-columns/' + id, 'PUT', { name, display_order: col?.display_order || 0, mapped_field });
-  } else {
-    await api('/api/bom-columns', 'POST', { name, mapped_field });
-  }
-  closeModal('bomColModal');
-  await loadBomColumns();
-  renderBomColumns();
-  toast('Kaydedildi ✓', 'success');
+  await withButtonLock('bomColSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editBomColId').value;
+    const name = document.getElementById('bomColName').value.trim();
+    const mapped_field = document.getElementById('bomColMappedField').value || null;
+    if (!name) { toast('Sütun adı gerekli', 'error'); return; }
+    if (id) {
+      const col = bomColumns.find(c => c.id == id);
+      await api('/api/bom-columns/' + id, 'PUT', { name, display_order: col?.display_order || 0, mapped_field });
+    } else {
+      await api('/api/bom-columns', 'POST', { name, mapped_field });
+    }
+    closeModal('bomColModal');
+    await loadBomColumns();
+    renderBomColumns();
+    toast('Kaydedildi ✓', 'success');
+  });
 }
 
 async function deleteBomCol(id) {
