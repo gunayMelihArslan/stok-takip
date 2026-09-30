@@ -229,7 +229,7 @@
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
           <div class="search-box-wrap">
-            <input type="text" id="machineSearchTxt" placeholder="🔍 Vinç veya Firma ara..." oninput="handleSearchInput(this, renderMachines)">
+            <input type="text" id="machineSearchTxt" placeholder="🔍 Vinç, Firma, Tonaj veya Not ara..." oninput="handleSearchInput(this, renderMachines)">
             <button class="search-clear-btn" onclick="clearSearchInput('machineSearchTxt', renderMachines)">✕</button>
           </div>
           <select id="machineFilter" style="max-width:180px" onchange="renderMachines()"><option value="">Tüm Firmalar</option></select>
@@ -279,7 +279,7 @@
           </select>
         </div>
         <button class="btn btn-primary" onclick="openVfdRecordModal()">+ Yeni Kayıt Ekle</button>
-        <button class="btn btn-ghost" onclick="openVfdDevicesModal()">⚙️ Marka & Model Tanımları</button>
+        <button class="btn btn-ghost" onclick="openVfdDevicesModal()">⚙️️ Marka & Model Tanımları</button>
         <button class="btn btn-ghost" onclick="loadVfdAll();renderVfdRecords()">↺ Yenile</button>
       </div>
 
@@ -544,14 +544,28 @@
 </div>
 
 <div class="modal-overlay" id="machineModal">
-  <div class="modal" style="max-width:560px">
+  <div class="modal" style="max-width:580px">
     <div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="editMachineId">
-      <div class="form-group"><label>Firma</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
+      <div class="form-group"><label>Firma *</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
-        <div class="form-group"><label>Vinç Adı / Modeli / Seri No</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+        <div class="form-group"><label>Vinç Adı / Seri No *</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
         <div class="form-group"><label>Tonaj / Kapasite</label><input type="text" id="machineCapacity" placeholder="Örn: 10 Ton, 32/5T"></div>
+      </div>
+      <!-- Madde 6: Yeni Vinç Parametreleri -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Vinç Tipi</label><input type="text" id="machineCraneType" placeholder="Örn: Çift Kiriş Köprülü"></div>
+        <div class="form-group"><label>Kaldırma Yüksekliği (m)</label><input type="text" id="machineLiftingHeight" placeholder="Örn: 9 veya 12.5"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Köprü Aks Açıklığı (m)</label><input type="text" id="machineSpan" placeholder="Örn: 24 veya 18.5"></div>
+        <div class="form-group"><label>Çalışma Şartları *</label>
+          <select id="machineEnvironment" style="width:100%">
+            <option value="closed">Kapalı Saha (Atölye / Fabrika)</option>
+            <option value="open">Açık Saha (Dış Ortam / Sundurma)</option>
+          </select>
+        </div>
       </div>
       <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
       <div class="form-group"><label>Gerekli Ürünler (Reçete)</label>
@@ -819,7 +833,8 @@ async function init() {
   if (!me) return window.location.href = '/';
   document.getElementById('userName').textContent = me.display_name || me.username;
   document.getElementById('avatarInit').textContent = (me.display_name || me.username)[0].toUpperCase();
-  updateTime(); setInterval(updateTime, 30000);
+  updateTime(); 
+  setInterval(updateTime, 1000); // Saniye saniye akış
   await loadAll();
   showPage('dashboard');
   connectSSE();
@@ -968,7 +983,7 @@ function downloadCSV(url) {
   window.location.href = url + '?token=' + encodeURIComponent(token);
 }
 
-// Buton Kilitleme & Yükleniyor Güvencesi Yardımcısı
+// Buton Kilitleme & Yükleniyor Güvencesi
 async function withButtonLock(btnId, loadingText, asyncAction) {
   const btn = document.getElementById(btnId);
   if (!btn) return await asyncAction();
@@ -984,7 +999,7 @@ async function withButtonLock(btnId, loadingText, asyncAction) {
   }
 }
 
-// Akıcı Arama İçin Hafif Gecikme (Debounce)
+// Arama Debounce'u
 let searchDebounceTimers = {};
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
@@ -1755,7 +1770,7 @@ async function deleteFirm(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── MACHINES ─────────────────────────────────────────────────────────────
+// ── MACHINES (Madde 2: Kapalı Akordiyon & Genişletilmiş Arama) ───────────
 function toggleFirmAccordion(fn) {
   firmCollapsed[fn] = !firmCollapsed[fn];
   renderMachines();
@@ -1779,7 +1794,20 @@ function renderMachines() {
   const cur = sel?.value || '';
   let filtered = machines;
   if (cur) filtered = filtered.filter(m => String(m.firm_id) === cur);
-  if (q) filtered = filtered.filter(m => (m.machine_name || '').toLowerCase().includes(q) || (m.firm_name || '').toLowerCase().includes(q));
+  
+  // Madde 2: Vinç adı, firma, tonaj, açıklama, vinç tipi ve aks açıklığı dahil tam arama
+  if (q) {
+    filtered = filtered.filter(m => 
+      (m.machine_name || '').toLowerCase().includes(q) || 
+      (m.firm_name || '').toLowerCase().includes(q) ||
+      (m.capacity || '').toLowerCase().includes(q) ||
+      (m.crane_type || '').toLowerCase().includes(q) ||
+      (m.notes || '').toLowerCase().includes(q) ||
+      (m.span || '').toLowerCase().includes(q) ||
+      (m.lifting_height || '').toLowerCase().includes(q)
+    );
+  }
+
   if (!filtered.length) { list.innerHTML = '<div class="card empty"><div class="icon">🏗️</div>Vinç bulunamadı</div>'; return; }
   
   const grouped = {};
@@ -1787,7 +1815,8 @@ function renderMachines() {
   
   let html = '';
   Object.entries(grouped).forEach(([fn, list2]) => {
-    const isCollapsed = firmCollapsed[fn] || false;
+    // Madde 2: Varsayılan kapalı (collapsed) gelmesi sağlandı
+    const isCollapsed = firmCollapsed[fn] !== undefined ? firmCollapsed[fn] : true;
     html += `
       <div class="firm-divider" onclick="toggleFirmAccordion('${esc(fn).replace(/'/g, "\\'")}')">
         <div></div>
@@ -1800,9 +1829,12 @@ function renderMachines() {
         <div class="card" style="margin-bottom:.5rem;overflow:hidden">
           <div class="machine-accordion-head" onclick="toggleMachineItems(${m.id})">
             <div>
-              <div style="display:flex;align-items:center;gap:.5rem">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
                 <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
                 ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
+                ${m.crane_type ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--accent);font-size:.65rem">🏗️ ${esc(m.crane_type)}</span>` : ''}
+                ${m.lifting_height ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↕ ${esc(m.lifting_height)}m</span>` : ''}
+                ${m.span ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↔ ${esc(m.span)}m</span>` : ''}
                 <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
               </div>
               ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
@@ -1819,6 +1851,12 @@ function renderMachines() {
             </div>
           </div>
           <div id="machine-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+              <span>Vinç Tipi: <strong style="color:var(--text)">${esc(m.crane_type || '—')}</strong></span>
+              <span>Kaldırma Yüksekliği: <strong style="color:var(--text)">${m.lifting_height ? m.lifting_height + ' m' : '—'}</strong></span>
+              <span>Köprü Aks Açıklığı: <strong style="color:var(--text)">${m.span ? m.span + ' m' : '—'}</strong></span>
+              <span>Çalışma Şartı: <strong style="color:var(--text)">${m.environment === 'open' ? 'Açık Saha' : 'Kapalı Saha'}</strong></span>
+            </div>
             ${(m.items || []).length ? `
               <table style="font-size:.8rem;width:100%">
                 <thead><tr><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
@@ -1843,6 +1881,10 @@ function openMachineModal() {
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = '';
   document.getElementById('machineCapacity').value = '';
+  document.getElementById('machineCraneType').value = '';
+  document.getElementById('machineLiftingHeight').value = '';
+  document.getElementById('machineSpan').value = '';
+  document.getElementById('machineEnvironment').value = 'closed';
   document.getElementById('machineNotes').value = '';
   document.getElementById('machineItems').innerHTML = '';
   document.getElementById('machineModalTitle').textContent = 'Yeni Vinç';
@@ -1856,6 +1898,10 @@ function editMachine(id) {
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = m.machine_name || '';
   document.getElementById('machineCapacity').value = m.capacity || '';
+  document.getElementById('machineCraneType').value = m.crane_type || '';
+  document.getElementById('machineLiftingHeight').value = m.lifting_height || '';
+  document.getElementById('machineSpan').value = m.span || '';
+  document.getElementById('machineEnvironment').value = m.environment || 'closed';
   document.getElementById('machineNotes').value = m.notes || '';
   document.getElementById('machineItems').innerHTML = '';
   (m.items || []).forEach(it => addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || ''));
@@ -1886,7 +1932,17 @@ async function executeCloneMachine() {
     const sourceMachine = machines.find(x => x.id == sourceId);
     if (!sourceMachine) return;
 
-    const payload = { machine_name: newName, firm_id: targetFirmId, capacity: newCapacity, notes: sourceMachine.notes || '', items: sourceMachine.items || [] };
+    const payload = { 
+      machine_name: newName, 
+      firm_id: targetFirmId, 
+      capacity: newCapacity, 
+      crane_type: sourceMachine.crane_type || '',
+      lifting_height: sourceMachine.lifting_height || '',
+      span: sourceMachine.span || '',
+      environment: sourceMachine.environment || 'closed',
+      notes: sourceMachine.notes || '', 
+      items: sourceMachine.items || [] 
+    };
     const r = await api('/api/machines', 'POST', payload);
     if (!r) return;
     closeModal('cloneMachineModal');
@@ -1973,6 +2029,10 @@ async function saveMachine() {
     const id = document.getElementById('editMachineId').value;
     const machine_name = document.getElementById('machineName').value.trim();
     const capacity = document.getElementById('machineCapacity').value.trim();
+    const crane_type = document.getElementById('machineCraneType').value.trim();
+    const lifting_height = document.getElementById('machineLiftingHeight').value.trim();
+    const span = document.getElementById('machineSpan').value.trim();
+    const environment = document.getElementById('machineEnvironment').value;
     const notes = document.getElementById('machineNotes').value.trim();
     const firm_id = document.getElementById('machineFirm').value || null;
     if (!machine_name) { toast('Vinç adı gerekli', 'error'); return; }
@@ -1987,8 +2047,10 @@ async function saveMachine() {
       };
     }).filter(i => i.product_id);
 
-    if (id) await api('/api/machines/' + id, 'PUT', { machine_name, capacity, firm_id, notes, items });
-    else await api('/api/machines', 'POST', { machine_name, capacity, firm_id, notes, items });
+    const payload = { machine_name, capacity, crane_type, lifting_height, span, environment, firm_id, notes, items };
+
+    if (id) await api('/api/machines/' + id, 'PUT', payload);
+    else await api('/api/machines', 'POST', payload);
     closeModal('machineModal');
     await Promise.all([loadMachines(), loadTasks()]);
     renderMachines();
@@ -2134,7 +2196,7 @@ async function deleteTask(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── ATÖLYE & OPERASYON FONKSİYONLARI (Admin İçin) ──────────────────────────
+// ── ATÖLYE & OPERASYON FONKSİYONLARI ──────────────────────────────────────
 function renderFirmLists() {
   const opts = firms.map(f => `<option value="${esc(f.name)}">`).join('');
   ['firmList', 'firmList3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
@@ -2807,7 +2869,7 @@ async function saveComment() {
   });
 }
 
-// ── SATIN ALMA / TALEP YÖNETİMİ ──────────────────────────────────────────
+// ── SATIN ALMA / TALEP YÖNETİMİ (Madde 3: Vurgulu Marka & Kod) ────────────
 var _purchases = [];
 async function loadPurchases() { _purchases = await api('/api/purchase-requests') || []; renderPurchaseBadge(); }
 function renderPurchaseBadge() {
@@ -2844,21 +2906,42 @@ function renderPurchases() {
   tbody.innerHTML = list.length ? list.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     var pVals = p.product_values || {};
-    var extraTags = Object.entries(pVals).map(function([cid, val]) {
-      if (!val) return '';
-      var col = columns.find(c => String(c.id) === String(cid));
-      var colName = col ? col.name : 'Sütun';
-      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
-    }).filter(Boolean).join('');
+    
+    // Marka ve Stok Kodu alanlarını tespit et ve vurgula
+    let brandVal = '';
+    let codeVal = '';
+    const otherTags = [];
+
+    Object.entries(pVals).forEach(([cid, val]) => {
+      if (!val) return;
+      const col = columns.find(c => String(c.id) === String(cid));
+      const colName = col ? col.name.toLowerCase() : '';
+      if (colName.includes('marka')) {
+        brandVal = val;
+      } else if (colName.includes('kod') || colName.includes('stok kodu')) {
+        codeVal = val;
+      } else {
+        const title = col ? col.name : 'Özellik';
+        otherTags.push(`<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(title)}:</strong> ${esc(val)}</span>`);
+      }
+    });
+
+    const highlightBlock = (brandVal || codeVal) ? `
+      <div style="display:flex;align-items:center;gap:.4rem;margin-top:.25rem;flex-wrap:wrap">
+        ${brandVal ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:800;font-size:.72rem">🏷️ ${esc(brandVal)}</span>` : ''}
+        ${codeVal ? `<span style="font-family:var(--mono);font-weight:800;font-size:.76rem;color:var(--accent);background:rgba(232,184,75,.12);padding:.1rem .4rem;border-radius:4px;border:1px solid rgba(232,184,75,.3)">${esc(codeVal)}</span>` : ''}
+      </div>
+    ` : '';
 
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
       <td><strong>${esc(p.requester_name || '?')}</strong></td>
       <td>
-        <strong>${esc(p.product_name)}</strong>
-        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${extraTags}</div>` : ''}
+        <strong style="font-size:.88rem">${esc(p.product_name)}</strong>
+        ${highlightBlock}
+        ${otherTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${otherTags.join('')}</div>` : ''}
       </td>
-      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || '')}</td>
+      <td style="font-family:var(--mono);font-weight:700">${p.quantity} ${esc(p.unit || '')}</td>
       <td style="font-size:.8rem;color:var(--text2)">${esc(p.reason || '—')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
