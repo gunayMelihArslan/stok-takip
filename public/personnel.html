@@ -173,7 +173,7 @@
     <div class="page" id="page-vfd">
       <div class="vfd-tabs">
         <button type="button" class="vfd-tab-btn active" id="pVfdTabParamBtn" onclick="switchPVfdTab('parameter')">📋 Parametreler</button>
-        <button type="button" class="vfd-tab-btn" id="pVfdTabFaultBtn" onclick="switchPVfdTab('fault')">⚠️ Hata Kodu & Teşhis</button>
+        <button type="button" class="vfd-tab-btn" id="pVfdTabFaultBtn" onclick="switchPVfdTab('fault')">⚠️️ Hata Kodu & Teşhis</button>
       </div>
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -208,7 +208,7 @@
           <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="takeCompany" list="firmList" placeholder="Firma..."><datalist id="firmList"></datalist></div>
           <div class="form-group" style="margin:0"><label>Miktar</label><input type="number" id="takeQty" min="0.01" step="any" placeholder="0"></div>
           <div class="form-group" style="margin:0"><label>Not</label><input type="text" id="takeNote"></div>
-          <button class="btn btn-primary btn-full" onclick="submitTake()">📤 Alımı Kaydet</button>
+          <button class="btn btn-primary btn-full" id="takeSubmitBtn" onclick="submitTake()">📤 Alımı Kaydet</button>
         </div>
       </div></div>
     </div>
@@ -247,7 +247,7 @@
           <div class="form-group" style="margin:0"><label>Firma</label><input type="text" id="retCompany" list="firmList3"><datalist id="firmList3"></datalist></div>
           <div class="form-group" style="margin:0"><label>Miktar</label><input type="number" id="retQty" min="0.01" step="any" placeholder="0"></div>
           <div class="form-group" style="margin:0"><label>İade Nedeni</label><input type="text" id="retNote"></div>
-          <button class="btn btn-success btn-full" onclick="submitReturn()">↩ İadeyi Kaydet</button>
+          <button class="btn btn-success btn-full" id="retSubmitBtn" onclick="submitReturn()">↩ İadeyi Kaydet</button>
         </div>
       </div></div>
     </div>
@@ -268,7 +268,7 @@
             </div>
             <div class="form-group" style="margin:0"><label>Hangi İş İçin?</label><select id="prTaskSel"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
             <div class="form-group" style="margin:0"><label>Talep Nedeni / Açıklama</label><textarea id="prReason" rows="2" placeholder="Kısa açıklama..."></textarea></div>
-            <button type="button" class="btn btn-primary btn-full" onclick="submitPR()">📤 Talebi Gönder</button>
+            <button type="button" class="btn btn-primary btn-full" id="prSubmitBtn" onclick="submitPR()">📤 Talebi Gönder</button>
           </div>
         </div>
       </div>
@@ -307,7 +307,7 @@
     <div class="form-group"><label>Devredilecek Personel</label><select id="transferTo"><option value="">— Personel Seçin —</option></select></div>
     <div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" onclick="doTransfer()">Devret</button></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" id="transferDoBtn" onclick="doTransfer()">Devret</button></div></div>
 </div>
 
 <!-- BARKOD / QR KAMERA TARAYICI MODALI -->
@@ -318,7 +318,7 @@
       <button class="modal-close" onclick="closeBarcodeScanner()">×</button>
     </div>
     <div class="modal-body" style="text-align:center">
-      <div id="reader" style="width:100%;border-radius:8px;overflow:hidden"></div>
+      <div id="reader" style="width:100%;border-radius:8px;overflow-hidden"></div>
       <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:.75rem">Telefon kamerasını ürün etiketindeki barkoda tutun.</div>
     </div>
     <div class="modal-footer">
@@ -358,7 +358,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('receiveModal')">İptal</button>
-      <button class="btn btn-primary" onclick="saveReceiveModal()">📦 Teslimatı Onayla</button>
+      <button class="btn btn-primary" id="receiveSaveBtn" onclick="saveReceiveModal()">📦 Teslimatı Onayla</button>
     </div>
   </div>
 </div>
@@ -383,7 +383,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('bomEditReqModal')">İptal</button>
-      <button class="btn btn-primary" onclick="submitBomEditRequest()">📤 Talebi Gönder</button>
+      <button class="btn btn-primary" id="bomEditReqBtn" onclick="submitBomEditRequest()">📤 Talebi Gönder</button>
     </div>
   </div>
 </div>
@@ -420,7 +420,8 @@ async function init() {
   me = u;
   document.getElementById('userName').textContent = u.display_name || u.username;
   document.getElementById('avatarInit').textContent = (u.display_name || u.username)[0].toUpperCase();
-  updateTime(); setInterval(updateTime, 30000);
+  updateTime(); 
+  setInterval(updateTime, 1000); // Saniye saniye akış (Madde 1)
   await loadAll();
   showPage('mytasks');
   connectSSE();
@@ -530,10 +531,32 @@ async function loadPVfdAll() { await Promise.all([loadPVfdDevices(), loadPVfdRec
 async function loadPVfdDevices() { pVfdDevices = await api('/api/vfd/devices') || []; }
 async function loadPVfdRecords() { pVfdRecords = await api('/api/vfd/records') || []; }
 
+// Buton Kilitleme & Çift Tıklama Koruması
+async function withButtonLock(btnId, loadingText, asyncAction) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return await asyncAction();
+  if (btn.disabled) return;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  if (loadingText) btn.innerHTML = loadingText;
+  try {
+    return await asyncAction();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+// Arama Debounce'u (Gecikme Koruması)
+let searchDebounceTimers = {};
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
   if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
-  if (callbackFn) callbackFn();
+  const key = inputEl.id || 'default';
+  clearTimeout(searchDebounceTimers[key]);
+  searchDebounceTimers[key] = setTimeout(() => {
+    if (callbackFn) callbackFn();
+  }, 180);
 }
 
 function clearSearchInput(inputId, callbackFn) {
@@ -785,7 +808,7 @@ function renderOpenTasks() {
   el.innerHTML = html;
 }
 
-// ── MALZEME LİSTELERİ (VARSAYILAN KAPALI AKORDİYON) ───────────────────────
+// ── MALZEME LİSTELERİ (Madde 6: Yeni Parametrelerle Güçlendirilmiş) ─────────
 function togglePBomFirm(fn) {
   const isCurrentlyCollapsed = pBomFirmCollapsed[fn] !== undefined ? pBomFirmCollapsed[fn] : true;
   pBomFirmCollapsed[fn] = !isCurrentlyCollapsed;
@@ -808,7 +831,7 @@ function renderBomLists() {
   if (curF) filtered = filtered.filter(m => String(m.firm_id) === curF);
   if (sq) {
     filtered = filtered.filter(m => {
-      const matchHeader = (m.machine_name || '').toLowerCase().includes(sq) || (m.firm_name || '').toLowerCase().includes(sq);
+      const matchHeader = (m.machine_name || '').toLowerCase().includes(sq) || (m.firm_name || '').toLowerCase().includes(sq) || (m.capacity || '').toLowerCase().includes(sq) || (m.crane_type || '').toLowerCase().includes(sq) || (m.notes || '').toLowerCase().includes(sq);
       const matchItem = (m.items || []).some(it => (it.product_name || '').toLowerCase().includes(sq));
       return matchHeader || matchItem;
     });
@@ -828,9 +851,10 @@ function renderBomLists() {
         <div class="card" style="margin-bottom:.5rem;overflow:hidden">
           <div class="bom-accordion-head" onclick="toggleBomItems(${m.id})">
             <div>
-              <div style="display:flex;align-items:center;gap:.5rem">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
                 <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
                 ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
+                ${m.crane_type ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--accent);font-size:.65rem">🏗️ ${esc(m.crane_type)}</span>` : ''}
                 <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem</span>
               </div>
               ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
@@ -842,6 +866,13 @@ function renderBomLists() {
             </div>
           </div>
           <div id="bom-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+            <!-- Madde 6: Vinç Teknik Bilgileri -->
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+              <span>Vinç Tipi: <strong style="color:var(--text)">${esc(m.crane_type || '—')}</strong></span>
+              <span>Kaldırma Yüksekliği: <strong style="color:var(--text)">${m.lifting_height ? m.lifting_height + ' m' : '—'}</strong></span>
+              <span>Köprü Aks Açıklığı: <strong style="color:var(--text)">${m.span ? m.span + ' m' : '—'}</strong></span>
+              <span>Çalışma Şartı: <strong style="color:var(--text)">${m.environment === 'open' ? 'Açık Saha' : 'Kapalı Saha'}</strong></span>
+            </div>
             ${(m.items || []).length ? `
               <table style="font-size:.8rem;width:100%">
                 <thead><tr><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
@@ -879,6 +910,7 @@ function shareBOM(machineId) {
   let summaryText = `🏗️ *${m.machine_name}* - Malzeme Listesi\n`;
   if (m.firm_name) summaryText += `🏢 Firma: ${m.firm_name}\n`;
   if (m.capacity) summaryText += `⚖️ Kapasite: ${m.capacity}\n`;
+  if (m.crane_type) summaryText += `🏗️ Tip: ${m.crane_type}\n`;
   summaryText += `\n📦 *Malzemeler (${(m.items || []).length} Kalem):*\n`;
   (m.items || []).forEach((it, idx) => {
     const yr = it.machine_year ? ` (Model: ${it.machine_year})` : '';
@@ -905,13 +937,15 @@ function openBomEditReqModal(machineId) {
 }
 
 async function submitBomEditRequest() {
-  const machine_id = document.getElementById('bomEditReqMachineId').value;
-  const message = document.getElementById('bomEditReqMessage').value.trim();
-  if (!message) { toast('Lütfen talep açıklamasını yazın', 'error'); return; }
-  const r = await api('/api/bom-edit-request', 'POST', { machine_id, message });
-  if (!r) return;
-  closeModal('bomEditReqModal');
-  toast('Düzenleme talebiniz yöneticilere iletildi ✓', 'success');
+  await withButtonLock('bomEditReqBtn', 'Gönderiliyor...', async () => {
+    const machine_id = document.getElementById('bomEditReqMachineId').value;
+    const message = document.getElementById('bomEditReqMessage').value.trim();
+    if (!message) { toast('Lütfen talep açıklamasını yazın', 'error'); return; }
+    const r = await api('/api/bom-edit-request', 'POST', { machine_id, message });
+    if (!r) return;
+    closeModal('bomEditReqModal');
+    toast('Düzenleme talebiniz yöneticilere iletildi ✓', 'success');
+  });
 }
 
 async function takeStage(stageId) {
@@ -933,12 +967,14 @@ function openTransferModal(stageId, stageName) {
   openModal('transferModal');
 }
 async function doTransfer() {
-  const stage_id = document.getElementById('transferStageId').value;
-  const to_user_id = document.getElementById('transferTo').value;
-  const message = document.getElementById('transferMsg').value.trim();
-  if (!to_user_id) { toast('Personel seçin', 'error'); return; }
-  await api('/api/task-stages/' + stage_id + '/transfer', 'POST', { to_user_id, message });
-  closeModal('transferModal'); await loadTasks(); renderMyTasks(); toast('Devir talebi gönderildi', 'success');
+  await withButtonLock('transferDoBtn', 'Devrediliyor...', async () => {
+    const stage_id = document.getElementById('transferStageId').value;
+    const to_user_id = document.getElementById('transferTo').value;
+    const message = document.getElementById('transferMsg').value.trim();
+    if (!to_user_id) { toast('Personel seçin', 'error'); return; }
+    await api('/api/task-stages/' + stage_id + '/transfer', 'POST', { to_user_id, message });
+    closeModal('transferModal'); await loadTasks(); renderMyTasks(); toast('Devir talebi gönderildi', 'success');
+  });
 }
 async function respondTransfer(transferId, accept) {
   await api('/api/task-transfers/' + transferId + '/respond', 'POST', { accept });
@@ -978,7 +1014,7 @@ function renderFirmLists() {
   const blf = document.getElementById('bomListFirmFilter'); if (blf) blf.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
 }
 
-// ── PRODUCT SEARCH TYPEAHEAD & DROPDOWN (HAFİFLETİLMİŞ) ───────────────────
+// ── PRODUCT SEARCH TYPEAHEAD & DROPDOWN ───────────────────────────────────
 let ddHighlightedIdx = -1;
 
 function buildDD(prefix) {
@@ -1060,22 +1096,24 @@ function updateProductInfo() {
 
 // ── TAKE ─────────────────────────────────────────────────────────────────
 async function submitTake() {
-  const product_id = document.getElementById('takeProductId').value;
-  const company = document.getElementById('takeCompany').value.trim();
-  const quantity = parseFloat(document.getElementById('takeQty').value);
-  const notes = document.getElementById('takeNote').value.trim();
-  if (!product_id) { toast('Ürün seçin', 'error'); return; }
-  if (!company) { toast('Firma girin', 'error'); return; }
-  if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
-  const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes });
-  if (!r) return;
-  document.getElementById('takeProductSearch').value = '';
-  document.getElementById('takeProductId').value = '';
-  document.getElementById('takeCompany').value = '';
-  document.getElementById('takeQty').value = '';
-  document.getElementById('takeNote').value = '';
-  document.getElementById('productInfoBox').style.display = 'none';
-  await loadProducts(); renderStock(); toast(`${quantity} adet kaydedildi ✓`, 'success');
+  await withButtonLock('takeSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('takeProductId').value;
+    const company = document.getElementById('takeCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('takeQty').value);
+    const notes = document.getElementById('takeNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes });
+    if (!r) return;
+    document.getElementById('takeProductSearch').value = '';
+    document.getElementById('takeProductId').value = '';
+    document.getElementById('takeCompany').value = '';
+    document.getElementById('takeQty').value = '';
+    document.getElementById('takeNote').value = '';
+    document.getElementById('productInfoBox').style.display = 'none';
+    await loadProducts(); renderStock(); toast(`${quantity} adet kaydedildi ✓`, 'success');
+  });
 }
 
 function filterBulkMachines() {
@@ -1225,32 +1263,36 @@ async function submitBulkTake() {
   if (!items_to_take.length) { toast('Lütfen alınacak en az bir ürünü işaretleyin', 'error'); return; }
   if (!confirm(`"${m?.machine_name}" için seçilen ${items_to_take.length} ürünü teslim alıyorsunuz. Onaylıyor musunuz?`)) return;
   
-  const r = await api('/api/transactions/bulk', 'POST', { machine_id, company, notes, items_to_take });
-  if (!r) return;
-  
-  document.getElementById('bulkNote').value = '';
-  await loadMachinePreview();
-  await loadProducts();
-  renderProducts();
-  toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
+  await withButtonLock('bulkSubmitBtn', 'Kaydediliyor...', async () => {
+    const r = await api('/api/transactions/bulk', 'POST', { machine_id, company, notes, items_to_take });
+    if (!r) return;
+    
+    document.getElementById('bulkNote').value = '';
+    await loadMachinePreview();
+    await loadProducts();
+    renderProducts();
+    toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
+  });
 }
 
 async function submitReturn() {
-  const product_id = document.getElementById('retProductId').value;
-  const company = document.getElementById('retCompany').value.trim();
-  const quantity = parseFloat(document.getElementById('retQty').value);
-  const notes = document.getElementById('retNote').value.trim();
-  if (!product_id) { toast('Ürün seçin', 'error'); return; }
-  if (!company) { toast('Firma girin', 'error'); return; }
-  if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
-  const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes, tx_type: 'return' });
-  if (!r) return;
-  document.getElementById('retProductSearch').value = '';
-  document.getElementById('retProductId').value = '';
-  document.getElementById('retCompany').value = '';
-  document.getElementById('retQty').value = '';
-  document.getElementById('retNote').value = '';
-  await loadProducts(); renderStock(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  await withButtonLock('retSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('retProductId').value;
+    const company = document.getElementById('retCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('retQty').value);
+    const notes = document.getElementById('retNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes, tx_type: 'return' });
+    if (!r) return;
+    document.getElementById('retProductSearch').value = '';
+    document.getElementById('retProductId').value = '';
+    document.getElementById('retCompany').value = '';
+    document.getElementById('retQty').value = '';
+    document.getElementById('retNote').value = '';
+    await loadProducts(); renderStock(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  });
 }
 
 function renderHistory() {
@@ -1288,7 +1330,17 @@ async function logout() {
   window.location.href = '/';
 }
 
-function openModal(id) { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+function openModal(id) { 
+  const el = document.getElementById(id); 
+  if (el) {
+    el.classList.add('open');
+    setTimeout(() => {
+      const firstInput = el.querySelector('input:not([type="hidden"]), select, textarea');
+      if (firstInput) firstInput.focus();
+    }, 150);
+  }
+}
+
 function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
@@ -1413,7 +1465,7 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA / TALEP YÖNETİMİ (PERSONEL) ────────────────────────────────
+// ── SATIN ALMA / TALEP YÖNETİMİ (Madde 3: Vurgulu Marka & Kod) ────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1436,19 +1488,39 @@ function renderMyPurchases() {
   tbody.innerHTML = _myPR.length ? _myPR.map(function(p) {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     var pVals = p.product_values || {};
-    var extraTags = Object.entries(pVals).map(function([cid, val]) {
-      if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note') return '';
-      var col = columns.find(c => String(c.id) === String(cid));
-      var colName = col ? col.name : 'Özellik';
-      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
-    }).filter(Boolean).join('');
+    
+    // Marka ve Stok Kodu alanlarını tespit et ve vurgula
+    let brandVal = '';
+    let codeVal = '';
+    const otherTags = [];
+
+    Object.entries(pVals).forEach(([cid, val]) => {
+      if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note') return;
+      const col = columns.find(c => String(c.id) === String(cid));
+      const colName = col ? col.name.toLowerCase() : '';
+      if (colName.includes('marka')) {
+        brandVal = val;
+      } else if (colName.includes('kod') || colName.includes('stok kodu')) {
+        codeVal = val;
+      } else {
+        const title = col ? col.name : 'Özellik';
+        otherTags.push(`<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(title)}:</strong> ${esc(val)}</span>`);
+      }
+    });
 
     if (pVals.actual_qty && parseFloat(pVals.actual_qty) !== parseFloat(p.quantity)) {
-      extraTags += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gelen:</strong> ${pVals.actual_qty}</span>`;
+      otherTags.push(`<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--accent)"><strong>Gelen:</strong> ${pVals.actual_qty}</span>`);
     }
     if (pVals.delivery_status === 'discrepancy') {
-      extraTags += `<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,75,75,.15);border:1px solid rgba(232,75,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--danger)" title="${esc(pVals.delivery_note)}">⚠️ Fark Bildirildi</span>`;
+      otherTags.push(`<span style="font-family:var(--mono);font-size:.62rem;background:rgba(232,75,75,.15);border:1px solid rgba(232,75,75,.3);border-radius:4px;padding:.1rem .35rem;color:var(--danger)" title="${esc(pVals.delivery_note)}">⚠️ Fark Bildirildi</span>`);
     }
+
+    const highlightBlock = (brandVal || codeVal) ? `
+      <div style="display:flex;align-items:center;gap:.4rem;margin-top:.25rem;flex-wrap:wrap">
+        ${brandVal ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:800;font-size:.72rem">🏷️ ${esc(brandVal)}</span>` : ''}
+        ${codeVal ? `<span style="font-family:var(--mono);font-weight:800;font-size:.76rem;color:var(--accent);background:rgba(232,184,75,.12);padding:.1rem .4rem;border-radius:4px;border:1px solid rgba(232,184,75,.3)">${esc(codeVal)}</span>` : ''}
+      </div>
+    ` : '';
 
     var canReceive = p.status === 'ordered';
 
@@ -1456,10 +1528,11 @@ function renderMyPurchases() {
       <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
       <td><strong>${esc(p.requester_name || '?')}</strong></td>
       <td>
-        <strong>${esc(p.product_name)}</strong>
-        ${extraTags ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${extraTags}</div>` : ''}
+        <strong style="font-size:.88rem">${esc(p.product_name)}</strong>
+        ${highlightBlock}
+        ${otherTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${otherTags.join('')}</div>` : ''}
       </td>
-      <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || '')}</td>
+      <td style="font-family:var(--mono);font-weight:700">${p.quantity} ${esc(p.unit || '')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
       <td>
         <span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
@@ -1491,43 +1564,47 @@ function toggleReceiveNote(val) {
 }
 
 async function saveReceiveModal() {
-  var id = document.getElementById('receiveOrderId').value;
-  var actual_qty = parseFloat(document.getElementById('receiveActualQty').value);
-  var delivery_status = document.getElementById('receiveStatusType').value;
-  var delivery_note = document.getElementById('receiveDeliveryNote').value.trim();
+  await withButtonLock('receiveSaveBtn', 'Kaydediliyor...', async () => {
+    var id = document.getElementById('receiveOrderId').value;
+    var actual_qty = parseFloat(document.getElementById('receiveActualQty').value);
+    var delivery_status = document.getElementById('receiveStatusType').value;
+    var delivery_note = document.getElementById('receiveDeliveryNote').value.trim();
 
-  if (isNaN(actual_qty) || actual_qty <= 0) { toast('Lütfen geçerli bir miktar girin', 'error'); return; }
-  if (delivery_status === 'discrepancy' && !delivery_note) { toast('Lütfen fark açıklamasını girin', 'error'); return; }
+    if (isNaN(actual_qty) || actual_qty <= 0) { toast('Lütfen geçerli bir miktar girin', 'error'); return; }
+    if (delivery_status === 'discrepancy' && !delivery_note) { toast('Lütfen fark açıklamasını girin', 'error'); return; }
 
-  var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', {
-    status: 'received',
-    actual_qty: actual_qty,
-    delivery_status: delivery_status,
-    delivery_note: delivery_note
+    var r = await api('/api/purchase-requests/' + id + '/status', 'PUT', {
+      status: 'received',
+      actual_qty: actual_qty,
+      delivery_status: delivery_status,
+      delivery_note: delivery_note
+    });
+
+    if (!r) return;
+    closeModal('receiveModal');
+    await loadMyPurchases();
+    renderMyPurchases();
+    toast('Teslimat başarıyla kaydedildi ✓', 'success');
   });
-
-  if (!r) return;
-  closeModal('receiveModal');
-  await loadMyPurchases();
-  renderMyPurchases();
-  toast('Teslimat başarıyla kaydedildi ✓', 'success');
 }
 
 async function submitPR() {
-  var name = document.getElementById('prName').value;
-  var qty = parseFloat(document.getElementById('prQty').value);
-  var unit = document.getElementById('prUnit').value || 'adet';
-  var reason = document.getElementById('prReason').value || '';
-  var tid = document.getElementById('prTaskSel').value || null;
-  if (!name || !name.trim()) { toast('Ürün adı zorunlu', 'error'); return; }
-  if (isNaN(qty) || qty <= 0) { toast('Geçerli miktar girin', 'error'); return; }
-  var r = await api('/api/purchase-requests', 'POST', { product_name: name.trim(), quantity: qty, unit: unit, reason: reason, task_id: tid || null });
-  if (!r) return;
-  ['prName', 'prQty', 'prReason'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('prUnit').value = 'adet';
-  document.getElementById('prTaskSel').value = '';
-  await loadMyPurchases(); renderMyPurchases();
-  toast('Talep gönderildi ✓', 'success');
+  await withButtonLock('prSubmitBtn', 'Gönderiliyor...', async () => {
+    var name = document.getElementById('prName').value;
+    var qty = parseFloat(document.getElementById('prQty').value);
+    var unit = document.getElementById('prUnit').value || 'adet';
+    var reason = document.getElementById('prReason').value || '';
+    var tid = document.getElementById('prTaskSel').value || null;
+    if (!name || !name.trim()) { toast('Ürün adı zorunlu', 'error'); return; }
+    if (isNaN(qty) || qty <= 0) { toast('Geçerli miktar girin', 'error'); return; }
+    var r = await api('/api/purchase-requests', 'POST', { product_name: name.trim(), quantity: qty, unit: unit, reason: reason, task_id: tid || null });
+    if (!r) return;
+    ['prName', 'prQty', 'prReason'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('prUnit').value = 'adet';
+    document.getElementById('prTaskSel').value = '';
+    await loadMyPurchases(); renderMyPurchases();
+    toast('Talep gönderildi ✓', 'success');
+  });
 }
 
 // ── ŞİFRE DEĞİŞTİR ────────────────────────────────────────────────────────
