@@ -373,16 +373,23 @@ app.delete('/api/firms/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── MACHINES (Yeni Vinç Parametreleri Entegre Edildi) ─────────────────────
+// ── MACHINES ─────────────────────────────────────────────────────────────
 async function enrichMachines(rows) {
   const firstCol = await getFirstCol();
   return Promise.all(rows.map(async m => {
     const firm = m.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [m.firm_id])).rows[0] : null;
+    const editor = m.updated_by ? (await query('SELECT username, display_name FROM users WHERE id=$1', [m.updated_by])).rows[0] : null;
     return {
-      ...m, firm_name: firm?.name || null,
+      ...m,
+      firm_name: firm?.name || null,
+      editor_name: editor?.display_name || editor?.username || null,
       items: await Promise.all((m.items || []).map(async it => {
         const p = (await query('SELECT "values" FROM products WHERE id=$1', [it.product_id])).rows[0];
-        return { ...it, product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
+        return { 
+          ...it, 
+          placement: it.placement || 'pano',
+          product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' 
+        };
       }))
     };
   }));
@@ -403,7 +410,7 @@ app.post('/api/machines', auth, admin, async (req, res) => {
     const mo = (await query('SELECT COALESCE(MAX(display_order),0) as m FROM machines')).rows[0].m;
     const ord = display_order !== undefined ? parseInt(display_order) : parseInt(mo) + 1;
     const r = (await query(
-      'INSERT INTO machines(machine_name,firm_id,notes,items,display_order,capacity,crane_type,lifting_height,span,environment) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',
+      'INSERT INTO machines(machine_name,firm_id,notes,items,display_order,capacity,crane_type,lifting_height,span,environment,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',
       [
         machine_name,
         firm_id || null,
@@ -414,7 +421,8 @@ app.post('/api/machines', auth, admin, async (req, res) => {
         crane_type || '',
         lifting_height || '',
         span || '',
-        environment || 'closed'
+        environment || 'closed',
+        req.user.id
       ]
     )).rows[0];
     await autoCreateTask(r.id, firm_id || null, machine_name);
@@ -428,7 +436,7 @@ app.put('/api/machines/:id', auth, admin, async (req, res) => {
   try {
     const { machine_name, notes, items, firm_id, display_order, capacity, crane_type, lifting_height, span, environment } = req.body;
     await query(
-      'UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4,display_order=$5,capacity=$6,crane_type=$7,lifting_height=$8,span=$9,environment=$10 WHERE id=$11',
+      'UPDATE machines SET machine_name=$1,firm_id=$2,notes=$3,items=$4,display_order=$5,capacity=$6,crane_type=$7,lifting_height=$8,span=$9,environment=$10,updated_by=$11 WHERE id=$12',
       [
         machine_name,
         firm_id || null,
@@ -440,6 +448,7 @@ app.put('/api/machines/:id', auth, admin, async (req, res) => {
         lifting_height || '',
         span || '',
         environment || 'closed',
+        req.user.id,
         req.params.id
       ]
     );
@@ -472,13 +481,13 @@ app.get('/api/transactions', auth, async (req, res) => {
 
 app.post('/api/transactions', auth, async (req, res) => {
   try {
-    const { product_id, company, quantity, notes, tx_type } = req.body;
+    const { product_id, company, quantity, notes, tx_type, placement } = req.body;
     if (!product_id || !company || !quantity) return res.status(400).json({ error: 'Ürün, firma ve miktar zorunlu' });
     const type = tx_type || 'out';
 
     const r = await withTransaction(async (client) => {
-      const txRes = await client.query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
-        [req.user.id, Number(product_id), company, Number(quantity), notes || '', type]);
+      const txRes = await client.query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type,placement) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+        [req.user.id, Number(product_id), company, Number(quantity), notes || '', type, placement || 'pano']);
       
       const numCol = await getNumCol(client);
       const lc = (await client.query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [product_id])).rows[0];
@@ -491,7 +500,7 @@ app.post('/api/transactions', auth, async (req, res) => {
         if (hasLots) await restoreToLots(product_id, Number(quantity), client);
         else await restoreStock(product_id, Number(quantity), numCol, client);
       }
-      await logActivity(req.user.id, type === 'return' ? 'Ürün İade Edildi' : 'Stok Çıkışı Yapıldı', 'transaction', txRes.rows[0].id, { product_id, company, quantity, tx_type: type }, req, client);
+      await logActivity(req.user.id, type === 'return' ? 'Ürün İade Edildi' : 'Stok Çıkışı Yapıldı', 'transaction', txRes.rows[0].id, { product_id, company, quantity, tx_type: type, placement: placement || 'pano' }, req, client);
       return txRes.rows[0];
     });
 
@@ -504,14 +513,17 @@ app.post('/api/transactions', auth, async (req, res) => {
 app.get('/api/machines/:id/taken', auth, async (req, res) => {
   try {
     const rows = (await query(
-      "SELECT product_id, COALESCE(bom_category,'') as bom_category, SUM(CASE WHEN tx_type='out' THEN quantity WHEN tx_type='return' THEN -quantity ELSE 0 END) as taken FROM transactions WHERE machine_id=$1 GROUP BY product_id, COALESCE(bom_category,'')",
+      "SELECT product_id, COALESCE(bom_category,'') as bom_category, COALESCE(placement,'pano') as placement, SUM(CASE WHEN tx_type='out' THEN quantity WHEN tx_type='return' THEN -quantity ELSE 0 END) as taken FROM transactions WHERE machine_id=$1 GROUP BY product_id, COALESCE(bom_category,''), COALESCE(placement,'pano')",
       [req.params.id]
     )).rows;
     const m = {};
     rows.forEach(r => {
       const cat = r.bom_category || '';
-      const key = cat ? r.product_id + '::' + cat : String(r.product_id);
-      m[key] = (m[key] || 0) + parseFloat(r.taken || 0);
+      const plc = r.placement || 'pano';
+      const keyFull = cat ? `${r.product_id}::${cat}::${plc}` : `${r.product_id}::${plc}`;
+      const keyCat = cat ? `${r.product_id}::${cat}` : String(r.product_id);
+      m[keyFull] = (m[keyFull] || 0) + parseFloat(r.taken || 0);
+      m[keyCat] = (m[keyCat] || 0) + parseFloat(r.taken || 0);
       m[r.product_id] = (m[r.product_id] || 0) + parseFloat(r.taken || 0);
     });
     res.json(m);
@@ -538,9 +550,10 @@ app.post('/api/transactions/bulk', auth, async (req, res) => {
         const lc = (await client.query('SELECT COUNT(*) as c FROM product_lots WHERE product_id=$1', [item.product_id])).rows[0];
         const hasLots = parseInt(lc.c) > 0;
         const bomCat = item.bom_category || null;
+        const placement = item.placement || 'pano';
 
-        const r = await client.query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type,machine_id,bom_category) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-          [req.user.id, Number(item.product_id), company, qty, `${machine.machine_name}${notes ? ' — ' + notes : ''}`, 'out', Number(machine_id), bomCat]);
+        const r = await client.query('INSERT INTO transactions(user_id,product_id,company,quantity,notes,tx_type,machine_id,bom_category,placement) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+          [req.user.id, Number(item.product_id), company, qty, `${machine.machine_name}${notes ? ' — ' + notes : ''}`, 'out', Number(machine_id), bomCat, placement]);
         
         if (hasLots) await deductFromLots(item.product_id, qty, client);
         else await deductStock(item.product_id, qty, numCol, client);
@@ -950,7 +963,7 @@ app.post('/api/bom-edit-request', auth, async (req, res) => {
   }
 });
 
-// ── BOM ÇIKTISI (Yeni Parametreler, Auto-Fit Dikey Sığdırma & Dijital Elektrikhane Footer) ──
+// ── BOM ÇIKTISI (Otomatik İmza, Sağ Üst Prestij Logo, Pano/Kedi Filtresi) ──
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -966,8 +979,25 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
     const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'landscape';
     
+    // Madde 3: Varsayılan olarak pano içi malzemeler gelsin
+    const placementFilter = req.query.placement || 'pano'; 
+    
+    // Madde 1: Hazırlayan kullanıcının adını tespit et
+    let editorName = '';
+    if (machine.updated_by) {
+      const u = (await query('SELECT display_name, username FROM users WHERE id=$1', [machine.updated_by])).rows[0];
+      if (u) editorName = u.display_name || u.username;
+    }
+    if (!editorName) {
+      const lastLog = (await query("SELECT u.display_name, u.username FROM activity_log a JOIN users u ON u.id=a.user_id WHERE a.entity_type='machine' AND a.entity_id=$1 ORDER BY a.created_at DESC LIMIT 1", [machine.id])).rows[0];
+      if (lastLog) editorName = lastLog.display_name || lastLog.username;
+    }
+
     const categoryMap = {};
     (machine.items || []).forEach(it => {
+      const itPlacement = it.placement || 'pano';
+      if (placementFilter !== 'all' && itPlacement !== placementFilter) return;
+
       const prod = prods.find(p => p.id === Number(it.product_id));
       const prodCat = catCol && prod?.values ? prod.values[catCol.id] : (prod?.values?.category || prod?.values?._category);
       const cat = it.category_name || prodCat || 'Genel';
@@ -1058,13 +1088,12 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
       return '<tr class="item-row-tr">' + cells + '</tr>';
     }).join('\n      ');
 
-    // 6. Maddede İstenen Yeni Vinç Teknik Özellikleri
     const craneTypeStr = machine.crane_type || 'Belirtilmedi';
     const liftingHeightStr = machine.lifting_height ? machine.lifting_height + ' m' : '—';
     const spanStr = machine.span ? machine.span + ' m' : '—';
     const envStr = machine.environment === 'open' ? 'Açık Saha' : 'Kapalı Saha';
+    const scopeLabel = placementFilter === 'pano' ? 'PANO İÇİ LİSTESİ' : placementFilter === 'kedi' ? 'KEDİ (SAHA) LİSTESİ' : 'GENEL MALZEME LİSTESİ';
 
-    // 20+ kalem satır varsa tek sayfaya sıkıştırmak için otomatik Auto-Fit sınıfı
     const autoFitClass = (itemCount + extraRowCount > 18 && orientation === 'portrait') ? 'auto-fit-page' : '';
 
     res.send(`<!DOCTYPE html>
@@ -1074,13 +1103,23 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
 @page{size:A4 ${orientation};margin:6mm 8mm}*{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1a;background:#fff}
 .page{max-width:1100px;margin:0 auto;padding:6mm 0}
-.header{display:flex;align-items:center;gap:16px;margin-bottom:8px;padding-bottom:6px;border-bottom:2.5px solid #1a6b56}
-.logo{height:40px;width:auto}.header-info{flex:1}
-.header-title{font-size:15px;font-weight:800;color:#1a1a1a;letter-spacing:-.02em;outline:none}
-.header-sub{font-size:9.5px;color:#666;margin-top:2px;outline:none}
-.header-date{font-size:9.5px;color:#888;text-align:right;white-space:nowrap}
 
-/* Vinç Teknik Özellikler Bilgi Barı */
+/* Header & Simetrik Prestij Logo (Madde 2) */
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px;padding-bottom:6px;border-bottom:2.5px solid #1a6b56}
+.logo{height:40px;width:auto}
+.header-info{flex:1;text-align:left}
+.header-title{font-size:15px;font-weight:800;color:#1a1a1a;letter-spacing:-.02em;outline:none}
+.header-sub{font-size:9.5px;color:#666;margin-top:2px;outline:none;display:flex;align-items:center;gap:6px}
+.scope-badge{background:#1a6b56;color:#fff;font-size:8.5px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.05em}
+
+/* Sağ Üst Simetrik Dijital Elektrikhane Logosu */
+.brand-badge{display:flex;align-items:center;gap:8px;background:#f7fbf9;border:1.5px solid #1a6b56;padding:4px 10px;border-radius:6px;text-align:right}
+.brand-badge-text{display:flex;flex-direction:column}
+.brand-badge-sub{font-size:8px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.08em}
+.brand-badge-main{font-size:11px;font-weight:800;color:#1a6b56;letter-spacing:-.01em}
+.brand-badge-icon{font-size:16px}
+
+/* Vinç Teknik Bilgileri */
 .crane-specs-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#f7fbf9;border:1px solid #c2ded6;border-radius:6px;padding:6px 10px;margin-bottom:8px}
 .crane-spec-item{font-size:9.5px}
 .crane-spec-label{font-weight:700;color:#1a6b56;text-transform:uppercase;font-size:8px;letter-spacing:.05em}
@@ -1102,10 +1141,9 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .sig-box{border:1px solid #c8c8c8;border-radius:6px;padding:6px 8px;background:#fafafa}
 .sig-title{font-weight:800;font-size:8.5px;color:#1a6b56;text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid #e0e0e0;padding-bottom:2px}
 .sig-line{font-size:8.5px;color:#444;margin-top:3px}
-.footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1.5px solid #1a6b56;font-size:9px;color:#555}
-.footer-brand{font-weight:800;color:#1a6b56;letter-spacing:.03em;display:flex;align-items:center;gap:4px}
+.footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1px solid #ddd;font-size:8.5px;color:#777}
 
-/* Akıllı Dikey Tek Sayfaya Sığdırma (Auto-Fit Modu) */
+/* Akıllı Dikey Tek Sayfaya Sığdırma (Auto-Fit) */
 .auto-fit-page table{font-size:8.5px}
 .auto-fit-page th{padding:3px 5px;font-size:8px}
 .auto-fit-page td{padding:2.5px 5px}
@@ -1133,40 +1171,53 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   .page{padding:0;max-width:100%}
   td:focus{background:transparent!important;box-shadow:none!important}
 }
-.print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.print-bar button{background:#fff;color:#1a6b56;border:none;padding:5px 12px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11.5px}
+.print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.print-bar button{background:#fff;color:#1a6b56;border:none;padding:5px 10px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11px}
 .print-bar button:hover{background:#e8f5f0}
+.print-bar button.active{background:#0d4536;color:#fff;border:1px solid #fff}
 .print-bar label{font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer}
 .print-bar input[type="number"]{padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:11px;width:45px}
 </style></head><body class="${autoFitClass}">
 <div class="print-bar no-print">
-  <span>📄 BOM Çıktı & Önizleme</span>
+  <span>📄 BOM Çıktı</span>
+  <!-- Madde 3: Pano / Kedi Hızlı Filtre Butonları -->
+  <button class="${placementFilter === 'pano' ? 'active' : ''}" onclick="setPlacementFilter('pano')">🗄️ Pano İçi</button>
+  <button class="${placementFilter === 'kedi' ? 'active' : ''}" onclick="setPlacementFilter('kedi')">🏗️ Kedi</button>
+  <button class="${placementFilter === 'all' ? 'active' : ''}" onclick="setPlacementFilter('all')">📋 Tüm Liste</button>
+  <span style="opacity:0.4">|</span>
   <button onclick="window.print()">🖨️ Yazdır / PDF</button>
   <button onclick="exportToExcel('${esc(title)}')">📊 Excel İndir</button>
   <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay' : '↕️ Dikey'}</button>
-  <button onclick="toggleCompact()">🔍 Kompakt Mod</button>
-  <button onclick="recalcNumbers()">🔢 Sıra No Yenile</button>
-  <label><input type="checkbox" onchange="toggleVis('hide-categories', this.checked)"> Kat. Gizle</label>
-  <label><input type="checkbox" onchange="toggleVis('hide-years', this.checked)"> Yıl Gizle</label>
-  <label><input type="checkbox" onchange="toggleVis('hide-desc', this.checked)"> Not Gizle</label>
-  <label>Ekstra Satır: <input type="number" id="erInput" value="${extraRowCount}" min="0" max="50" onchange="reloadBOM()"></label>
-  <label>Ekstra Sütun: <input type="number" id="ecInput" value="${extraColCount}" min="0" max="10" onchange="reloadBOM()"></label>
+  <button onclick="toggleCompact()">🔍 Kompakt</button>
+  <button onclick="recalcNumbers()">🔢 No Yenile</button>
+  <label><input type="checkbox" onchange="toggleVis('hide-categories', this.checked)"> Kat.</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-years', this.checked)"> Yıl</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-desc', this.checked)"> Not</label>
+  <label>Ek Satır: <input type="number" id="erInput" value="${extraRowCount}" min="0" max="50" onchange="reloadBOM()"></label>
+  <label>Ek Sütun: <input type="number" id="ecInput" value="${extraColCount}" min="0" max="10" onchange="reloadBOM()"></label>
   <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)">✕ Kapat</button>
 </div>
+
 <div class="page" id="bomPageArea">
   <div class="header">
-    <img src="/logo.png" class="logo" alt="Logo" onerror="this.style.display='none'">
+    <img src="/logo.png" class="logo" alt="Sekizli Logo" onerror="this.style.display='none'">
     <div class="header-info">
       <div class="header-title" contenteditable="true">${esc(title)}${esc(capacityStr)}</div>
-      <div class="header-sub" contenteditable="true">Malzeme Listesi (BOM)${machine.notes ? ' — ' + esc(machine.notes) : ''}</div>
+      <div class="header-sub">
+        <span class="scope-badge">${scopeLabel}</span>
+        <span contenteditable="true">BOM Reçetesi${machine.notes ? ' — ' + esc(machine.notes) : ''}</span>
+      </div>
     </div>
-    <div class="header-date">
-      <div style="font-weight:700">${dateStr}</div>
-      <div id="topHeaderStats">Toplam: ${itemCount} Kalem</div>
+    <!-- Madde 2: Sol logoya simetrik prestijli kurumsal damga -->
+    <div class="brand-badge">
+      <div class="brand-badge-text">
+        <span class="brand-badge-sub">SEKİZLİ MAKİNA &amp; VİNÇ A.Ş.</span>
+        <span class="brand-badge-main">DİJİTAL ELEKTRİKHANE</span>
+      </div>
+      <span class="brand-badge-icon">⚡</span>
     </div>
   </div>
 
-  <!-- Vinç Teknik Bilgileri (Madde 6) -->
   <div class="crane-specs-bar">
     <div class="crane-spec-item">
       <div class="crane-spec-label">Vinç Tipi</div>
@@ -1191,17 +1242,19 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     <tbody>${rowsHtml}${extraRowsHtml}</tbody>
   </table>
   <div class="summary-bar">
-    <span>📊 Reçete Özeti</span>
+    <span>📊 Reçete Özeti (${scopeLabel})</span>
     <span id="summaryText">Toplam: ${itemCount} Kalem Malzeme | Toplam Adet: ${totalQuantityCount}</span>
   </div>
   <div class="notes">
     <div class="notes-title">Notlar:</div>
     <div class="notes-content" contenteditable="true"></div>
   </div>
+  
+  <!-- Madde 1: Hazırlayan adına son düzenleyenin adı otomatik basılır -->
   <div class="signature-section">
     <div class="sig-box">
       <div class="sig-title">HAZIRLAYAN (ELEKTRİK / PROJE)</div>
-      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+      <div class="sig-line" contenteditable="true">Ad Soyad: <strong>${esc(editorName || '—')}</strong></div>
       <div class="sig-line" contenteditable="true">İmza: </div>
       <div class="sig-line">Tarih: ${dateStr}</div>
     </div>
@@ -1219,11 +1272,16 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     </div>
   </div>
   <div class="footer">
-    <span class="footer-brand">⚡ Dijital Elektrikhane Sistemi</span>
-    <span>Sekizli Makina & Vinç A.Ş. · Oluşturulma: ${dateStr}</span>
+    <span>Sekizli Makina &amp; Vinç San. Tic. A.Ş. · Dijital Elektrikhane Üretim Takip Altyapısı</span>
+    <span>Düzenlenme Tarihi: ${dateStr}</span>
   </div>
 </div>
 <script>
+function setPlacementFilter(val){
+  var u=new URL(window.location);
+  u.searchParams.set('placement', val);
+  window.location.href=u.toString();
+}
 function reloadBOM(){
   var er=document.getElementById('erInput').value||0;
   var ec=document.getElementById('ecInput').value||0;
@@ -1259,12 +1317,10 @@ function recalcNumbers(){
     }
   });
   document.getElementById('summaryText').textContent = 'Toplam: ' + (idx - 1) + ' Kalem Malzeme | Toplam Adet: ' + totalQty;
-  document.getElementById('topHeaderStats').textContent = 'Toplam: ' + (idx - 1) + ' Kalem';
 }
 function exportToExcel(filename){
   var title = document.querySelector('.header-title').innerText;
   var sub = document.querySelector('.header-sub').innerText;
-  var dateStr = document.querySelector('.header-date').innerText.replace(/\\n/g, ' - ');
   var table = document.getElementById('bomMainTable').cloneNode(true);
   var summary = document.getElementById('summaryText').innerText;
   var notes = document.querySelector('.notes-content').innerText;
@@ -1272,50 +1328,25 @@ function exportToExcel(filename){
 
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
   html += '<head><meta charset="utf-8">';
-  html += '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>BOM Reçetesi</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->';
   html += '<style>';
   html += 'body { font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; }';
   html += 'table { border-collapse: collapse; width: 100%; }';
-  html += 'th { background-color: #1a6b56; color: #ffffff; font-weight: bold; border: 1pt solid #157a5e; padding: 8px; text-align: left; font-size: 11pt; }';
+  html += 'th { background-color: #1a6b56; color: #ffffff; font-weight: bold; border: 1pt solid #157a5e; padding: 8px; text-align: left; }';
   html += 'td { border: 1pt solid #d0d0d0; padding: 6px 8px; vertical-align: middle; }';
   html += '.category-header-cell { background-color: #e8f5f0; color: #1a6b56; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1a6b56; padding: 8px; }';
-  html += '.no-col { text-align: center; font-weight: bold; color: #555555; }';
+  html += '.no-col { text-align: center; font-weight: bold; }';
   html += '.qty-col { text-align: center; font-weight: bold; }';
   html += '.title-cell { font-size: 16pt; font-weight: bold; color: #1a6b56; }';
-  html += '.sub-cell { font-size: 11pt; color: #555555; }';
-  html += '.summary-cell { background-color: #f0f5f3; color: #1a6b56; font-weight: bold; font-size: 11pt; border: 1pt solid #c2ded6; padding: 8px; }';
-  html += '.notes-header { font-weight: bold; color: #333333; }';
-  html += '.notes-box { border: 1pt solid #cccccc; padding: 8px; background-color: #ffffff; }';
-  html += '.sig-header { background-color: #e8f5f0; color: #1a6b56; font-weight: bold; border: 1pt solid #1a6b56; text-align: center; padding: 6px; font-size: 10pt; }';
-  html += '.sig-content { border: 1pt solid #cccccc; padding: 10px; height: 60pt; vertical-align: top; font-size: 9pt; }';
+  html += '.summary-cell { background-color: #f0f5f3; color: #1a6b56; font-weight: bold; padding: 8px; }';
   html += '</style></head><body>';
-  
-  html += '<table style="margin-bottom: 12px;">';
-  html += '<tr><td colspan="' + thCount + '" class="title-cell" style="border:none;">' + title + '</td></tr>';
-  html += '<tr><td colspan="' + thCount + '" class="sub-cell" style="border:none;">' + sub + ' | ' + dateStr + '</td></tr>';
-  html += '<tr><td colspan="' + thCount + '" style="border:none;">&nbsp;</td></tr>';
-  html += '</table>';
-  
+  html += '<table><tr><td colspan="' + thCount + '" class="title-cell">' + title + '</td></tr>';
+  html += '<tr><td colspan="' + thCount + '">' + sub + '</td></tr></table><br>';
   html += table.outerHTML;
-  
   html += '<br><table><tr><td colspan="' + thCount + '" class="summary-cell">' + summary + '</td></tr></table>';
-  
   if(notes && notes.trim()){
-    html += '<br><table>';
-    html += '<tr><td class="notes-header" style="border:none;">NOTLAR:</td></tr>';
-    html += '<tr><td colspan="' + thCount + '" class="notes-box">' + notes + '</td></tr>';
-    html += '</table>';
+    html += '<br><table><tr><td colspan="' + thCount + '">NOTLAR: ' + notes + '</td></tr></table>';
   }
-  
-  html += '<br><table style="margin-top: 15px;">';
-  html += '<tr>';
-  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">HAZIRLAYAN (ELEKTRİK/PROJE)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih: ' + (new Date().toLocaleDateString("tr-TR")) + '</td></tr></table></td>';
-  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">KONTROL EDEN (ATÖLYE ŞEFİ)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih:</td></tr></table></td>';
-  html += '<td style="width:33%; border:none; padding:4px;"><table style="width:100%"><tr><td class="sig-header">ONAY / TESLİM ALAN (YETKİLİ)</td></tr><tr><td class="sig-content">Ad Soyad:<br><br>İmza:<br><br>Tarih:</td></tr></table></td>';
-  html += '</tr></table>';
-  
   html += '</body></html>';
-  
   var blob = new Blob(['\\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
