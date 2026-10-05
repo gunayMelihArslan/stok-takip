@@ -36,6 +36,11 @@
 .vfd-tab-btn{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.88rem;padding:.4rem .9rem;border-radius:6px;cursor:pointer;transition:all .2s;}
 .vfd-tab-btn.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border2);}
 
+/* Tür Sekmeleri (Pano / Kedi) */
+.placement-tabs{display:flex;gap:.5rem;margin-bottom:.75rem;background:var(--surface2);padding:.35rem;border-radius:8px;border:1px solid var(--border2);}
+.placement-tab-btn{flex:1;background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.82rem;padding:.45rem .8rem;border-radius:6px;cursor:pointer;transition:all .2s;text-align:center;}
+.placement-tab-btn.active{background:var(--surface);color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.15);border:1px solid var(--border);}
+
 /* Typeahead Arama Açılır Kutusu */
 .dd-item{padding:.55rem .85rem;cursor:pointer;border-bottom:1px solid var(--border2);font-size:.83rem;display:flex;justify-content:space-between;align-items:center;transition:background .1s;}
 .dd-item:last-child{border-bottom:none;}
@@ -173,7 +178,7 @@
     <div class="page" id="page-vfd">
       <div class="vfd-tabs">
         <button type="button" class="vfd-tab-btn active" id="pVfdTabParamBtn" onclick="switchPVfdTab('parameter')">📋 Parametreler</button>
-        <button type="button" class="vfd-tab-btn" id="pVfdTabFaultBtn" onclick="switchPVfdTab('fault')">⚠️️ Hata Kodu & Teşhis</button>
+        <button type="button" class="vfd-tab-btn" id="pVfdTabFaultBtn" onclick="switchPVfdTab('fault')">⚠️ Hata Kodu & Teşhis</button>
       </div>
       <div class="toolbar">
         <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -213,16 +218,23 @@
       </div></div>
     </div>
 
-    <!-- BULK TAKE -->
+    <!-- BULK TAKE (Madde 3: Pano ve Kedi Sekmeli Görünüm) -->
     <div class="page" id="page-bulktake">
       <div style="max-width:560px"><div class="card">
         <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
           <h3 style="font-size:.92rem;font-weight:800">Vinç İçin Malzeme Alımı</h3>
-          <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Firmayı seç → Vinci seç → Alınacak malzemeleri işaretleyin</p>
+          <p style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.2rem">Firmayı seç → Vinci seç → Sekmeden konum seçip malzemeleri al</p>
         </div>
         <div style="padding:1.2rem;display:flex;flex-direction:column;gap:.8rem">
           <div class="form-group" style="margin:0"><label>Firma</label><select id="bulkFirmFilter" onchange="filterBulkMachines()"><option value="">— Firma seçin —</option></select></div>
           <div class="form-group" style="margin:0"><label>Vinç</label><select id="bulkMachine" disabled onchange="loadMachinePreview()"><option value="">— Vinç seçin —</option></select></div>
+          
+          <!-- Pano ve Kedi Sekme Butonları -->
+          <div id="bulkPlacementTabs" style="display:none" class="placement-tabs">
+            <button type="button" class="placement-tab-btn active" id="tabPlacementPano" onclick="switchBulkPlacement('pano')">🗄️ Pano İçi Malzemeler</button>
+            <button type="button" class="placement-tab-btn" id="tabPlacementKedi" onclick="switchBulkPlacement('kedi')">🏗️ Kedi / Saha Malzemeleri</button>
+          </div>
+
           <div id="machinePreview" style="display:none"></div>
           <div class="form-group" style="margin:0"><label>Not</label><input type="text" id="bulkNote"></div>
           <button class="btn btn-primary btn-full" id="bulkSubmitBtn" disabled onclick="submitBulkTake()">🏗️ Seçilen Malzemeleri Kaydet</button>
@@ -318,7 +330,7 @@
       <button class="modal-close" onclick="closeBarcodeScanner()">×</button>
     </div>
     <div class="modal-body" style="text-align:center">
-      <div id="reader" style="width:100%;border-radius:8px;overflow-hidden"></div>
+      <div id="reader" style="width:100%;border-radius:8px;overflow:hidden"></div>
       <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:.75rem">Telefon kamerasını ürün etiketindeki barkoda tutun.</div>
     </div>
     <div class="modal-footer">
@@ -407,6 +419,7 @@ let me = null;
 let html5QrCode = null;
 let activeScannerPrefix = 'take';
 let pBomFirmCollapsed = {};
+let currentBulkPlacement = 'pano'; // Madde 3: Varsayılan pano sekmesi
 
 function toggleNavGroup(groupId) {
   const el = document.getElementById(groupId);
@@ -421,7 +434,7 @@ async function init() {
   document.getElementById('userName').textContent = u.display_name || u.username;
   document.getElementById('avatarInit').textContent = (u.display_name || u.username)[0].toUpperCase();
   updateTime(); 
-  setInterval(updateTime, 1000); // Saniye saniye akış (Madde 1)
+  setInterval(updateTime, 1000); 
   await loadAll();
   showPage('mytasks');
   connectSSE();
@@ -531,7 +544,6 @@ async function loadPVfdAll() { await Promise.all([loadPVfdDevices(), loadPVfdRec
 async function loadPVfdDevices() { pVfdDevices = await api('/api/vfd/devices') || []; }
 async function loadPVfdRecords() { pVfdRecords = await api('/api/vfd/records') || []; }
 
-// Buton Kilitleme & Çift Tıklama Koruması
 async function withButtonLock(btnId, loadingText, asyncAction) {
   const btn = document.getElementById(btnId);
   if (!btn) return await asyncAction();
@@ -547,7 +559,6 @@ async function withButtonLock(btnId, loadingText, asyncAction) {
   }
 }
 
-// Arama Debounce'u (Gecikme Koruması)
 let searchDebounceTimers = {};
 function handleSearchInput(inputEl, callbackFn) {
   const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
@@ -606,7 +617,6 @@ function showPage(name) {
   if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
 }
 
-// ── VFD / SÜRÜCÜ KILAVUZU & TEŞHİS (PERSONEL) ─────────────────────────────
 function switchPVfdTab(tab) {
   currentPVfdTab = tab;
   document.getElementById('pVfdTabParamBtn').classList.toggle('active', tab === 'parameter');
@@ -663,7 +673,6 @@ function renderPVfdRecords() {
   `).join('');
 }
 
-// ── BARKOD KAMERA TARAYICI FONKSİYONLARI ──────────────────────────────────
 function openBarcodeScanner(prefix) {
   activeScannerPrefix = prefix;
   openModal('barcodeModal');
@@ -702,7 +711,6 @@ function handleScannedBarcode(code) {
   }
 }
 
-// ── MY TASKS ─────────────────────────────────────────────────────────────
 function renderMyTasks() {
   document.getElementById('transferAlerts').innerHTML = pendingTransfers.map(tr => `
     <div class="transfer-alert">
@@ -760,7 +768,6 @@ function renderMyTasks() {
     </div>`).join('');
 }
 
-// ── OPEN TASKS ────────────────────────────────────────────────────────────
 function renderOpenTasks() {
   const fsel = document.getElementById('openFirmFilter');
   if (fsel) {
@@ -808,7 +815,6 @@ function renderOpenTasks() {
   el.innerHTML = html;
 }
 
-// ── MALZEME LİSTELERİ (Madde 6: Yeni Parametrelerle Güçlendirilmiş) ─────────
 function togglePBomFirm(fn) {
   const isCurrentlyCollapsed = pBomFirmCollapsed[fn] !== undefined ? pBomFirmCollapsed[fn] : true;
   pBomFirmCollapsed[fn] = !isCurrentlyCollapsed;
@@ -866,7 +872,6 @@ function renderBomLists() {
             </div>
           </div>
           <div id="bom-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
-            <!-- Madde 6: Vinç Teknik Bilgileri -->
             <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;gap:1rem;flex-wrap:wrap">
               <span>Vinç Tipi: <strong style="color:var(--text)">${esc(m.crane_type || '—')}</strong></span>
               <span>Kaldırma Yüksekliği: <strong style="color:var(--text)">${m.lifting_height ? m.lifting_height + ' m' : '—'}</strong></span>
@@ -875,8 +880,9 @@ function renderBomLists() {
             </div>
             ${(m.items || []).length ? `
               <table style="font-size:.8rem;width:100%">
-                <thead><tr><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
+                <thead><tr><th>Montaj Yeri</th><th>Kategori</th><th>Malzeme</th><th>Miktar</th><th>Model Yılı</th></tr></thead>
                 <tbody>${m.items.map(it => `<tr>
+                  <td><span class="badge" style="background:${it.placement === 'kedi' ? 'rgba(75,149,237,0.15)' : 'rgba(26,107,86,0.15)'};color:${it.placement === 'kedi' ? '#4b95ed' : 'var(--success)'};font-size:.65rem">${it.placement === 'kedi' ? '🏗️ Kedi / Saha' : '🗄 Pano İçi'}</span></td>
                   <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
                   <td><strong>${esc(it.product_name || '—')}</strong></td>
                   <td style="font-family:var(--mono);font-weight:700">${it.quantity}</td>
@@ -981,7 +987,6 @@ async function respondTransfer(transferId, accept) {
   await loadTasks(); renderMyTasks(); toast(accept ? 'Aşama kabul edildi ✓' : 'Devir reddedildi', 'success');
 }
 
-// ── STOCK ─────────────────────────────────────────────────────────────────
 function renderStock() {
   const theadTr = document.getElementById('stockThead')?.querySelector('tr');
   if (theadTr) theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Durum</th>';
@@ -1005,7 +1010,6 @@ function filterStock() {
   renderStockRows(q ? products.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))) : products);
 }
 
-// ── FIRM DATALISTS ────────────────────────────────────────────────────────
 function renderFirmLists() {
   const opts = firms.map(f => `<option value="${esc(f.name)}">`).join('');
   ['firmList', 'firmList2', 'firmList3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
@@ -1014,7 +1018,6 @@ function renderFirmLists() {
   const blf = document.getElementById('bomListFirmFilter'); if (blf) blf.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
 }
 
-// ── PRODUCT SEARCH TYPEAHEAD & DROPDOWN ───────────────────────────────────
 let ddHighlightedIdx = -1;
 
 function buildDD(prefix) {
@@ -1073,12 +1076,12 @@ function highlightDDItem(items) {
 function selectProd(prefix, pid, name) {
   document.getElementById(prefix + 'ProductSearch').value = name;
   document.getElementById(prefix + 'ProductId').value = pid;
-  document.getElementById(prefix + 'DD').style.display = 'none';
+  document.getElementById('takeDD').style.display = 'none';
   if (prefix === 'take') updateProductInfo();
 }
 document.addEventListener('click', e => {
-  if (!e.target.closest('#takeProductSearch')) document.getElementById('takeDD').style.display = 'none';
-  if (!e.target.closest('#retProductSearch')) document.getElementById('retDD').style.display = 'none';
+  if (!e.target.closest('#takeProductSearch')) { const el = document.getElementById('takeDD'); if (el) el.style.display = 'none'; }
+  if (!e.target.closest('#retProductSearch')) { const el = document.getElementById('retDD'); if (el) el.style.display = 'none'; }
 });
 function updateProductInfo() {
   const pid = document.getElementById('takeProductId').value;
@@ -1094,7 +1097,6 @@ function updateProductInfo() {
   box.style.display = 'block';
 }
 
-// ── TAKE ─────────────────────────────────────────────────────────────────
 async function submitTake() {
   await withButtonLock('takeSubmitBtn', 'Kaydediliyor...', async () => {
     const product_id = document.getElementById('takeProductId').value;
@@ -1120,28 +1122,37 @@ function filterBulkMachines() {
   const fid = document.getElementById('bulkFirmFilter').value;
   const sel = document.getElementById('bulkMachine');
   document.getElementById('machinePreview').style.display = 'none';
+  document.getElementById('bulkPlacementTabs').style.display = 'none';
   document.getElementById('bulkSubmitBtn').disabled = true;
   if (!fid) { sel.innerHTML = '<option value="">— Vinç seçin —</option>'; sel.disabled = true; return; }
   sel.innerHTML = '<option value="">— Vinç seçin —</option>' + (machines.filter(m => String(m.firm_id) === fid)).map(m => `<option value="${m.id}">🏗️ ${esc(m.machine_name)} ${m.capacity ? `[${esc(m.capacity)}]` : ''}</option>`).join('');
   sel.disabled = false;
 }
 
+// Madde 3: Pano ve Kedi sekmeleri arası geçiş fonksiyonu
+function switchBulkPlacement(placement) {
+  currentBulkPlacement = placement;
+  document.getElementById('tabPlacementPano').classList.toggle('active', placement === 'pano');
+  document.getElementById('tabPlacementKedi').classList.toggle('active', placement === 'kedi');
+  loadMachinePreview();
+}
+
 async function loadMachinePreview() {
   const mid = document.getElementById('bulkMachine').value;
   const preview = document.getElementById('machinePreview');
+  const tabs = document.getElementById('bulkPlacementTabs');
   const btn = document.getElementById('bulkSubmitBtn');
-  if (!mid) { preview.style.display = 'none'; btn.disabled = true; return; }
+  if (!mid) { preview.style.display = 'none'; tabs.style.display = 'none'; btn.disabled = true; return; }
   const m = machines.find(x => x.id == mid);
-  if (!m) { preview.style.display = 'none'; btn.disabled = true; return; }
+  if (!m) { preview.style.display = 'none'; tabs.style.display = 'none'; btn.disabled = true; return; }
 
+  tabs.style.display = 'flex';
   const numCol = columns.find(c => c.data_type === 'number');
   const textCols = columns.filter(c => c.data_type !== 'number');
 
   try {
     const takenMap = await api('/api/machines/' + mid + '/taken') || {};
-    const results = await Promise.all(
-      (m.items || []).map(it => api('/api/products/' + it.product_id + '/lots').then(lots => ({ pid: Number(it.product_id), lots: lots || [] })))
-    );
+    const results = await Promise.all((m.items || []).map(it => api('/api/products/' + it.product_id + '/lots').then(lots => ({ pid: Number(it.product_id), lots: lots || [] }))));
     const lotMap = {};
     results.forEach(r => { lotMap[r.pid] = r.lots; });
     renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap);
@@ -1151,21 +1162,34 @@ async function loadMachinePreview() {
 function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
   takenMap = takenMap || {};
   let allCompleted = true;
-  const cards = (m.items || []).map((it, idx) => {
+  
+  // Madde 3: Seçilen sekmeye göre malzemeleri filtrele
+  const filteredItems = (m.items || []).map((it, idx) => ({ it, idx })).filter(({ it }) => {
+    const place = it.placement || 'pano';
+    return place === currentBulkPlacement;
+  });
+
+  if (!filteredItems.length) {
+    preview.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--muted);font-family:var(--mono);font-size:.8rem">Bu kategoride (${currentBulkPlacement === 'pano' ? 'Pano İçi' : 'Kedi / Saha'}) malzeme bulunmuyor.</div>`;
+    btn.disabled = true;
+    return;
+  }
+
+  const cards = filteredItems.map(({ it, idx }) => {
     const prod = products.find(p => p.id === Number(it.product_id));
     const stock = prod && numCol ? parseFloat(prod.values?.[numCol.id] || 0) : null;
     const reqQty = parseFloat(it.quantity || 0);
     const cat = it.category_name || '';
-    const key = cat ? it.product_id + '::' + cat : String(it.product_id);
-    const takenQty = parseFloat(takenMap[key] || takenMap[it.product_id] || 0);
+    const plc = it.placement || 'pano';
+    const keyFull = cat ? `${it.product_id}::${cat}::${plc}` : `${it.product_id}::${plc}`;
+    const keyCat = cat ? `${it.product_id}::${cat}` : String(it.product_id);
+    const takenQty = parseFloat(takenMap[keyFull] || takenMap[keyCat] || takenMap[it.product_id] || 0);
     const remQty = Math.max(0, reqQty - takenQty);
 
     if (remQty > 0) allCompleted = false;
 
     const enough = stock !== null ? stock >= remQty : true;
-    const stockBadge = stock !== null
-      ? (enough ? `<span class="badge badge-ok">Depo: ${stock}</span>` : `<span class="badge badge-low">Depo Yetersiz: ${stock}</span>`)
-      : '—';
+    const stockBadge = stock !== null ? (enough ? `<span class="badge badge-ok">Depo: ${stock}</span>` : `<span class="badge badge-low">Depo Yetersiz: ${stock}</span>`) : '—';
 
     const colTags = textCols.map(col => {
       const v = prod?.values?.[col.id];
@@ -1176,21 +1200,14 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
     const activeLots = (lotMap[Number(it.product_id)] || []).filter(l => parseFloat(l.quantity) > 0);
     const machineYear = it.machine_year;
     const lotHtml = activeLots.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-left:1.5rem">` +
-        activeLots.map((l, i) => {
+      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-left:1.5rem">` + activeLots.map((l, i) => {
           const isTarget = machineYear && l.production_year == machineYear;
           const isFirst = i === 0;
           return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)'};border:1px solid ${isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)'};color:${isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)'};white-space:nowrap">${isTarget ? '🎯 ' : isFirst ? '⚡ ' : ''}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
-        }).join('') + `</div>`
-      : '';
+        }).join('') + `</div>` : '';
 
-    const yearNote = machineYear
-      ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success);margin-left:1.5rem">🎯 İstenen model yılı: <strong>${machineYear}</strong></div>`
-      : '';
-
-    const categoryHtml = it.category_name 
-      ? `<span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.7rem;font-weight:700;padding:.1rem .35rem;border-radius:4px">${esc(it.category_name)}</span>`
-      : '';
+    const yearNote = machineYear ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success);margin-left:1.5rem">🎯 İstenen model yılı: <strong>${machineYear}</strong></div>` : '';
+    const categoryHtml = it.category_name ? `<span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.7rem;font-weight:700;padding:.1rem .35rem;border-radius:4px">${esc(it.category_name)}</span>` : '';
 
     let rowContent = '';
     if (remQty <= 0) {
@@ -1206,7 +1223,7 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
     } else {
       rowContent = `
         <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;flex-wrap:wrap">
-          <input type="checkbox" class="bulk-item-check" data-idx="${idx}" data-pid="${it.product_id}" data-pname="${esc(it.product_name || '—')}" style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer">
+          <input type="checkbox" class="bulk-item-check" data-idx="${idx}" data-pid="${it.product_id}" data-pname="${esc(it.product_name || '—')}" data-placement="${plc}" style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer">
           <span style="font-weight:700;font-size:.88rem;flex:1">${esc(it.product_name || '—')}</span>
           ${categoryHtml}
           ${stockBadge}
@@ -1214,7 +1231,7 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
         ${colTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-left:1.5rem">${colTags}</div>` : ''}
         ${yearNote}
         ${lotHtml}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-left:1.5rem;font-family:var(--mono);font-size:.75rem;flex-wrap:wrap;gap:.4rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-left:1.5rem;font-family:var(--mono);font-size:.75rem;flex-wrap:gap:.4rem">
           <div>Reçete: <strong>${reqQty}</strong> | Alınan: <strong>${takenQty}</strong> | Kalan: <strong style="color:var(--accent)">${remQty}</strong></div>
           <div style="display:flex;align-items:center;gap:.4rem">
             <span>Alınacak:</span>
@@ -1223,17 +1240,11 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
         </div>
       `;
     }
-
     return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.3rem">${rowContent}</div>`;
   }).join('');
 
-  if (allCompleted && m.items && m.items.length > 0) {
-    preview.innerHTML = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div><div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
-    btn.disabled = true;
-  } else {
-    btn.disabled = false;
-    preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
-  }
+  btn.disabled = false;
+  preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
   preview.style.display = 'block';
 }
 
@@ -1252,10 +1263,11 @@ async function submitBulkTake() {
       const it = m.items[idx];
       const pid = chk.getAttribute('data-pid');
       const pname = chk.getAttribute('data-pname');
+      const plc = chk.getAttribute('data-placement') || 'pano';
       const qtyInput = document.querySelector(`.bulk-item-qty[data-idx="${idx}"]`);
       const qty = parseFloat(qtyInput ? qtyInput.value : 0);
       if (qty > 0) {
-        items_to_take.push({ product_id: pid, product_name: pname, quantity: qty, bom_category: it ? it.category_name : null });
+        items_to_take.push({ product_id: pid, product_name: pname, quantity: qty, bom_category: it ? it.category_name : null, placement: plc });
       }
     }
   });
@@ -1364,7 +1376,6 @@ async function refresh() {
   if (fn) { await fn(); toast('Güncellendi ✓', 'success'); }
 }
 
-// ── SÜTUN SIRALAMA ────────────────────────────────────────────────────────
 var _pSort = {};
 function pMakeSort(tblId) {
   var t = document.getElementById(tblId); if (!t || t.dataset.sortable) return;
@@ -1399,7 +1410,6 @@ function pAutoSort() {
   });
 }
 
-// ── BİLDİRİM ──────────────────────────────────────────────────────────────
 var _pNotifs = []; var _pNOpen = false;
 async function loadPNotifs() { _pNotifs = await api('/api/notifications') || []; renderPBadge(); }
 function renderPBadge() {
@@ -1437,7 +1447,6 @@ async function markAllPRead() {
   renderPBadge(); renderPPanel();
 }
 
-// ── YORUMLAR ──────────────────────────────────────────────────────────────
 var _pCSid = null;
 async function openPComments(sid, sname) {
   _pCSid = sid;
@@ -1465,7 +1474,6 @@ async function savePComment() {
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
-// ── SATIN ALMA / TALEP YÖNETİMİ (Madde 3: Vurgulu Marka & Kod) ────────────
 var _myPR = [];
 async function loadMyPurchases() { var r = await api('/api/purchase-requests'); _myPR = r || []; }
 function renderMyPurchases() {
@@ -1489,7 +1497,6 @@ function renderMyPurchases() {
     var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
     var pVals = p.product_values || {};
     
-    // Marka ve Stok Kodu alanlarını tespit et ve vurgula
     let brandVal = '';
     let codeVal = '';
     const otherTags = [];
@@ -1607,7 +1614,6 @@ async function submitPR() {
   });
 }
 
-// ── ŞİFRE DEĞİŞTİR ────────────────────────────────────────────────────────
 function openChangePassword() {
   if (document.getElementById('pwModal')) return;
   var ov = document.createElement('div'); ov.className = 'modal-overlay open'; ov.id = 'pwModal'; ov.style.zIndex = '9999';
@@ -1637,7 +1643,6 @@ async function doChangePW() {
   toast('Şifre değiştirildi ✓', 'success');
 }
 
-// ── INIT EXTRAS ───────────────────────────────────────────────────────────
 function initPExtras() {
   var tb = document.querySelector('.topbar');
   if (tb && !document.getElementById('pNotifBtn')) {
