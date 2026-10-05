@@ -84,13 +84,14 @@ async function init() {
       lifting_height TEXT DEFAULT '',
       span TEXT DEFAULT '',
       environment TEXT DEFAULT 'closed',
+      updated_by INT REFERENCES users(id) ON DELETE SET NULL,
       display_order INT DEFAULT 0,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY, user_id INT NOT NULL, product_id INT NOT NULL,
       company TEXT NOT NULL, quantity NUMERIC NOT NULL, notes TEXT DEFAULT '',
-      tx_type TEXT NOT NULL DEFAULT 'out', created_at TIMESTAMPTZ DEFAULT NOW(),
+      tx_type TEXT NOT NULL DEFAULT 'out', placement TEXT DEFAULT 'pano', created_at TIMESTAMPTZ DEFAULT NOW(),
       machine_id INT REFERENCES machines(id) ON DELETE SET NULL
     );
     CREATE TABLE IF NOT EXISTS tasks (
@@ -170,9 +171,11 @@ async function init() {
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS lifting_height TEXT DEFAULT '';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS span TEXT DEFAULT '';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'closed';
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES users(id) ON DELETE SET NULL;
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
+    ALTER TABLE transactions ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'pano';
     ALTER TABLE bom_columns ADD COLUMN IF NOT EXISTS mapped_field TEXT DEFAULT NULL;
     ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS product_values JSONB DEFAULT '{}';
   `);
