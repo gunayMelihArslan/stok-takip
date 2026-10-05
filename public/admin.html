@@ -279,7 +279,7 @@
           </select>
         </div>
         <button class="btn btn-primary" onclick="openVfdRecordModal()">+ Yeni Kayıt Ekle</button>
-        <button class="btn btn-ghost" onclick="openVfdDevicesModal()">⚙️️ Marka & Model Tanımları</button>
+        <button class="btn btn-ghost" onclick="openVfdDevicesModal()">⚙ Marka & Model Tanımları</button>
         <button class="btn btn-ghost" onclick="loadVfdAll();renderVfdRecords()">↺ Yenile</button>
       </div>
 
@@ -553,7 +553,6 @@
         <div class="form-group"><label>Vinç Adı / Seri No *</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
         <div class="form-group"><label>Tonaj / Kapasite</label><input type="text" id="machineCapacity" placeholder="Örn: 10 Ton, 32/5T"></div>
       </div>
-      <!-- Madde 6: Yeni Vinç Parametreleri -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
         <div class="form-group"><label>Vinç Tipi</label><input type="text" id="machineCraneType" placeholder="Örn: Çift Kiriş Köprülü"></div>
         <div class="form-group"><label>Kaldırma Yüksekliği (m)</label><input type="text" id="machineLiftingHeight" placeholder="Örn: 9 veya 12.5"></div>
@@ -1155,7 +1154,7 @@ function editVfdRecord(id) {
   document.getElementById('vfdRecDesc').value = r.description || '';
   document.getElementById('vfdRecSteps').value = r.solution_steps || '';
   updateVfdRecordLabels();
-  document.getElementById('vfdRecordModalTitle').textContent = `✏️ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
+  document.getElementById('vfdRecordModalTitle').textContent = `✏️️ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
   openModal('vfdRecordModal');
 }
 
@@ -1770,7 +1769,7 @@ async function deleteFirm(id) {
   toast('Silindi ✓', 'success');
 }
 
-// ── MACHINES (Madde 2: Kapalı Akordiyon & Genişletilmiş Arama) ───────────
+// ── MACHINES ─────────────────────────────────────────────────────────────
 function toggleFirmAccordion(fn) {
   firmCollapsed[fn] = !firmCollapsed[fn];
   renderMachines();
@@ -1795,7 +1794,6 @@ function renderMachines() {
   let filtered = machines;
   if (cur) filtered = filtered.filter(m => String(m.firm_id) === cur);
   
-  // Madde 2: Vinç adı, firma, tonaj, açıklama, vinç tipi ve aks açıklığı dahil tam arama
   if (q) {
     filtered = filtered.filter(m => 
       (m.machine_name || '').toLowerCase().includes(q) || 
@@ -1815,7 +1813,6 @@ function renderMachines() {
   
   let html = '';
   Object.entries(grouped).forEach(([fn, list2]) => {
-    // Madde 2: Varsayılan kapalı (collapsed) gelmesi sağlandı
     const isCollapsed = firmCollapsed[fn] !== undefined ? firmCollapsed[fn] : true;
     html += `
       <div class="firm-divider" onclick="toggleFirmAccordion('${esc(fn).replace(/'/g, "\\'")}')">
@@ -1838,6 +1835,7 @@ function renderMachines() {
                 <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
               </div>
               ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
+              ${m.editor_name ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.1rem">Son Düzenleyen: ${esc(m.editor_name)}</div>` : ''}
             </div>
             <div style="display:flex;gap:.4rem;align-items:center" onclick="event.stopPropagation()">
               <div class="order-btn-wrap">
@@ -1859,8 +1857,9 @@ function renderMachines() {
             </div>
             ${(m.items || []).length ? `
               <table style="font-size:.8rem;width:100%">
-                <thead><tr><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
+                <thead><tr><th>Montaj Yeri</th><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
                 <tbody>${m.items.map(it => `<tr>
+                  <td><span class="badge" style="background:${it.placement === 'kedi' ? 'rgba(75,149,237,0.15)' : 'rgba(26,107,86,0.15)'};color:${it.placement === 'kedi' ? '#4b95ed' : 'var(--success)'};font-size:.65rem">${it.placement === 'kedi' ? '🏗️ Kedi / Saha' : '🗄️️ Pano İçi'}</span></td>
                   <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
                   <td><strong>${esc(it.product_name || '—')}</strong></td>
                   <td style="font-family:var(--mono)">${it.quantity}</td>
@@ -1904,7 +1903,7 @@ function editMachine(id) {
   document.getElementById('machineEnvironment').value = m.environment || 'closed';
   document.getElementById('machineNotes').value = m.notes || '';
   document.getElementById('machineItems').innerHTML = '';
-  (m.items || []).forEach(it => addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || ''));
+  (m.items || []).forEach(it => addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || '', it.placement || 'pano'));
   document.getElementById('machineModalTitle').textContent = 'Vinç Düzenle';
   openModal('machineModal');
 }
@@ -1952,13 +1951,15 @@ async function executeCloneMachine() {
   });
 }
 
-function addMachineItem(pid, qty, machineYear, catName) {
-  pid = pid || ''; qty = qty || 1; machineYear = machineYear || ''; catName = catName || '';
+function addMachineItem(pid, qty, machineYear, catName, placement) {
+  pid = pid || ''; qty = qty || 1; machineYear = machineYear || ''; catName = catName || ''; placement = placement || 'pano';
   var div = document.createElement('div');
   div.className = 'machine-item-row';
   div.style.cssText = 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.4rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;position:relative';
   
-  var catOpts = '<option value="">— Kategori Seçin —</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === catName ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  var catOpts = '<option value="">— Kategori —</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === catName ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  var placeOpts = `<option value="pano" ${placement === 'pano' ? 'selected' : ''}>🗄️ Pano İçi</option><option value="kedi" ${placement === 'kedi' ? 'selected' : ''}>🏗️ Kedi / Saha</option>`;
+
   var firstCol = columns[0];
   var prodName = '';
   if (pid) {
@@ -1967,14 +1968,15 @@ function addMachineItem(pid, qty, machineYear, catName) {
   }
 
   div.innerHTML =
-    '<select class="mi-cat" style="width:130px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px" onchange="window.miCatChange(this)">' + catOpts + '</select>' +
-    '<div style="flex:2;min-width:180px;position:relative">' +
+    '<select class="mi-place" style="width:115px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">' + placeOpts + '</select>' +
+    '<select class="mi-cat" style="width:120px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px" onchange="window.miCatChange(this)">' + catOpts + '</select>' +
+    '<div style="flex:2;min-width:160px;position:relative">' +
       '<input type="hidden" class="mi-pid" value="' + pid + '">' +
-      '<input type="text" class="mi-search" value="' + esc(prodName) + '" placeholder="🔍 Ürün Ara (örn: kablo)" style="width:100%" autocomplete="off" onfocus="window.acFocus(this)" oninput="window.acInput(this)">' +
+      '<input type="text" class="mi-search" value="' + esc(prodName) + '" placeholder="🔍 Ürün Ara..." style="width:100%" autocomplete="off" onfocus="window.acFocus(this)" oninput="window.acInput(this)">' +
       '<div class="ac-list" style="position:absolute;z-index:999;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:4px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.2)"></div>' +
     '</div>' +
-    '<input type="number" class="mi-qty" value="' + qty + '" min="0" step="any" style="width:80px" placeholder="Adet" title="Adet">' +
-    '<input type="number" class="mi-year" value="' + machineYear + '" min="1980" max="2099" style="width:80px" placeholder="Model Yılı" title="Model Yılı (opsiyonel)">' +
+    '<input type="number" class="mi-qty" value="' + qty + '" min="0" step="any" style="width:70px" placeholder="Adet" title="Adet">' +
+    '<input type="number" class="mi-year" value="' + machineYear + '" min="1980" max="2099" style="width:75px" placeholder="Model" title="Model Yılı">' +
     '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>';
   document.getElementById('machineItems').appendChild(div);
 }
@@ -2043,7 +2045,8 @@ async function saveMachine() {
         product_id: r.querySelector('.mi-pid').value,
         quantity: parseFloat(r.querySelector('.mi-qty').value) || 1,
         machine_year: r.querySelector('.mi-year').value ? parseInt(r.querySelector('.mi-year').value) : null,
-        category_name: r.querySelector('.mi-cat').value || null
+        category_name: r.querySelector('.mi-cat').value || null,
+        placement: r.querySelector('.mi-place').value || 'pano'
       };
     }).filter(i => i.product_id);
 
@@ -2947,7 +2950,7 @@ function renderPurchases() {
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
       ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏️️</button>
         ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Talebi Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Talebi Reddet">✗</button> ` : ''}
         ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Tedarikçiye Sipariş Ver">🚚</button> ` : ''}
         ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Sevkiyata Ver">🚢</button> ` : ''}
