@@ -85,6 +85,7 @@ async function init() {
       span TEXT DEFAULT '',
       environment TEXT DEFAULT 'closed',
       updated_by INT REFERENCES users(id) ON DELETE SET NULL,
+      pricing JSONB DEFAULT '{}',
       display_order INT DEFAULT 0,
       notes TEXT DEFAULT '', items JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -172,6 +173,7 @@ async function init() {
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS span TEXT DEFAULT '';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'closed';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE machines ADD COLUMN IF NOT EXISTS pricing JSONB DEFAULT '{}';
     ALTER TABLE machines ADD COLUMN IF NOT EXISTS firm_id INT REFERENCES firms(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS machine_id INT REFERENCES machines(id) ON DELETE SET NULL;
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bom_category TEXT DEFAULT NULL;
@@ -229,6 +231,29 @@ async function init() {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
 
+  // ── SATIŞ SONRASI (SERVİS & REVİZYON TALEPLERİ) TABLOSU ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS after_sales_requests (
+      id SERIAL PRIMARY KEY,
+      requested_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      customer_firm TEXT NOT NULL,
+      serial_number TEXT DEFAULT '',
+      hoist_motor_kw TEXT NOT NULL,
+      trolley_motor_kw TEXT NOT NULL,
+      trolley_motor_count INT NOT NULL DEFAULT 1,
+      bridge_motor_kw TEXT NOT NULL,
+      brake_voltage TEXT NOT NULL,
+      bridge_installation_requested BOOLEAN DEFAULT FALSE,
+      lifting_height TEXT DEFAULT '',
+      bridge_span TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'bom_created', 'completed'
+      machine_id INT REFERENCES machines(id) ON DELETE SET NULL,
+      admin_note TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
   // ── VFD / SÜRÜCÜ CİHAZLARI VE REHBER TABLOLARI ──
   await query(`
     CREATE TABLE IF NOT EXISTS vfd_devices (
@@ -252,7 +277,7 @@ async function init() {
     );
   `);
 
-  // ── HIZ VE PERFORMANS İNDEKSLERİ (Ağırlaşmayı Önler) ──
+  // ── HIZ VE PERFORMANS İNDEKSLERİ ──
   await query(`
     CREATE INDEX IF NOT EXISTS idx_products_order ON products(display_order ASC);
     CREATE INDEX IF NOT EXISTS idx_machines_firm ON machines(firm_id);
@@ -263,6 +288,8 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_product_lots_pid ON product_lots(product_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchase_requests(status);
     CREATE INDEX IF NOT EXISTS idx_vfd_records_device ON vfd_records(device_id);
+    CREATE INDEX IF NOT EXISTS idx_after_sales_status ON after_sales_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_after_sales_user ON after_sales_requests(requested_by);
   `);
 
   const bomCheck = (await query("SELECT COUNT(*) as c FROM bom_columns")).rows[0];
