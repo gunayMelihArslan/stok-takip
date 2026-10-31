@@ -65,6 +65,7 @@ async function login(){
     localStorage.setItem('stok_token',data.token);
     if(data.role === 'admin') window.location.href = '/admin.html';
     else if(data.role === 'purchase') window.location.href = '/purchase.html';
+    else if(data.role === 'after_sales') window.location.href = '/after_sales.html';
     else window.location.href = '/personnel.html';
   }catch(e){err.textContent=e.message;err.style.display='block';btn.disabled=false;btn.textContent='Giriş Yap';}
 }
@@ -76,6 +77,7 @@ if(t){
       if(u){
         if(u.role === 'admin') window.location.href = '/admin.html';
         else if(u.role === 'purchase') window.location.href = '/purchase.html';
+        else if(u.role === 'after_sales') window.location.href = '/after_sales.html';
         else window.location.href = '/personnel.html';
       }
     });
