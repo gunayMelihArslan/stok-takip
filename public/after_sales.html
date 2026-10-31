@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Satış Sonrası & Servis — Elektrikhane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.request-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.75rem;box-shadow:0 4px 16px rgba(0,0,0,0.25);transition:border-color .2s;}
+.request-card:hover{border-color:var(--border2);}
+.request-header{padding:.8rem 1.1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
+.request-body{padding:1rem 1.1rem;display:grid;grid-template-columns:2fr 1fr;gap:1.25rem;}
+.specs-tag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-top:.6rem;}
+.spec-box{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.45rem .65rem;font-size:.78rem;}
+.spec-box-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700;}
+.spec-box-val{font-family:var(--mono);font-weight:800;color:var(--service);margin-top:2px;}
+.search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:240px;}
+.search-box-wrap input{width:100%;padding-right:24px;}
+.search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
+.search-clear-btn:hover{color:var(--accent);}
+
+@media (max-width: 768px) {
+  .request-body { grid-template-columns: 1fr; }
+  .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .toolbar-left { width: 100%; flex-direction: column; }
+  .search-box-wrap { max-width: 100%; width: 100%; }
+  .toolbar select, .toolbar button, .toolbar input { width: 100%; max-width: 100% !important; }
+}
+</style>
+</head>
+<body>
+<div class="mobile-bar">
+  <div class="brand"><div class="icon" style="background:var(--service);color:#0a0c0f">🛠️</div><span>Satış Sonrası</span></div>
+  <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand" style="padding:.75rem .85rem;flex-direction:column;align-items:flex-start;gap:.4rem">
+    <div style="background:#fff;border-radius:6px;padding:.3rem .6rem;display:inline-block">
+      <img src="/logo.png" alt="Sekizli" style="height:22px;width:auto;display:block;">
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <span style="background:var(--service);color:#0a0c0f;font-family:var(--mono);font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">🛠️ Satış Sonrası</span>
+      <span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Teknik Servis</span>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Pano Revizyonu</div>
+    <div class="nav-item active" onclick="showPage('requests')">
+      <span class="nav-icon">📋</span>Taleplerim & BOM
+      <span id="reqBadge" style="display:none;background:var(--service);color:#0a0c0f;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('new_request')">
+      <span class="nav-icon">➕</span>Yeni Revizyon Talebi
+    </div>
+
+    <div class="nav-section-label">Depo & Cihazlar</div>
+    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span>Stok Durumu</div>
+    <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü / Arıza Teşhis</div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="avatar" id="avatarInit" style="background:var(--service);color:#0a0c0f">S</div>
+      <div class="info">
+        <div class="name" id="userName">Satış Sonrası</div>
+        <div class="role" style="color:var(--service)">Teknik Servis</div>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">Taleplerim &amp; BOM Listeleri</h2>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span id="liveInd" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);display:flex;align-items:center;gap:.35rem">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--service);display:inline-block;animation:pulse 2s infinite"></span>canlı
+      </span>
+      <span class="meta" id="pageTime"></span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- 1. TALEPLERİM & BOM LİSTESİ -->
+    <div class="page active" id="page-requests">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="reqSearch" placeholder="🔍 Firma, seri no veya motor ara..." oninput="handleSearchInput(this, renderRequests)">
+            <button class="search-clear-btn" onclick="clearSearchInput('reqSearch', renderRequests)">✕</button>
+          </div>
+          <select id="reqStatusFilter" style="max-width:200px" onchange="renderRequests()">
+            <option value="">Tüm Durumlar</option>
+            <option value="pending">⏳ Yönetici Onayı / BOM Bekliyor</option>
+            <option value="bom_created">✅ BOM Hazırlandı (Fiyatlandırılabilir)</option>
+            <option value="completed">🎉 Tamamlandı / İmalata Alındı</option>
+          </select>
+        </div>
+        <button class="btn btn-service" onclick="showPage('new_request')">+ Yeni Pano Talebi Aç</button>
+        <button class="btn btn-ghost" onclick="loadRequests();renderRequests()">↺ Yenile</button>
+      </div>
+
+      <div id="requestsList"></div>
+    </div>
+
+    <!-- 2. YENİ REVİZYON TALEBİ AÇMA FORMU (9 TEKNİK KRİTER) -->
+    <div class="page" id="page-new_request">
+      <div style="max-width:680px;margin:0 auto">
+        <div class="card">
+          <div style="padding:1.1rem 1.3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h3 style="font-size:1rem;font-weight:800;color:#fff">🛠️ Pano Revizyonu İçin BOM Listesi Talep Et</h3>
+              <p style="font-family:var(--mono);font-size:.7rem;color:var(--text2);margin-top:.2rem">Elektrikhaneden vinç revizyon panosu için gerekli malzeme listesini talep edin</p>
+            </div>
+            <span class="badge badge-after_sales">9 Kriterli Teknik Form</span>
+          </div>
+
+          <div style="padding:1.3rem;display:flex;flex-direction:column;gap:.9rem">
+            <!-- 7 & 6: Müşteri Firma ve Seri No -->
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:.75rem">
+              <div class="form-group" style="margin:0">
+                <label>Müşteri Firma Adı *</label>
+                <input type="text" id="asCustomerFirm" placeholder="Örn: Erdemir Demir Çelik A.Ş.">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Seri Numarası (Varsa)</label>
+                <input type="text" id="asSerialNumber" placeholder="Örn: 2026-VK-104">
+              </div>
+            </div>
+
+            <!-- 1 & 2: Kanca Motoru & Kedi Motoru -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+              <div class="form-group" style="margin:0">
+                <label>Kanca Motoru (kW) *</label>
+                <input type="text" id="asHoistKw" placeholder="Örn: 15 kW">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Kedi Motoru (kW) *</label>
+                <input type="text" id="asTrolleyKw" placeholder="Örn: 1.5 kW">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Kedi Motor Adedi *</label>
+                <input type="number" id="asTrolleyCount" value="1" min="1" max="10">
+              </div>
+            </div>
+
+            <!-- 3 & 4: Köprü Motoru & Fren Voltajı -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+              <div class="form-group" style="margin:0">
+                <label>Köprü Motoru (kW) *</label>
+                <input type="text" id="asBridgeKw" placeholder="Örn: 2 x 2.2 kW">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Her Bir Fren İçin Çalışma Voltajı *</label>
+                <input type="text" id="asBrakeVoltage" placeholder="Örn: 24V DC, 98V DC veya 198V DC">
+              </div>
+            </div>
+
+            <!-- 8: Kaldırma Yüksekliği -->
+            <div class="form-group" style="margin:0">
+              <label>Kaldırma Yüksekliği (m) (Varsa)</label>
+              <input type="text" id="asLiftingHeight" placeholder="Örn: 9m veya 12m">
+            </div>
+
+            <!-- 5 & 9: Köprü Tesisatı ve Açıklık -->
+            <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+              <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;margin-bottom:.5rem">
+                <input type="checkbox" id="asBridgeInstallCheck" onchange="toggleSpanInput(this.checked)" style="width:18px;height:18px;accent-color:var(--service);cursor:pointer">
+                <strong style="font-size:.85rem;color:#fff">Köprü tesisatı isteniyor mu?</strong>
+              </label>
+              
+              <div id="spanInputWrap" style="display:none;margin-top:.6rem">
+                <div class="form-group" style="margin:0">
+                  <label>Köprü Aks Açıklığı (Span - Metre) *</label>
+                  <input type="text" id="asBridgeSpan" placeholder="Örn: 24 metre">
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-service btn-full" id="asSubmitBtn" style="padding:.85rem;font-size:.9rem" onclick="submitAfterSalesRequest()">📤 Talebi Elektrikhane Yöneticisine İlet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. STOK DURUMU (GÖRÜNTÜLEME) -->
+    <div class="page" id="page-stock">
+      <div class="toolbar">
+        <div class="search-box-wrap" style="max-width:280px">
+          <input type="text" id="stockSearch" placeholder="🔍 Ürün veya stok ara..." oninput="handleSearchInput(this, filterStock)">
+          <button class="search-clear-btn" onclick="clearSearchInput('stockSearch', filterStock)">✕</button>
+        </div>
+        <button class="btn btn-ghost" onclick="loadStock();renderStock()">↺ Yenile</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead id="stockThead"><tr></tr></thead><tbody id="stockTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- 4. SÜRÜCÜ KILAVUZU (VFD) -->
+    <div class="page" id="page-vfd">
+      <div class="toolbar">
+        <select id="vfdDeviceFilter" style="max-width:220px" onchange="renderVfd()"><option value="">Tüm Cihazlar</option></select>
+        <div class="search-box-wrap">
+          <input type="text" id="vfdSearch" placeholder="🔍 Kod veya hata ara..." oninput="handleSearchInput(this, renderVfd)">
+          <button class="search-clear-btn" onclick="clearSearchInput('vfdSearch', renderVfd)">✕</button>
+        </div>
+        <button class="btn btn-ghost" onclick="loadVfd();renderVfd()">↺ Yenile</button>
+      </div>
+      <div id="vfdList" style="display:grid;gap:.65rem"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const _f = window.fetch.bind(window);
+window.fetch = function(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    var t = localStorage.getItem('stok_token');
+    if (t) opts.headers['Authorization'] = 'Bearer ' + t;
+  }
+  return _f(url, opts);
+};
+
+let me = null, requests = [], products = [], columns = [], vfdDevices = [], vfdRecords = [];
+let currentPage = 'requests';
+
+async function init() {
+  me = await api('/api/me');
+  if (!me) return window.location.href = '/';
+  if (me.role !== 'after_sales' && me.role !== 'admin') {
+    return window.location.href = me.role === 'purchase' ? '/purchase.html' : '/personnel.html';
+  }
+  document.getElementById('userName').textContent = me.display_name || me.username;
+  document.getElementById('avatarInit').textContent = (me.display_name || me.username)[0].toUpperCase();
+  updateTime(); setInterval(updateTime, 1000);
+  await loadAll();
+  showPage('requests');
+  connectSSE();
+}
+
+function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+async function api(url, method = 'GET', body = null) {
+  try {
+    const token = localStorage.getItem('stok_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (err) {
+      if (res.status === 401) { localStorage.removeItem('stok_token'); window.location.href = '/'; return null; }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error'); return null;
+    }
+    if (!res.ok) { toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error'); return null; }
+    return data;
+  } catch (e) { toast('Bağlantı sorunu oluştu', 'error'); return null; }
+}
+
+function connectSSE() {
+  const _sseToken = localStorage.getItem('stok_token') || '';
+  const es = new EventSource('/api/events?token=' + encodeURIComponent(_sseToken));
+  es.addEventListener('after_sales_new', async () => { await loadRequests(); if (currentPage === 'requests') renderRequests(); });
+  es.addEventListener('after_sales_update', async () => { await loadRequests(); if (currentPage === 'requests') renderRequests(); });
+  es.addEventListener('stock_update', async () => { await loadStock(); if (currentPage === 'stock') renderStock(); });
+}
+
+async function loadAll() {
+  await Promise.all([loadRequests(), loadStock(), loadVfd()]);
+}
+
+async function loadRequests() {
+  requests = await api('/api/after-sales-requests') || [];
+  const pCount = requests.filter(r => r.status === 'pending').length;
+  const badge = document.getElementById('reqBadge');
+  if (badge) { badge.textContent = pCount; badge.style.display = pCount > 0 ? 'inline' : 'none'; }
+}
+
+async function loadStock() {
+  [columns, products] = await Promise.all([api('/api/columns'), api('/api/products')]);
+  columns = columns || []; products = products || [];
+}
+
+async function loadVfd() {
+  [vfdDevices, vfdRecords] = await Promise.all([api('/api/vfd/devices'), api('/api/vfd/records')]);
+  vfdDevices = vfdDevices || []; vfdRecords = vfdRecords || [];
+}
+
+const pageTitles = {
+  requests: 'Taleplerim & BOM Listeleri',
+  new_request: 'Yeni Pano Revizyon Talebi',
+  stock: 'Depo & Stok Durumu',
+  vfd: 'Sürücü Kılavuzu & Arıza Teşhis'
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const targetPage = document.getElementById('page-' + name);
+  if (targetPage) targetPage.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active');
+  });
+  document.getElementById('pageTitle').textContent = pageTitles[name] || name;
+  currentPage = name;
+
+  if (name === 'requests') renderRequests();
+  if (name === 'stock') renderStock();
+  if (name === 'vfd') renderVfd();
+}
+
+function toggleSpanInput(isChecked) {
+  document.getElementById('spanInputWrap').style.display = isChecked ? 'block' : 'none';
+}
+
+// ── 1. TALEPLERİ RENDER ETME ─────────────────────────────────────────────
+const AS_STATUS = {
+  pending: { l: '⏳ Yönetici İnceliyor (BOM Bekleniyor)', c: 'var(--warning)', bg: 'rgba(232,184,75,.15)' },
+  bom_created: { l: '✅ BOM Listesi Hazırlandı', c: 'var(--success)', bg: 'rgba(75,232,160,.15)' },
+  completed: { l: '🎉 Tamamlandı / İmalata Alındı', c: 'var(--service)', bg: 'var(--service-dim)' }
+};
+
+function renderRequests() {
+  const q = (document.getElementById('reqSearch')?.value || '').toLowerCase();
+  const stFilter = document.getElementById('reqStatusFilter')?.value || '';
+  let list = requests;
+  if (stFilter) list = list.filter(r => r.status === stFilter);
+  if (q) {
+    list = list.filter(r => 
+      (r.customer_firm || '').toLowerCase().includes(q) ||
+      (r.serial_number || '').toLowerCase().includes(q) ||
+      (r.hoist_motor_kw || '').toLowerCase().includes(q) ||
+      (r.bridge_motor_kw || '').toLowerCase().includes(q)
+    );
+  }
+
+  const container = document.getElementById('requestsList');
+  if (!container) return;
+  if (!list.length) {
+    container.innerHTML = '<div class="card empty"><div class="icon">🛠️</div>Henüz açılmış bir revizyon talebi bulunmuyor</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(r => {
+    const st = AS_STATUS[r.status] || { l: r.status, c: 'var(--text)', bg: 'var(--surface2)' };
+    const hasBOM = !!r.machine_id;
+
+    return `
+      <div class="request-card">
+        <div class="request-header">
+          <div>
+            <strong style="font-size:1rem;color:#fff">${esc(r.customer_firm)}</strong>
+            ${r.serial_number ? `<span style="font-family:var(--mono);font-size:.72rem;background:var(--surface);border:1px solid var(--border2);padding:.15rem .45rem;border-radius:4px;margin-left:.4rem;color:var(--text2)">Seri No: ${esc(r.serial_number)}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span class="badge" style="background:${st.bg};color:${st.c};border:1px solid ${st.c}">${st.l}</span>
+            ${hasBOM ? `<button class="btn btn-service btn-sm" onclick="openBomPricing(${r.machine_id})">💰 BOM Listesi ve Fiyatları Aç</button>` : ''}
+          </div>
+        </div>
+
+        <div class="request-body">
+          <div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Teknik Parametreler:</div>
+            <div class="specs-tag-grid">
+              <div class="spec-box"><div class="spec-box-label">Kanca Motoru</div><div class="spec-box-val">${esc(r.hoist_motor_kw)}</div></div>
+              <div class="spec-box"><div class="spec-box-label">Kedi Motoru</div><div class="spec-box-val">${esc(r.trolley_motor_kw)} (${r.trolley_motor_count} Adet)</div></div>
+              <div class="spec-box"><div class="spec-box-label">Köprü Motoru</div><div class="spec-box-val">${esc(r.bridge_motor_kw)}</div></div>
+              <div class="spec-box"><div class="spec-box-label">Fren Voltajı</div><div class="spec-box-val">${esc(r.brake_voltage)}</div></div>
+              <div class="spec-box"><div class="spec-box-label">Kaldırma Yüksekliği</div><div class="spec-box-val">${r.lifting_height ? esc(r.lifting_height) + ' m' : '—'}</div></div>
+              <div class="spec-box"><div class="spec-box-label">Köprü Tesisatı</div><div class="spec-box-val" style="color:${r.bridge_installation_requested ? 'var(--success)' : 'var(--muted)'}">${r.bridge_installation_requested ? 'İsteniyor' : 'Yok'}</div></div>
+              ${r.bridge_installation_requested ? `<div class="spec-box"><div class="spec-box-label">Köprü Aks Açıklığı</div><div class="spec-box-val">${esc(r.bridge_span || '—')}</div></div>` : ''}
+            </div>
+          </div>
+
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;font-size:.78rem">
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);font-weight:700;margin-bottom:.3rem">Talep Durumu:</div>
+            <div style="color:var(--text);line-height:1.4">${r.admin_note ? esc(r.admin_note) : (hasBOM ? 'Yönetici vinç reçetesini hazırladı. Butona tıklayarak birim fiyatları inceleyebilir veya düzenleyebilirsiniz.' : 'Talebiniz atölye şefi ve yöneticinin ekranına iletildi. BOM listesi bekleniyor.')}</div>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.6rem">Talep Tarihi: ${fmtDate(r.created_at)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openBomPricing(machineId) {
+  const token = localStorage.getItem('stok_token');
+  window.open(`/bom/${machineId}?pricing=1&token=${encodeURIComponent(token)}`, '_blank');
+}
+
+// ── 2. YENİ TALEP GÖNDERME ────────────────────────────────────────────────
+async function submitAfterSalesRequest() {
+  const customer_firm = document.getElementById('asCustomerFirm').value.trim();
+  const serial_number = document.getElementById('asSerialNumber').value.trim();
+  const hoist_motor_kw = document.getElementById('asHoistKw').value.trim();
+  const trolley_motor_kw = document.getElementById('asTrolleyKw').value.trim();
+  const trolley_motor_count = parseInt(document.getElementById('asTrolleyCount').value) || 1;
+  const bridge_motor_kw = document.getElementById('asBridgeKw').value.trim();
+  const brake_voltage = document.getElementById('asBrakeVoltage').value.trim();
+  const lifting_height = document.getElementById('asLiftingHeight').value.trim();
+  const bridge_installation_requested = document.getElementById('asBridgeInstallCheck').checked;
+  const bridge_span = document.getElementById('asBridgeSpan').value.trim();
+
+  if (!customer_firm) { toast('Lütfen müşteri firma adını girin', 'error'); return; }
+  if (!hoist_motor_kw || !trolley_motor_kw || !bridge_motor_kw || !brake_voltage) {
+    toast('Lütfen zorunlu motor gücü ve fren voltajı alanlarını doldurun', 'error'); return;
+  }
+  if (bridge_installation_requested && !bridge_span) {
+    toast('Köprü tesisatı istendiği için lütfen köprü aks açıklığını da belirtin', 'error'); return;
+  }
+
+  const btn = document.getElementById('asSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Gönderiliyor...';
+
+  const payload = {
+    customer_firm, serial_number, hoist_motor_kw, trolley_motor_kw,
+    trolley_motor_count, bridge_motor_kw, brake_voltage,
+    bridge_installation_requested, lifting_height, bridge_span
+  };
+
+  const r = await api('/api/after-sales-requests', 'POST', payload);
+  btn.disabled = false;
+  btn.textContent = '📤 Talebi Elektrikhane Yöneticisine İlet';
+
+  if (!r) return;
+
+  // Formu temizle
+  document.getElementById('asCustomerFirm').value = '';
+  document.getElementById('asSerialNumber').value = '';
+  document.getElementById('asHoistKw').value = '';
+  document.getElementById('asTrolleyKw').value = '';
+  document.getElementById('asTrolleyCount').value = '1';
+  document.getElementById('asBridgeKw').value = '';
+  document.getElementById('asBrakeVoltage').value = '';
+  document.getElementById('asLiftingHeight').value = '';
+  document.getElementById('asBridgeInstallCheck').checked = false;
+  document.getElementById('asBridgeSpan').value = '';
+  toggleSpanInput(false);
+
+  await loadRequests();
+  showPage('requests');
+  toast('Revizyon talebiniz yöneticilere başarıyla iletildi ✓', 'success');
+}
+
+// ── 3. STOK DURUMU ────────────────────────────────────────────────────────
+function renderStock() {
+  const theadTr = document.getElementById('stockThead')?.querySelector('tr');
+  if (theadTr) theadTr.innerHTML = columns.map(c => `<th>${esc(c.name)}</th>`).join('') + '<th>Durum</th>';
+  renderStockRows(products);
+}
+
+function renderStockRows(prods) {
+  const numCol = columns.find(c => c.data_type === 'number');
+  const tbody = document.getElementById('stockTbody');
+  if (!tbody) return;
+  if (!prods.length) { tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="empty">Ürün yok</td></tr>`; return; }
+  tbody.innerHTML = prods.map(p => {
+    const cells = columns.map(c => `<td>${esc(p.values?.[c.id] || '')}</td>`).join('');
+    const qty = numCol ? parseFloat(p.values?.[numCol.id] || 0) : null;
+    const minS = numCol?.min_stock || 5;
+    const status = qty !== null ? (qty <= 0 ? '<span class="badge badge-low">Stok Yok</span>' : qty < minS ? `<span class="badge badge-low">Düşük: ${qty}</span>` : `<span class="badge badge-ok">Var: ${qty}</span>`) : '—';
+    return `<tr>${cells}<td>${status}</td></tr>`;
+  }).join('');
+}
+
+function filterStock() {
+  const q = (document.getElementById('stockSearch')?.value || '').toLowerCase();
+  renderStockRows(q ? products.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))) : products);
+}
+
+// ── 4. SÜRÜCÜ KILAVUZU ────────────────────────────────────────────────────
+function renderVfd() {
+  const fsel = document.getElementById('vfdDeviceFilter');
+  if (fsel && fsel.options.length <= 1) {
+    fsel.innerHTML = '<option value="">Tüm Cihazlar / Modeller</option>' + vfdDevices.map(d => `<option value="${d.id}">⚡ ${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+  }
+  const curDev = fsel?.value || '';
+  const sq = (document.getElementById('vfdSearch')?.value || '').toLowerCase();
+
+  let list = vfdRecords;
+  if (curDev) list = list.filter(r => String(r.device_id) === curDev);
+  if (sq) {
+    list = list.filter(r => 
+      (r.code || '').toLowerCase().includes(sq) ||
+      (r.title || '').toLowerCase().includes(sq) ||
+      (r.description || '').toLowerCase().includes(sq) ||
+      (r.solution_steps || '').toLowerCase().includes(sq)
+    );
+  }
+
+  const container = document.getElementById('vfdList');
+  if (!container) return;
+  if (!list.length) { container.innerHTML = '<div class="card empty"><div class="icon">⚡</div>Kayıt bulunamadı</div>'; return; }
+
+  container.innerHTML = list.map(r => `
+    <div class="card" style="padding:.9rem 1.1rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:.4rem;flex-wrap:wrap">
+        <div>
+          <span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ ${esc(r.brand)} ${esc(r.model)}</span>
+          <strong style="font-family:var(--mono);color:var(--accent);margin-left:.4rem;font-size:1rem">${esc(r.code)}</strong>
+          <span style="font-weight:700;margin-left:.4rem">${esc(r.title)}</span>
+        </div>
+        <span class="badge" style="background:${r.record_type === 'fault' ? 'var(--danger-dim)' : 'var(--accent-dim)'};color:${r.record_type === 'fault' ? 'var(--danger)' : 'var(--accent)'}">${r.record_type === 'fault' ? 'Arıza/Hata' : 'Parametre'}</span>
+      </div>
+      ${r.description ? `<div style="font-size:.82rem;color:var(--text2);margin-bottom:.4rem">${esc(r.description)}</div>` : ''}
+      ${r.solution_steps ? `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem .8rem;font-size:.8rem;line-height:1.45;white-space:pre-wrap"><strong style="color:var(--success)">🔧 Çözüm / Kontrol:</strong> ${esc(r.solution_steps)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+let searchDebounceTimers = {};
+function handleSearchInput(inputEl, callbackFn) {
+  const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+  if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
+  const key = inputEl.id || 'default';
+  clearTimeout(searchDebounceTimers[key]);
+  searchDebounceTimers[key] = setTimeout(() => { if (callbackFn) callbackFn(); }, 180);
+}
+function clearSearchInput(inputId, callbackFn) {
+  const inputEl = document.getElementById(inputId);
+  if (inputEl) {
+    inputEl.value = '';
+    const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (callbackFn) callbackFn();
+    inputEl.focus();
+  }
+}
+
+async function logout() {
+  localStorage.removeItem('stok_token');
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/';
+}
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
