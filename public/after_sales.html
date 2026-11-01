@@ -372,6 +372,7 @@ function renderRequests() {
           <div style="display:flex;align-items:center;gap:.5rem">
             <span class="badge" style="background:${st.bg};color:${st.c};border:1px solid ${st.c}">${st.l}</span>
             ${hasBOM ? `<button class="btn btn-service btn-sm" onclick="openBomPricing(${r.machine_id})">💰 BOM Listesi ve Fiyatları Aç</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteAfterSalesRequest(${r.id})" title="Talebi Sil">Sil</button>
           </div>
         </div>
 
@@ -400,6 +401,15 @@ function renderRequests() {
   }).join('');
 }
 
+async function deleteAfterSalesRequest(id) {
+  if (!confirm('Bu revizyon talebini silmek istediğinizden emin misiniz?')) return;
+  const res = await api('/api/after-sales-requests/' + id, 'DELETE');
+  if (res) {
+    await loadRequests();
+    renderRequests();
+    toast('Talep başarıyla silindi ✓', 'success');
+  }
+}
 function openBomPricing(machineId) {
   const token = localStorage.getItem('stok_token');
   window.open(`/bom/${machineId}?pricing=1&token=${encodeURIComponent(token)}`, '_blank');
