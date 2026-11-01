@@ -743,7 +743,7 @@ app.post('/api/after-sales-requests', auth, adminOrAfterSales, async (req, res) 
   try {
     const {
       customer_firm, serial_number, hoist_motor_kw, trolley_motor_kw,
-      trolley_motor_count, bridge_motor_kw, brake_voltage,
+      trolley_motor_count, bridge_motor_kw, bridge_motor_count, brake_voltage,
       bridge_installation_requested, lifting_height, bridge_span
     } = req.body;
 
