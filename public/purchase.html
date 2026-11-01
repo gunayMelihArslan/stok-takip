@@ -59,6 +59,7 @@
         <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">📋</span>Talep Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
+        <div class="nav-item" onclick="openDirectInModal()"><span class="nav-icon">📥</span>Doğrudan Stok Girişi</div>
       </div>
     </div>
   </div>
@@ -109,6 +110,7 @@
             <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
           </select>
         </div>
+        <button class="btn btn-success" onclick="openDirectInModal()">📥 Doğrudan Stok Girişi (Alım)</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderOrders()">↺ Yenile</button>
       </div>
@@ -187,6 +189,44 @@
   </div>
 </div>
 
+<!-- DOĞRUDAN SERBEST STOK GİRİŞİ MODALI (Madde 3) -->
+<div class="modal-overlay" id="directInModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>📥 Doğrudan Serbest Stok Girişi</h3>
+      <button class="modal-close" onclick="closeModal('directInModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Depoya Alınacak Ürün *</label>
+        <select id="directInProd" style="width:100%"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group">
+          <label>Giriş Miktarı *</label>
+          <input type="number" id="directInQty" min="0.01" step="any" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Model Yılı (Lot)</label>
+          <input type="number" id="directInYear" min="1980" max="2099" placeholder="2026">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tedarikçi / Kaynak Firma</label>
+        <input type="text" id="directInSupplier" placeholder="Örn: Siemens, Schneider, Emas...">
+      </div>
+      <div class="form-group">
+        <label>Açıklama / Fatura & İrsaliye Notu</label>
+        <input type="text" id="directInNotes" placeholder="Doğrudan atölye/depo girişi...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('directInModal')">İptal</button>
+      <button class="btn btn-success" id="directInSaveBtn" onclick="saveDirectIn()">📥 Stoğa Ekle</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -201,7 +241,7 @@ window.fetch = function(url, opts) {
   return _f(url, opts);
 };
 
-let purchases = [], columns = [], me = null;
+let purchases = [], columns = [], products = [], me = null;
 let currentPage = 'dashboard';
 
 function toggleNavGroup(groupId) {
@@ -264,11 +304,21 @@ function connectSSE() {
     if (currentPage === 'shipping') renderShipping();
     if (currentPage === 'completed') renderCompleted();
   });
+  es.addEventListener('stock_update', async () => {
+    await loadProducts();
+  });
 }
 
 async function loadAll() {
+  await Promise.all([loadColumns(), loadPurchases(), loadProducts()]);
+}
+
+async function loadColumns() {
   columns = await api('/api/columns') || [];
-  await loadPurchases();
+}
+
+async function loadProducts() {
+  products = await api('/api/products') || [];
 }
 
 async function loadPurchases() {
@@ -520,7 +570,7 @@ function renderCompleted() {
   }).join('');
 }
 
-// ── PROCESS MODAL ACTIONS (Buton Korumalı & Güvenli) ─────────────────────
+// ── PROCESS MODAL ACTIONS ────────────────────────────────────────────────
 function openProcessModal(id) {
   const p = purchases.find(x => x.id == id);
   if (!p) return;
@@ -530,7 +580,6 @@ function openProcessModal(id) {
   document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p);
   document.getElementById('processActualQty').value = p.product_values?.actual_qty || p.quantity;
   
-  // Varsayılan olarak her zaman 'ordered' (Sipariş Edildi) seçili gelsin:
   document.getElementById('processStatusSelect').value = 'ordered';
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
@@ -555,6 +604,49 @@ async function saveProcessOrder() {
     await loadPurchases();
     showPage(currentPage);
     toast('Tedarik aşaması güncellendi ✓', 'success');
+  });
+}
+
+// ── DOĞRUDAN STOK GİRİŞİ (Madde 3) ───────────────────────────────────────
+function openDirectInModal() {
+  const sel = document.getElementById('directInProd');
+  const firstCol = columns[0];
+  sel.innerHTML = '<option value="">— Ürün Seçin —</option>' + products.map(p => {
+    const name = firstCol && p.values?.[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
+    return `<option value="${p.id}">${esc(name)}</option>`;
+  }).join('');
+  document.getElementById('directInQty').value = '';
+  document.getElementById('directInYear').value = new Date().getFullYear();
+  document.getElementById('directInSupplier').value = '';
+  document.getElementById('directInNotes').value = '';
+  openModal('directInModal');
+}
+
+async function saveDirectIn() {
+  await withButtonLock('directInSaveBtn', 'Stoğa Ekleniyor...', async () => {
+    const product_id = document.getElementById('directInProd').value;
+    const quantity = parseFloat(document.getElementById('directInQty').value);
+    const production_year = parseInt(document.getElementById('directInYear').value) || null;
+    const supplier_firm = document.getElementById('directInSupplier').value.trim();
+    const notes = document.getElementById('directInNotes').value.trim();
+
+    if (!product_id || isNaN(quantity) || quantity <= 0) {
+      toast('Lütfen geçerli bir ürün ve miktar girin', 'error');
+      return;
+    }
+
+    const r = await api('/api/products/direct-in', 'POST', {
+      product_id,
+      quantity,
+      production_year,
+      supplier_firm,
+      notes
+    });
+
+    if (!r) return;
+    closeModal('directInModal');
+    await loadProducts();
+    toast('Doğrudan stok alımı başarıyla kaydedildi ✓', 'success');
   });
 }
 
