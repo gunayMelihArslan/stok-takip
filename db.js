@@ -180,6 +180,7 @@ async function init() {
     ALTER TABLE transactions ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'pano';
     ALTER TABLE bom_columns ADD COLUMN IF NOT EXISTS mapped_field TEXT DEFAULT NULL;
     ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS product_values JSONB DEFAULT '{}';
+    ALTER TABLE after_sales_requests ADD COLUMN IF NOT EXISTS bridge_motor_count INT NOT NULL DEFAULT 2;
   `);
 
   await query("CREATE TABLE IF NOT EXISTS product_lots (id SERIAL PRIMARY KEY, product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE, production_year INT NOT NULL, quantity NUMERIC NOT NULL DEFAULT 0, notes TEXT DEFAULT '', UNIQUE(product_id, production_year))");
