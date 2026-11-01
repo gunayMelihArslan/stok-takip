@@ -55,7 +55,7 @@
       <span id="reqBadge" style="display:none;background:var(--service);color:#0a0c0f;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span>
     </div>
     <div class="nav-item" onclick="showPage('new_request')">
-      <span class="nav-icon">🐺</span>Yeni Revizyon Talebi
+      <span class="nav-icon">➕</span>Yeni Revizyon Talebi
     </div>
 
     <div class="nav-section-label">Depo & Cihazlar</div>
@@ -110,7 +110,7 @@
       <div id="requestsList"></div>
     </div>
 
-    <!-- 2. YENİ REVİZYON TALEBİ AÇMA FORMU (9 TEKNİK KRİTER) -->
+    <!-- 2. YENİ REVİZYON TALEBİ AÇMA FORMU -->
     <div class="page" id="page-new_request">
       <div style="max-width:680px;margin:0 auto">
         <div class="card">
@@ -119,11 +119,11 @@
               <h3 style="font-size:1rem;font-weight:800;color:#fff">🛠️ Pano Revizyonu İçin BOM Listesi Talep Et</h3>
               <p style="font-family:var(--mono);font-size:.7rem;color:var(--text2);margin-top:.2rem">Elektrikhaneden vinç revizyon panosu için gerekli malzeme listesini talep edin</p>
             </div>
-            <span class="badge badge-after_sales">9 Kriterli Teknik Form</span>
+            <span class="badge badge-after_sales">Teknik Form</span>
           </div>
 
           <div style="padding:1.3rem;display:flex;flex-direction:column;gap:.9rem">
-            <!-- 7 & 6: Müşteri Firma ve Seri No -->
+            <!-- Müşteri Firma ve Seri No -->
             <div style="display:grid;grid-template-columns:2fr 1fr;gap:.75rem">
               <div class="form-group" style="margin:0">
                 <label>Müşteri Firma Adı *</label>
@@ -135,7 +135,7 @@
               </div>
             </div>
 
-            <!-- 1 & 2: Kanca Motoru & Kedi Motoru -->
+            <!-- Kanca Motoru & Kedi Motoru Grubu -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
               <div class="form-group" style="margin:0">
                 <label>Kanca Motoru (kW) *</label>
@@ -151,25 +151,29 @@
               </div>
             </div>
 
-            <!-- 3 & 4: Köprü Motoru & Fren Voltajı -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <!-- Köprü Motoru Grubu (Motor kW + Motor Adedi) & Fren Voltajı -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
               <div class="form-group" style="margin:0">
                 <label>Köprü Motoru (kW) *</label>
-                <input type="text" id="asBridgeKw" placeholder="Örn: 2 x 2.2 kW">
+                <input type="text" id="asBridgeKw" placeholder="Örn: 2.2 kW">
               </div>
               <div class="form-group" style="margin:0">
-                <label>Her Bir Fren İçin Çalışma Voltajı *</label>
-                <input type="text" id="asBrakeVoltage" placeholder="Örn: 24V DC, 98V DC veya 198V DC">
+                <label>Köprü Motor Adedi *</label>
+                <input type="number" id="asBridgeCount" value="2" min="1" max="10">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Fren Çalışma Voltajı *</label>
+                <input type="text" id="asBrakeVoltage" placeholder="Örn: 24V DC, 98V DC, 198V DC">
               </div>
             </div>
 
-            <!-- 8: Kaldırma Yüksekliği -->
+            <!-- Kaldırma Yüksekliği -->
             <div class="form-group" style="margin:0">
               <label>Kaldırma Yüksekliği (m) (Varsa)</label>
               <input type="text" id="asLiftingHeight" placeholder="Örn: 9m veya 12m">
             </div>
 
-            <!-- 5 & 9: Köprü Tesisatı ve Açıklık -->
+            <!-- Köprü Tesisatı ve Aks Açıklığı -->
             <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
               <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;margin-bottom:.5rem">
                 <input type="checkbox" id="asBridgeInstallCheck" onchange="toggleSpanInput(this.checked)" style="width:18px;height:18px;accent-color:var(--service);cursor:pointer">
@@ -376,8 +380,8 @@ function renderRequests() {
             <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Teknik Parametreler:</div>
             <div class="specs-tag-grid">
               <div class="spec-box"><div class="spec-box-label">Kanca Motoru</div><div class="spec-box-val">${esc(r.hoist_motor_kw)}</div></div>
-              <div class="spec-box"><div class="spec-box-label">Kedi Motoru</div><div class="spec-box-val">${esc(r.trolley_motor_kw)} (${r.trolley_motor_count} Adet)</div></div>
-              <div class="spec-box"><div class="spec-box-label">Köprü Motoru</div><div class="spec-box-val">${esc(r.bridge_motor_kw)}</div></div>
+              <div class="spec-box"><div class="spec-box-label">Kedi Motoru</div><div class="spec-box-val">${esc(r.trolley_motor_kw)} (${r.trolley_motor_count || 1} Adet)</div></div>
+              <div class="spec-box"><div class="spec-box-label">Köprü Motoru</div><div class="spec-box-val">${esc(r.bridge_motor_kw)} (${r.bridge_motor_count || 2} Adet)</div></div>
               <div class="spec-box"><div class="spec-box-label">Fren Voltajı</div><div class="spec-box-val">${esc(r.brake_voltage)}</div></div>
               <div class="spec-box"><div class="spec-box-label">Kaldırma Yüksekliği</div><div class="spec-box-val">${r.lifting_height ? esc(r.lifting_height) + ' m' : '—'}</div></div>
               <div class="spec-box"><div class="spec-box-label">Köprü Tesisatı</div><div class="spec-box-val" style="color:${r.bridge_installation_requested ? 'var(--success)' : 'var(--muted)'}">${r.bridge_installation_requested ? 'İsteniyor' : 'Yok'}</div></div>
@@ -409,6 +413,7 @@ async function submitAfterSalesRequest() {
   const trolley_motor_kw = document.getElementById('asTrolleyKw').value.trim();
   const trolley_motor_count = parseInt(document.getElementById('asTrolleyCount').value) || 1;
   const bridge_motor_kw = document.getElementById('asBridgeKw').value.trim();
+  const bridge_motor_count = parseInt(document.getElementById('asBridgeCount').value) || 2;
   const brake_voltage = document.getElementById('asBrakeVoltage').value.trim();
   const lifting_height = document.getElementById('asLiftingHeight').value.trim();
   const bridge_installation_requested = document.getElementById('asBridgeInstallCheck').checked;
@@ -428,7 +433,7 @@ async function submitAfterSalesRequest() {
 
   const payload = {
     customer_firm, serial_number, hoist_motor_kw, trolley_motor_kw,
-    trolley_motor_count, bridge_motor_kw, brake_voltage,
+    trolley_motor_count, bridge_motor_kw, bridge_motor_count, brake_voltage,
     bridge_installation_requested, lifting_height, bridge_span
   };
 
@@ -438,13 +443,14 @@ async function submitAfterSalesRequest() {
 
   if (!r) return;
 
-  // Formu temizle
+  // Formu sıfırla
   document.getElementById('asCustomerFirm').value = '';
   document.getElementById('asSerialNumber').value = '';
   document.getElementById('asHoistKw').value = '';
   document.getElementById('asTrolleyKw').value = '';
   document.getElementById('asTrolleyCount').value = '1';
   document.getElementById('asBridgeKw').value = '';
+  document.getElementById('asBridgeCount').value = '2';
   document.getElementById('asBrakeVoltage').value = '';
   document.getElementById('asLiftingHeight').value = '';
   document.getElementById('asBridgeInstallCheck').checked = false;
