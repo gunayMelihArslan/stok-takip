@@ -309,7 +309,7 @@ app.delete('/api/columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── PRODUCTS & SERBEST STOK GİRİŞİ (Madde 3) ─────────────────────────────
+// ── PRODUCTS & SERBEST STOK GİRİŞİ ───────────────────────────────────────
 app.get('/api/products', auth, async (req, res) => {
   try { res.json((await query('SELECT id, "values", display_order, created_at, updated_at FROM products ORDER BY display_order ASC, created_at DESC')).rows); }
   catch(e) { res.status(500).json({ error: e.message }); }
@@ -342,7 +342,6 @@ app.delete('/api/products/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Madde 3: Siparişe Bağlı Olmayan Serbest Ürün Girişi / Alımı (Satın Alma / Depo)
 app.post('/api/products/direct-in', auth, adminOrPurchase, async (req, res) => {
   try {
     const { product_id, supplier_firm, quantity, notes, production_year } = req.body;
@@ -424,7 +423,7 @@ app.delete('/api/firms/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── MACHINES & GEÇMİŞTEN ÖĞRENEN AKILLI BOM MOTORU (Madde 4) ─────────────
+// ── MACHINES & GEÇMİŞTEN ÖĞRENEN AKILLI BOM MOTORU ────────────────────────
 async function enrichMachines(rows) {
   const firstCol = await getFirstCol();
   return Promise.all(rows.map(async m => {
@@ -488,7 +487,6 @@ app.put('/api/machines/:id', auth, async (req, res) => {
   try {
     const { machine_name, notes, items, firm_id, display_order, capacity, crane_type, lifting_height, span, environment, pricing } = req.body;
     
-    // Satış sonrası personeli sadece fiyatlandırma (pricing) güncelleyebilir; yönetici her şeyi günceller
     if (req.user.role === 'after_sales') {
       await query('UPDATE machines SET pricing=$1 WHERE id=$2', [JSON.stringify(pricing || {}), req.params.id]);
       return res.json({ ok: true });
@@ -531,7 +529,6 @@ app.delete('/api/machines/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Madde 4: Geçmiş Verilerden Öğrenen Akıllı BOM Eşleştirme Motoru
 app.post('/api/machines/ai-suggest', auth, admin, async (req, res) => {
   try {
     const { capacity, crane_type, span, environment } = req.body;
@@ -754,13 +751,13 @@ app.post('/api/after-sales-requests', auth, adminOrAfterSales, async (req, res) 
     const r = (await query(
       `INSERT INTO after_sales_requests(
         requested_by, customer_firm, serial_number, hoist_motor_kw, trolley_motor_kw,
-        trolley_motor_count, bridge_motor_kw, brake_voltage,
+        trolley_motor_count, bridge_motor_kw, bridge_motor_count, brake_voltage,
         bridge_installation_requested, lifting_height, bridge_span, status
-      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending') RETURNING *`,
+      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending') RETURNING *`,
       [
         req.user.id, customer_firm.trim(), serial_number || '', hoist_motor_kw.trim(),
         trolley_motor_kw.trim(), parseInt(trolley_motor_count) || 1, bridge_motor_kw.trim(),
-        brake_voltage.trim(), !!bridge_installation_requested, lifting_height || '',
+        parseInt(bridge_motor_count) || 2, brake_voltage.trim(), !!bridge_installation_requested, lifting_height || '',
         bridge_span || ''
       ]
     )).rows[0];
@@ -842,7 +839,7 @@ app.post('/api/tasks', auth, async (req, res) => {
       [title, firm_id || null, machine_id || null, req.user.id, priority || 'normal', notes || ''])).rows[0];
     const stages = stage_names?.length ? stage_names : DEFAULT_STAGES;
     for (let i = 0; i < stages.length; i++) {
-      await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, stages[i]]);
+      await query('INSERT INTO task_stages(task_id,stage_order,stage_name) VALUES($1,$2,$3)', [t.id, i + 1, DEFAULT_STAGES[i]]);
     }
     await logActivity(req.user.id, 'Manuel İş Oluşturuldu', 'task', t.id, { title, priority, stages: stages.length }, req);
     broadcast('task_update', { action: 'created' });
@@ -1173,7 +1170,7 @@ app.delete('/api/bom-columns/:id', auth, admin, async (req, res) => {
   } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// ── BOM DÜZENLEME TALEBİ (Personelden Yöneticiye) ──────────────────────────
+// ── BOM DÜZENLEME TALEBİ ─────────────────────────────────────────────────
 app.post('/api/bom-edit-request', auth, async (req, res) => {
   try {
     const { machine_id, message } = req.body;
@@ -1197,8 +1194,7 @@ app.post('/api/bom-edit-request', auth, async (req, res) => {
   }
 });
 
-// ── BOM ÇIKTISI & SATIŞ SONRASI FİYATLANDIRMA HESAPLAYICISI ───────────────
-// ── BOM ÇIKTISI & ROL BAZLI GÖRÜNÜM (Yönetici: Standart / Satış Sonrası: Fiyatlı) ──
+// ── BOM ÇIKTISI & ROL BAZLI GÖRÜNÜM ──────────────────────────────────────
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -1284,7 +1280,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const extraHeaders = [];
     for (let i = 0; i < extraColCount; i++) extraHeaders.push('Ek ' + (i + 1));
     
-    // Fiyat başlıkları sadece teknik servis rolü için tabloya eklenir
     const pricingHeaders = isAfterSales ? ['Birim Fiyat (₺)', 'Toplam Tutar (₺)'] : [];
     const allHeaders = [...defaultHeaders, ...extraHeaders, ...pricingHeaders];
     const totalColCount = allHeaders.length;
@@ -1305,7 +1300,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           }
           if (mf === 'auto_no' || mf === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
           if (mf === 'auto_name' || mf === 'name') return '<td contenteditable="true">' + esc(it.name) + '</td>';
-          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
+          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col" contenteditable="true" data-qty="' + it.qty + '">' + it.qty + '</td>';
           if (mf === 'auto_unit' || mf === 'unit') return '<td contenteditable="true">' + esc(it.unit) + '</td>';
           if (mf === 'auto_desc' || mf === 'notes') return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
           if (mf === 'machine_year') return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
@@ -1315,7 +1310,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         if (cn.includes('sıra') || cn === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
         if (cn.includes('kategori')) return '<td class="cat-name-cell" contenteditable="true">' + esc(it.category || '—') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td contenteditable="true">' + esc(it.name) + '</td>';
-        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
+        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col" contenteditable="true" data-qty="' + it.qty + '">' + it.qty + '</td>';
         if (cn.includes('birim')) return '<td contenteditable="true">' + esc(it.unit) + '</td>';
         if (cn.includes('açıklama') || cn.includes('not')) return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
         if (cn.includes('yıl') || cn.includes('model')) return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
@@ -1389,7 +1384,6 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .qty-col{text-align:center;font-weight:700}
 .summary-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f5f3;border:1px solid #c2ded6;padding:6px 10px;border-radius:4px;margin-top:6px;font-weight:700;font-size:10px;color:#1a6b56}
 
-/* Satış Sonrası Göz Alıcı Toplam Kartı */
 .aftersales-total-card{background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border-radius:8px;padding:12px 16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(2,132,199,0.25)}
 .aftersales-total-label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .aftersales-total-val{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:-.02em}
@@ -1584,10 +1578,8 @@ function exportToExcel(filename){
   link.download = (filename || 'BOM-Listesi').replace(/[/\\\\?%*:|"<>]/g, '-') + '.xls';
   link.click();
 }
-</script>
+<\/script>
 </body></html>`);
-  } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
-});
   } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
 });
 
