@@ -1871,26 +1871,45 @@ app.get('/api/purchase-requests', auth, async (req, res) => {
 
 app.post('/api/purchase-requests', auth, async (req, res) => {
   try {
-    const { product_name, quantity, unit, reason, task_id, product_values, status } = req.body;
+    const { product_name, quantity, unit, reason, task_id, product_values, status, admin_note } = req.body;
     if (!product_name || !product_name.trim()) return res.status(400).json({ error: 'Ürün adı zorunlu' });
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Geçerli miktar girin' });
 
-    const initialStatus = (req.user.role === 'admin' && status) ? status : (req.user.role === 'admin' ? 'approved' : 'pending');
+    // Satın alma veya admin doğrudan sipariş açıyorsa 'ordered', personel ise 'pending' başlar
+    let initialStatus = 'pending';
+    if (req.user.role === 'admin' && status) initialStatus = status;
+    else if (req.user.role === 'admin') initialStatus = 'approved';
+    else if (req.user.role === 'purchase') initialStatus = status || 'ordered';
 
     const r = (await query(
-      `INSERT INTO purchase_requests(requested_by, product_name, quantity, unit, reason, task_id, product_values, status)
-       VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [req.user.id, product_name.trim(), qty, unit || 'adet', reason || '', task_id || null, JSON.stringify(product_values || {}), initialStatus]
+      `INSERT INTO purchase_requests(requested_by, product_name, quantity, unit, reason, task_id, product_values, status, admin_note)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        req.user.id, 
+        product_name.trim(), 
+        qty, 
+        unit || 'adet', 
+        reason || (req.user.role === 'purchase' ? 'Satın alma doğrudan sipariş oluşturdu' : ''), 
+        task_id || null, 
+        JSON.stringify(product_values || {}), 
+        initialStatus,
+        admin_note || ''
+      ]
     )).rows[0];
 
-    const admins = (await query("SELECT id FROM users WHERE role='admin'")).rows;
-    for (const a of admins) {
-      if (a.id !== req.user.id) {
-        await createNotif(a.id, '📦 Malzeme Talebi: ' + product_name.trim(), (req.user.display_name || req.user.username) + ' talep etti', 'purchase');
-      }
+    // Personel ve yöneticilere bildirim gönder
+    const targetUsers = (await query("SELECT id FROM users WHERE role IN ('admin', 'personnel') AND id != $1", [req.user.id])).rows;
+    for (const u of targetUsers) {
+      await createNotif(
+        u.id, 
+        (req.user.role === 'purchase' ? '🚚 Yeni Sipariş Geçildi: ' : '📦 Malzeme Talebi: ') + product_name.trim(), 
+        (req.user.display_name || req.user.username) + (req.user.role === 'purchase' ? ' tedarikçiden sipariş etti.' : ' talep etti.'), 
+        'purchase'
+      );
     }
-    await logActivity(req.user.id, 'Satın Alma Talebi Açıldı', 'purchase_request', r.id, { product_name: product_name.trim(), quantity: qty, unit, status: initialStatus }, req);
+
+    await logActivity(req.user.id, 'Satın Alma Siparişi Açıldı', 'purchase_request', r.id, { product_name: product_name.trim(), quantity: qty, unit, status: initialStatus }, req);
     broadcast('purchase_new', {});
     res.json(r);
   } catch(e) {
