@@ -57,9 +57,15 @@
 .act-tx{background:rgba(232,75,75,.15);color:var(--danger);border:1px solid rgba(232,75,75,.3)}
 .act-task{background:rgba(138,109,26,.2);color:#ffd452;border:1px solid rgba(138,109,26,.4)}
 .act-user{background:rgba(100,149,237,.15);color:#87cefa;border:1px solid rgba(100,149,237,.3)}
+.act-service{background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.35)}
 
-/* Rol Rozeti - Satın Alma */
+/* Rol Rozetleri - Satın Alma & Satış Sonrası */
 .badge-purchase{background:#e8f5f0;color:#1a6b56;border:1px solid rgba(26,107,86,.3);font-weight:700}
+.badge-after_sales{background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.35);font-weight:700}
+
+/* Satış Sonrası Kart Stilleri */
+.as-request-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.15rem;margin-bottom:.75rem;box-shadow:0 4px 16px rgba(0,0,0,0.25);}
+.as-spec-chip{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;margin-right:.35rem;margin-bottom:.35rem;}
 
 /* VFD Tab & Kart Stilleri */
 .vfd-tabs{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border2);padding-bottom:.5rem;}
@@ -110,8 +116,9 @@
     <div class="nav-item" onclick="showPage('bom_categories')"><span class="nav-icon">📁</span>BOM Kategorileri</div>
     <div class="nav-item" onclick="showPage('vfd')"><span class="nav-icon">⚡</span>Sürücü & Parametre Kütüphanesi</div>
     
-    <div class="nav-section-label">İş Takibi</div>
+    <div class="nav-section-label">İş Takibi & Servis</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
+    <div class="nav-item" onclick="showPage('after_sales')"><span class="nav-icon">🛠️</span>Satış Sonrası Talepleri <span id="asAdminBadge" style="display:none;background:#38bdf8;color:#0a0c0f;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span></div>
 
     <div class="nav-section-label">Atölye & Operasyon</div>
     <div class="nav-item" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
@@ -189,6 +196,7 @@
           </select>
         </div>
         <button class="btn btn-primary" onclick="openProductModal()">+ Yeni Ürün</button>
+        <button class="btn btn-success" onclick="openDirectInModal()">📥 Doğrudan Stok Girişi (Alım)</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/stock')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="refresh()">↺</button>
       </div>
@@ -238,6 +246,26 @@
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/machines')">↓ CSV</button>
       </div>
       <div id="machineList" style="display:grid;gap:.75rem"></div>
+    </div>
+
+    <!-- SATIŞ SONRASI (REVİZYON & SERVİS TALEPLERİ) -->
+    <div class="page" id="page-after_sales">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="asAdminSearch" placeholder="🔍 Müşteri, seri no veya motor ara..." oninput="handleSearchInput(this, renderAdminAfterSales)">
+            <button class="search-clear-btn" onclick="clearSearchInput('asAdminSearch', renderAdminAfterSales)">✕</button>
+          </div>
+          <select id="asAdminStatusFilter" style="max-width:220px" onchange="renderAdminAfterSales()">
+            <option value="">Tüm Durumlar</option>
+            <option value="pending">⏳ BOM Bekleyen Talepler</option>
+            <option value="bom_created">✅ BOM Listesi Yazılmış Olanlar</option>
+            <option value="completed">🎉 Tamamlananlar</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" onclick="loadAdminAfterSales();renderAdminAfterSales()">↺ Yenile</button>
+      </div>
+      <div id="asAdminList"></div>
     </div>
 
     <!-- TASKS -->
@@ -450,6 +478,7 @@
             <option value="task">İş Panosu</option>
             <option value="task_stage">İş Aşamaları</option>
             <option value="purchase_request">Satın Alma Talebi</option>
+            <option value="after_sales">Satış Sonrası Revizyon</option>
             <option value="user">Kullanıcı Yönetimi</option>
             <option value="column">Sütun Yönetimi</option>
             <option value="bom_column">BOM Sütunları</option>
@@ -502,6 +531,23 @@
   </div>
 </div>
 
+<!-- Madde 3: Siparişe Bağlı Olmayan Doğrudan Stok Girişi Modalı -->
+<div class="modal-overlay" id="directInModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3>📥 Doğrudan Serbest Stok Girişi</h3><button class="modal-close" onclick="closeModal('directInModal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Ürün Seçin *</label><select id="directInProd" style="width:100%"></select></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Giriş Miktarı *</label><input type="number" id="directInQty" min="0.01" step="any" placeholder="0"></div>
+        <div class="form-group"><label>Model Yılı (Lot)</label><input type="number" id="directInYear" min="1980" max="2099" placeholder="2026"></div>
+      </div>
+      <div class="form-group"><label>Tedarikçi / Kaynak Firma</label><input type="text" id="directInSupplier" placeholder="Örn: Siemens, Schneider veya Atölye Artanı"></div>
+      <div class="form-group"><label>Açıklama / Fatura Notu</label><input type="text" id="directInNotes" placeholder="Serbest depo girişi..."></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('directInModal')">İptal</button><button class="btn btn-success" id="directInSaveBtn" onclick="saveDirectIn()">📥 Stoğa Ekle</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="columnModal">
   <div class="modal">
     <div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
@@ -548,6 +594,7 @@
     <div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="editMachineId">
+      <input type="hidden" id="linkedAfterSalesReqId">
       <div class="form-group"><label>Firma *</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
         <div class="form-group"><label>Vinç Adı / Seri No *</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
@@ -566,6 +613,16 @@
           </select>
         </div>
       </div>
+
+      <!-- Madde 4: AI Akıllı BOM Öneri Çubuğu -->
+      <div style="background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;padding:.75rem;margin:.2rem 0 .85rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--accent)">🤖 Akıllı BOM Motoru (Geçmiş Verilerden Öğrenme)</div>
+          <div style="font-size:.68rem;color:var(--muted)">Tonaj, vinç tipi ve açıklığa göre geçmiş projelerden otomatik reçete önerir.</div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="triggerAiSuggest()">✨ Taslak Reçete Öner</button>
+      </div>
+
       <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
       <div class="form-group"><label>Gerekli Ürünler (Reçete)</label>
         <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
@@ -640,6 +697,7 @@
         <select id="userRole">
           <option value="personnel">Personel</option>
           <option value="purchase">Satın Alma (Tedarik)</option>
+          <option value="after_sales">Satış Sonrası (Servis)</option>
           <option value="admin">Yönetici</option>
         </select>
       </div>
@@ -808,7 +866,6 @@
 </div>
 
 <div id="toast"></div>
-
 <script>
 const _f = window.fetch.bind(window);
 window.fetch = function(url, opts) {
@@ -822,7 +879,7 @@ window.fetch = function(url, opts) {
 };
 
 let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
-let pendingTransfers = [], activityLogs = [], me = null;
+let pendingTransfers = [], activityLogs = [], adminAfterSales = [], me = null;
 let vfdDevices = [], vfdRecords = [], currentVfdTab = 'parameter';
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
 let firmCollapsed = {};
@@ -845,6 +902,14 @@ function connectSSE() {
   const _sseToken = localStorage.getItem('stok_token') || '';
   const es = new EventSource('/api/events?token=' + encodeURIComponent(_sseToken));
   es.addEventListener('connected', () => { document.getElementById('liveInd').innerHTML = '<span class="live-dot"></span>canlı'; });
+  es.addEventListener('after_sales_new', async () => {
+    await loadAdminAfterSales();
+    if (currentPage === 'after_sales') renderAdminAfterSales();
+  });
+  es.addEventListener('after_sales_update', async () => {
+    await loadAdminAfterSales();
+    if (currentPage === 'after_sales') renderAdminAfterSales();
+  });
   es.addEventListener('tx_new', async () => {
     await loadTransactions();
     if (currentPage === 'transactions') renderTransactions();
@@ -922,7 +987,7 @@ function connectSSE() {
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll()]);
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll(), loadAdminAfterSales()]);
   renderFirmLists();
 }
 async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
@@ -951,6 +1016,13 @@ async function loadGold() { const g = await api('/api/gold'); if (g) updateGoldD
 async function loadVfdAll() { await Promise.all([loadVfdDevices(), loadVfdRecords()]); }
 async function loadVfdDevices() { vfdDevices = await api('/api/vfd/devices') || []; }
 async function loadVfdRecords() { vfdRecords = await api('/api/vfd/records') || []; }
+
+async function loadAdminAfterSales() {
+  adminAfterSales = await api('/api/after-sales-requests') || [];
+  const pCount = adminAfterSales.filter(r => r.status === 'pending').length;
+  const b = document.getElementById('asAdminBadge');
+  if (b) { b.textContent = pCount; b.style.display = pCount > 0 ? 'inline' : 'none'; }
+}
 
 function updateGoldDisplay(g) {
   if (g.error) { document.getElementById('goldPrice').textContent = '—'; document.getElementById('goldMeta').textContent = g.error; return; }
@@ -1027,6 +1099,7 @@ const pageTitles = {
   columns: 'Sütun Yönetimi', 
   firms: 'Firma Yönetimi', 
   machines: 'Vinç Yönetimi', 
+  after_sales: 'Satış Sonrası Revizyon Talepleri',
   bom: 'BOM Sütunları', 
   bom_categories: 'BOM Kategorileri', 
   vfd: 'Sürücü & Parametre Kütüphanesi',
@@ -1060,6 +1133,7 @@ function showPage(name) {
     columns: renderColumns, 
     firms: renderFirms, 
     machines: renderMachines, 
+    after_sales: renderAdminAfterSales,
     bom: renderBomColumns, 
     bom_categories: renderBomCategories, 
     vfd: renderVfdRecords,
@@ -1078,6 +1152,150 @@ function showPage(name) {
 }
 
 function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+// ── SATIŞ SONRASI TALEPLERİ (YÖNETİCİ PANELİ) ─────────────────────────────
+function renderAdminAfterSales() {
+  const q = (document.getElementById('asAdminSearch')?.value || '').toLowerCase();
+  const f = document.getElementById('asAdminStatusFilter')?.value || '';
+  let list = adminAfterSales;
+  if (f) list = list.filter(r => r.status === f);
+  if (q) {
+    list = list.filter(r => 
+      (r.customer_firm || '').toLowerCase().includes(q) ||
+      (r.serial_number || '').toLowerCase().includes(q) ||
+      (r.hoist_motor_kw || '').toLowerCase().includes(q) ||
+      (r.bridge_motor_kw || '').toLowerCase().includes(q) ||
+      (r.brake_voltage || '').toLowerCase().includes(q)
+    );
+  }
+  const cont = document.getElementById('asAdminList');
+  if (!cont) return;
+  if (!list.length) {
+    cont.innerHTML = '<div class="card empty"><div class="icon">🛠️</div>Satış sonrası revizyon talebi bulunmuyor</div>';
+    return;
+  }
+
+  cont.innerHTML = list.map(r => {
+    const isPending = r.status === 'pending';
+    return `
+      <div class="as-request-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+          <div>
+            <span class="badge badge-after_sales">🛠️ Pano Revizyon Talebi #${r.id}</span>
+            <strong style="font-size:1rem;color:#fff;margin-left:.4rem">${esc(r.customer_firm)}</strong>
+            ${r.serial_number ? `<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-left:.35rem">Seri No: ${esc(r.serial_number)}</span>` : ''}
+            <span style="font-size:.72rem;color:var(--muted);margin-left:.5rem">Talep Eden: <strong>${esc(r.requester_name || r.requester_username || '?')}</strong></span>
+          </div>
+          <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            ${isPending ? `<button class="btn btn-primary btn-sm" onclick="createBomFromAfterSales(${r.id})">🛠️ Bu Talebe BOM Listesi Oluştur</button>` : `<span class="badge badge-ok">✅ BOM Bağlandı (#${r.machine_id})</span>`}
+            ${r.machine_id ? `<button class="btn btn-ghost btn-sm" onclick="openBomPricingAdmin(${r.machine_id})">💰 Fiyatlı BOM Aç</button>` : ''}
+            ${r.status !== 'completed' ? `<button class="btn btn-success btn-sm" onclick="markAfterSalesCompleted(${r.id})">✓ Tamamlandı İşaretle</button>` : '<span class="badge badge-ok">🎉 Tamamlandı</span>'}
+          </div>
+        </div>
+        <div style="margin-top:.4rem">
+          <span class="as-spec-chip">Kanca Motoru: <strong style="color:#38bdf8">${esc(r.hoist_motor_kw)}</strong></span>
+          <span class="as-spec-chip">Kedi Motoru: <strong style="color:#38bdf8">${esc(r.trolley_motor_kw)} (${r.trolley_motor_count} Adet)</strong></span>
+          <span class="as-spec-chip">Köprü Motoru: <strong style="color:#38bdf8">${esc(r.bridge_motor_kw)}</strong></span>
+          <span class="as-spec-chip">Fren Voltajı: <strong style="color:var(--accent)">${esc(r.brake_voltage)}</strong></span>
+          ${r.lifting_height ? `<span class="as-spec-chip">Kaldırma Yüksekliği: <strong>${esc(r.lifting_height)} m</strong></span>` : ''}
+          <span class="as-spec-chip" style="color:${r.bridge_installation_requested ? 'var(--success)' : 'var(--muted)'}">Köprü Tesisatı: <strong>${r.bridge_installation_requested ? 'İsteniyor' : 'Yok'}</strong></span>
+          ${r.bridge_span ? `<span class="as-spec-chip">Köprü Aks Açıklığı: <strong>${esc(r.bridge_span)} m</strong></span>` : ''}
+        </div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.45rem">Talep Tarihi: ${fmtDate(r.created_at)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openBomPricingAdmin(machineId) {
+  const token = localStorage.getItem('stok_token');
+  window.open(`/bom/${machineId}?pricing=1&token=${encodeURIComponent(token)}`, '_blank');
+}
+
+function createBomFromAfterSales(reqId) {
+  const r = adminAfterSales.find(x => x.id == reqId);
+  if (!r) return;
+  openMachineModal();
+  document.getElementById('linkedAfterSalesReqId').value = r.id;
+  document.getElementById('machineName').value = `${r.customer_firm}${r.serial_number ? ' (' + r.serial_number + ')' : ''} - Revizyon Panosu`;
+  document.getElementById('machineCapacity').value = `Kanca ${r.hoist_motor_kw}`;
+  document.getElementById('machineSpan').value = r.bridge_span || '';
+  document.getElementById('machineLiftingHeight').value = r.lifting_height || '';
+  document.getElementById('machineNotes').value = `Satış Sonrası Talebi (#${r.id}) | Kanca: ${r.hoist_motor_kw}, Kedi: ${r.trolley_motor_kw} (${r.trolley_motor_count} Ad), Köprü: ${r.bridge_motor_kw}, Fren Voltajı: ${r.brake_voltage}${r.bridge_installation_requested ? ', Köprü Tesisatı İsteniyor' : ''}`;
+  toast('9 teknik kriter vinç reçetesine aktarıldı. Malzemeleri ekleyip kaydedin ✓', 'success');
+}
+
+async function markAfterSalesCompleted(reqId) {
+  if (!confirm('Bu revizyon talebini tamamlandı olarak işaretlemek istiyor musunuz?')) return;
+  await api('/api/after-sales-requests/' + reqId, 'PUT', { status: 'completed' });
+  await loadAdminAfterSales();
+  renderAdminAfterSales();
+  toast('Talep tamamlandı olarak işaretlendi ✓', 'success');
+}
+
+// ── MADDE 4: AKILLI BOM ÖNERİ MOTORU (AI SUGGEST) ────────────────────────
+async function triggerAiSuggest() {
+  const capacity = document.getElementById('machineCapacity').value.trim();
+  const crane_type = document.getElementById('machineCraneType').value.trim();
+  const span = document.getElementById('machineSpan').value.trim();
+  const environment = document.getElementById('machineEnvironment').value;
+
+  if (!capacity && !crane_type && !span) {
+    toast('Lütfen önce tonaj, vinç tipi veya köprü açıklığı bilgilerinden en az birini girin', 'error');
+    return;
+  }
+
+  const res = await api('/api/machines/ai-suggest', 'POST', { capacity, crane_type, span, environment });
+  if (!res || !res.items || !res.items.length) {
+    toast('Geçmişte bu parametrelere benzer yeterli reçete verisi bulunamadı', 'error');
+    return;
+  }
+
+  if (confirm(`Geçmişteki benzer proje "${res.matched_source}" (%${res.similarity_score} eşleşme) üzerinden ${res.items.length} kalem malzeme taslağa eklensin mi?`)) {
+    document.getElementById('machineItems').innerHTML = '';
+    res.items.forEach(it => {
+      addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || '', it.placement || 'pano');
+    });
+    toast('Akıllı taslak reçete başarıyla yüklendi ✓', 'success');
+  }
+}
+
+// ── MADDE 3: SERBEST DOĞRUDAN STOK GİRİŞİ ─────────────────────────────────
+function openDirectInModal() {
+  const sel = document.getElementById('directInProd');
+  const firstCol = columns[0];
+  sel.innerHTML = '<option value="">— Ürün Seçin —</option>' + products.map(p => {
+    const name = firstCol && p.values?.[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
+    return `<option value="${p.id}">${esc(name)}</option>`;
+  }).join('');
+  document.getElementById('directInQty').value = '';
+  document.getElementById('directInYear').value = new Date().getFullYear();
+  document.getElementById('directInSupplier').value = '';
+  document.getElementById('directInNotes').value = '';
+  openModal('directInModal');
+}
+
+async function saveDirectIn() {
+  await withButtonLock('directInSaveBtn', 'Stoğa Ekleniyor...', async () => {
+    const product_id = document.getElementById('directInProd').value;
+    const quantity = parseFloat(document.getElementById('directInQty').value);
+    const production_year = parseInt(document.getElementById('directInYear').value) || null;
+    const supplier_firm = document.getElementById('directInSupplier').value.trim();
+    const notes = document.getElementById('directInNotes').value.trim();
+
+    if (!product_id || isNaN(quantity) || quantity <= 0) {
+      toast('Lütfen geçerli bir ürün ve miktar girin', 'error');
+      return;
+    }
+
+    const r = await api('/api/products/direct-in', 'POST', { product_id, quantity, production_year, supplier_firm, notes });
+    if (!r) return;
+    closeModal('directInModal');
+    await Promise.all([loadProducts(), loadTransactions()]);
+    renderProducts();
+    toast('Doğrudan stok girişi başarıyla yapıldı ✓', 'success');
+  });
+}
 
 // ── VFD / SÜRÜCÜ & CİHAZ KÜTÜPHANESİ FONKSİYONLARI ────────────────────────
 function switchVfdTab(tab) {
@@ -1154,7 +1372,7 @@ function editVfdRecord(id) {
   document.getElementById('vfdRecDesc').value = r.description || '';
   document.getElementById('vfdRecSteps').value = r.solution_steps || '';
   updateVfdRecordLabels();
-  document.getElementById('vfdRecordModalTitle').textContent = `✏️️ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
+  document.getElementById('vfdRecordModalTitle').textContent = `✏ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
   openModal('vfdRecordModal');
 }
 
@@ -1844,6 +2062,7 @@ function renderMachines() {
               </div>
               <button class="btn btn-ghost btn-sm" onclick="openCloneMachineModal(${m.id})" title="Bu vinci kopyala">📋 Kopyala</button>
               <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
+              <button class="btn btn-ghost btn-sm" onclick="openBomPricingAdmin(${m.id})" title="Satış Sonrası Fiyatlı BOM">💰 Fiyatlı BOM</button>
               <button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button>
             </div>
@@ -1859,7 +2078,7 @@ function renderMachines() {
               <table style="font-size:.8rem;width:100%">
                 <thead><tr><th>Montaj Yeri</th><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
                 <tbody>${m.items.map(it => `<tr>
-                  <td><span class="badge" style="background:${it.placement === 'kedi' ? 'rgba(75,149,237,0.15)' : 'rgba(26,107,86,0.15)'};color:${it.placement === 'kedi' ? '#4b95ed' : 'var(--success)'};font-size:.65rem">${it.placement === 'kedi' ? '🏗️ Kedi / Saha' : '🗄️️ Pano İçi'}</span></td>
+                  <td><span class="badge" style="background:${it.placement === 'kedi' ? 'rgba(75,149,237,0.15)' : 'rgba(26,107,86,0.15)'};color:${it.placement === 'kedi' ? '#4b95ed' : 'var(--success)'};font-size:.65rem">${it.placement === 'kedi' ? '🏗️ Kedi / Saha' : '🗄 Pano İçi'}</span></td>
                   <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
                   <td><strong>${esc(it.product_name || '—')}</strong></td>
                   <td style="font-family:var(--mono)">${it.quantity}</td>
@@ -1877,6 +2096,7 @@ function renderMachines() {
 
 function openMachineModal() {
   document.getElementById('editMachineId').value = '';
+  document.getElementById('linkedAfterSalesReqId').value = '';
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = '';
   document.getElementById('machineCapacity').value = '';
@@ -1894,6 +2114,7 @@ function editMachine(id) {
   const m = machines.find(x => x.id == id);
   if (!m) return;
   document.getElementById('editMachineId').value = id;
+  document.getElementById('linkedAfterSalesReqId').value = '';
   document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
   document.getElementById('machineName').value = m.machine_name || '';
   document.getElementById('machineCapacity').value = m.capacity || '';
@@ -2029,6 +2250,7 @@ document.addEventListener('click', function(e) {
 async function saveMachine() {
   await withButtonLock('machineSaveBtn', 'Kaydediliyor...', async () => {
     const id = document.getElementById('editMachineId').value;
+    const linkedReqId = document.getElementById('linkedAfterSalesReqId').value;
     const machine_name = document.getElementById('machineName').value.trim();
     const capacity = document.getElementById('machineCapacity').value.trim();
     const crane_type = document.getElementById('machineCraneType').value.trim();
@@ -2052,12 +2274,25 @@ async function saveMachine() {
 
     const payload = { machine_name, capacity, crane_type, lifting_height, span, environment, firm_id, notes, items };
 
-    if (id) await api('/api/machines/' + id, 'PUT', payload);
-    else await api('/api/machines', 'POST', payload);
+    let savedRes;
+    if (id) savedRes = await api('/api/machines/' + id, 'PUT', payload);
+    else savedRes = await api('/api/machines', 'POST', payload);
+    if (!savedRes) return;
+
+    // Eğer Satış Sonrası talebinden oluşturulduysa talebi otomatik eşleştir
+    if (linkedReqId && savedRes.id) {
+      await api('/api/after-sales-requests/' + linkedReqId, 'PUT', {
+        status: 'bom_created',
+        machine_id: savedRes.id
+      });
+      await loadAdminAfterSales();
+      if (currentPage === 'after_sales') renderAdminAfterSales();
+    }
+
     closeModal('machineModal');
     await Promise.all([loadMachines(), loadTasks()]);
-    renderMachines();
-    toast('Vinç kaydedildi ✓', 'success');
+    if (currentPage === 'machines') renderMachines();
+    toast('Vinç reçetesi başarıyla kaydedildi ✓', 'success');
   });
 }
 
@@ -2128,7 +2363,7 @@ function renderTasks() {
 function openAssignModal(stageId, stageName) {
   document.getElementById('assignStageId').value = stageId;
   document.getElementById('assignModalTitle').textContent = 'Ata: ' + stageName;
-  document.getElementById('assignUser').innerHTML = '<option value="">— Atamayı Kaldır —</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : 'Personel'})</option>`).join('');
+  document.getElementById('assignUser').innerHTML = '<option value="">— Atamayı Kaldır —</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : u.role === 'after_sales' ? 'Satış Sonrası' : 'Personel'})</option>`).join('');
   openModal('assignModal');
 }
 
@@ -2329,7 +2564,7 @@ function openTransferModal(stageId, stageName) {
   document.getElementById('transferStageId').value = stageId;
   document.getElementById('transferModalTitle').textContent = 'Devret: ' + stageName;
   const targetUsers = users.filter(u => u.id !== me?.id);
-  document.getElementById('transferTo').innerHTML = '<option value="">— Kullanıcı Seçin —</option>' + targetUsers.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : 'Personel'})</option>`).join('');
+  document.getElementById('transferTo').innerHTML = '<option value="">— Kullanıcı Seçin —</option>' + targetUsers.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : u.role === 'after_sales' ? 'Satış Sonrası' : 'Personel'})</option>`).join('');
   document.getElementById('transferMsg').value = '';
   openModal('transferModal');
 }
@@ -2596,8 +2831,8 @@ function renderUsers() {
   const tbody = document.getElementById('usersTbody');
   if (!tbody) return;
   if (!usrs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>'; return; }
-  const roleNames = { admin: 'Yönetici', purchase: 'Satın Alma', personnel: 'Personel' };
-  const roleBadges = { admin: 'badge-admin', purchase: 'badge-purchase', personnel: 'badge-personnel' };
+  const roleNames = { admin: 'Yönetici', purchase: 'Satın Alma', after_sales: 'Satış Sonrası', personnel: 'Personel' };
+  const roleBadges = { admin: 'badge-admin', purchase: 'badge-purchase', after_sales: 'badge-after_sales', personnel: 'badge-personnel' };
   tbody.innerHTML = usrs.map(u => `<tr>
     <td><strong>${esc(u.display_name || u.username)}</strong></td>
     <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
@@ -2675,6 +2910,7 @@ function getEntityBadge(type) {
     task: '<span class="act-badge act-task">İş Panosu</span>',
     task_stage: '<span class="act-badge act-task">Aşama</span>',
     purchase_request: '<span class="act-badge act-auth">Satın Alma</span>',
+    after_sales: '<span class="act-badge act-service">Satış Sonrası</span>',
     user: '<span class="act-badge act-user">Kullanıcı</span>',
     column: '<span class="act-badge act-user">Sütun Tanımı</span>',
     bom_column: '<span class="act-badge act-user">BOM Sütun</span>',
@@ -2722,7 +2958,7 @@ function filterActivityLogs() {
 
     return `<tr>
       <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(a.created_at)}</td>
-      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : a.role === 'purchase' ? '<span style="font-size:.65rem;color:#1a6b56">[Satın Alma]</span>' : ''}</td>
+      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : a.role === 'purchase' ? '<span style="font-size:.65rem;color:#1a6b56">[Satın Alma]</span>' : a.role === 'after_sales' ? '<span style="font-size:.65rem;color:#38bdf8">[Satış Sonrası]</span>' : ''}</td>
       <td><strong style="color:var(--text)">${esc(a.action)}</strong></td>
       <td>${getEntityBadge(a.entity_type)}</td>
       <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${a.entity_id ? '#' + a.entity_id : '—'}</td>
@@ -2950,7 +3186,7 @@ function renderPurchases() {
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
       ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏️️</button>
+        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏</button>
         ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Talebi Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Talebi Reddet">✗</button> ` : ''}
         ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Tedarikçiye Sipariş Ver">🚚</button> ` : ''}
         ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Sevkiyata Ver">🚢</button> ` : ''}
@@ -3148,6 +3384,7 @@ async function refresh() {
     columns: async () => { await loadColumns(); await loadProducts(); renderColumns(); },
     firms: async () => { await loadFirms(); await loadMachines(); renderFirms(); },
     machines: async () => { await loadMachines(); renderMachines(); },
+    after_sales: async () => { await loadAdminAfterSales(); renderAdminAfterSales(); },
     vfd: async () => { await loadVfdAll(); renderVfdRecords(); },
     tasks: async () => { await loadTasks(); renderTasks(); },
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
@@ -3220,7 +3457,7 @@ async function lotSave() {
     if (!yr || yr < 1980 || yr > 2099) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli yıl girin (1980-2099)'; return; }
     if (isNaN(qty) || qty < 0) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli adet girin'; return; }
     msg.style.color = 'var(--muted)'; msg.textContent = 'Kaydediliyor...';
-    const r = await api('/api/products/' + pid, 'POST', { production_year: yr, quantity: qty, notes: notes });
+    const r = await api('/api/products/' + pid + '/lots', 'POST', { production_year: yr, quantity: qty, notes: notes });
     if (!r) { msg.style.color = 'var(--danger)'; msg.textContent = 'Kaydedilemedi'; return; }
     document.getElementById('lotYear').value = '';
     document.getElementById('lotQty').value = '';
@@ -3426,6 +3663,7 @@ async function initExtras() {
   }
   await loadNotifs();
   await loadPurchases();
+  await loadAdminAfterSales();
   setTimeout(autoSort, 400);
   setInterval(autoSort, 3000);
 }
