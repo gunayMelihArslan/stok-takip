@@ -816,6 +816,24 @@ app.put('/api/after-sales-requests/:id', auth, admin, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+app.delete('/api/after-sales-requests/:id', auth, adminOrAfterSales, async (req, res) => {
+  try {
+    const r = (await query('SELECT * FROM after_sales_requests WHERE id=$1', [req.params.id])).rows[0];
+    if (!r) return res.status(404).json({ error: 'Talep bulunamadı' });
+
+    // Personel sadece kendi açtığı talebi silebilir, admin her talebi silebilir
+    if (req.user.role === 'after_sales' && r.requested_by !== req.user.id) {
+      return res.status(403).json({ error: 'Bu talebi silme yetkiniz yok' });
+    }
+
+    await query('DELETE FROM after_sales_requests WHERE id=$1', [req.params.id]);
+    await logActivity(req.user.id, 'Satış Sonrası Talebi Silindi', 'after_sales', parseInt(req.params.id), { customer_firm: r.customer_firm }, req);
+    broadcast('after_sales_update', {});
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── TASKS ─────────────────────────────────────────────────────────────────
 app.get('/api/tasks', auth, async (req, res) => {
