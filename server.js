@@ -1194,7 +1194,7 @@ app.post('/api/bom-edit-request', auth, async (req, res) => {
   }
 });
 
-// ── BOM ÇIKTISI & ROL BAZLI GÖRÜNÜM ──────────────────────────────────────
+// ── BOM ÇIKTISI (YÖNETİCİ: STANDART / TEKNİK SERVİS: FİYATLI & ÖZEL İMZA BLOKLU) ──
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -1210,10 +1210,11 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
     const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'landscape';
     
-    // YETKİ KONTROLÜ: Fiyatları SADECE after_sales görebilir
+    // Fiyatlandırma sadece teknik servis (after_sales) kullanıcısına özeldir
     const isAfterSales = req.user.role === 'after_sales';
     const placementFilter = req.query.placement || (isAfterSales ? 'all' : 'pano'); 
     
+    // Hazırlayan Elektrik Mühendisinin adını tespit et
     let editorName = '';
     if (machine.updated_by) {
       const u = (await query('SELECT display_name, username FROM users WHERE id=$1', [machine.updated_by])).rows[0];
@@ -1223,6 +1224,9 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
       const lastLog = (await query("SELECT u.display_name, u.username FROM activity_log a JOIN users u ON u.id=a.user_id WHERE a.entity_type='machine' AND a.entity_id=$1 ORDER BY a.created_at DESC LIMIT 1", [machine.id])).rows[0];
       if (lastLog) editorName = lastLog.display_name || lastLog.username;
     }
+
+    // Teknik Servis kullanıcısının adı
+    const currentUserName = req.user.display_name || req.user.username || '';
 
     const machinePricing = machine.pricing || {};
     const categoryMap = {};
@@ -1348,6 +1352,51 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const scopeLabel = placementFilter === 'pano' ? 'PANO İÇİ LİSTESİ' : placementFilter === 'kedi' ? 'KEDİ (SAHA) LİSTESİ' : 'GENEL MALZEME LİSTESİ';
     const autoFitClass = (itemCount + extraRowCount > 18 && orientation === 'portrait') ? 'auto-fit-page' : '';
 
+    // İMZA ALANI: Teknik Servis için ortada personel adı, sağda müşteri; Yönetici için standart akış
+    const signatureSectionHtml = isAfterSales ? `
+      <div class="signature-section">
+        <div class="sig-box">
+          <div class="sig-title">HAZIRLAYAN (ELEKTRİK PROJE / MÜHENDİS)</div>
+          <div class="sig-line" contenteditable="true">Ad Soyad: <strong>${esc(editorName || '—')}</strong></div>
+          <div class="sig-line" contenteditable="true">İmza: </div>
+          <div class="sig-line">Tarih: ${dateStr}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-title">TEKNİK SERVİS / SATIŞ SONRASI YETKİLİSİ</div>
+          <div class="sig-line" contenteditable="true">Ad Soyad: <strong>${esc(currentUserName || '—')}</strong></div>
+          <div class="sig-line" contenteditable="true">İmza: </div>
+          <div class="sig-line">Tarih: ${dateStr}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-title">MÜŞTERİ YETKİLİSİ (ONAY)</div>
+          <div class="sig-line" contenteditable="true">Firma: <strong>${esc(firmName || machine.machine_name)}</strong></div>
+          <div class="sig-line" contenteditable="true">Yetkili Ad Soyad: </div>
+          <div class="sig-line" contenteditable="true">İmza / Kaşe: </div>
+        </div>
+      </div>
+    ` : `
+      <div class="signature-section">
+        <div class="sig-box">
+          <div class="sig-title">HAZIRLAYAN (ELEKTRİK / PROJE)</div>
+          <div class="sig-line" contenteditable="true">Ad Soyad: <strong>${esc(editorName || '—')}</strong></div>
+          <div class="sig-line" contenteditable="true">İmza: </div>
+          <div class="sig-line">Tarih: ${dateStr}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-title">KONTROL EDEN (ATÖLYE ŞEFİ)</div>
+          <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+          <div class="sig-line" contenteditable="true">İmza: </div>
+          <div class="sig-line">Tarih: </div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-title">ONAY / TESLİM ALAN (YETKİLİ)</div>
+          <div class="sig-line" contenteditable="true">Ad Soyad: </div>
+          <div class="sig-line" contenteditable="true">İmza: </div>
+          <div class="sig-line">Tarih: </div>
+        </div>
+      </div>
+    `;
+
     res.send(`<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8">
 <title>BOM — ${esc(title)}</title>
@@ -1384,6 +1433,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .qty-col{text-align:center;font-weight:700}
 .summary-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f5f3;border:1px solid #c2ded6;padding:6px 10px;border-radius:4px;margin-top:6px;font-weight:700;font-size:10px;color:#1a6b56}
 
+/* Satış Sonrası Göz Alıcı Toplam Kartı */
 .aftersales-total-card{background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border-radius:8px;padding:12px 16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(2,132,199,0.25)}
 .aftersales-total-label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .aftersales-total-val{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:-.02em}
@@ -1397,6 +1447,29 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .sig-line{font-size:8.5px;color:#444;margin-top:3px}
 .footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1px solid #ddd;font-size:8.5px;color:#777}
 
+/* Akıllı Dikey Tek Sayfaya Sığdırma (Auto-Fit) */
+.auto-fit-page table{font-size:8.5px}
+.auto-fit-page th{padding:3px 5px;font-size:8px}
+.auto-fit-page td{padding:2.5px 5px}
+.auto-fit-page .category-header-cell{padding:3px 6px;font-size:9px}
+.auto-fit-page .header{margin-bottom:4px;padding-bottom:3px}
+.auto-fit-page .crane-specs-bar{padding:3px 6px;margin-bottom:4px}
+.auto-fit-page .signature-section{margin-top:6px;gap:6px}
+.auto-fit-page .sig-box{padding:4px 6px}
+.auto-fit-page .sig-title{font-size:7.5px}
+.auto-fit-page .notes-content{min-height:20px}
+
+/* Kompakt Mod Stilleri */
+.compact-mode table{font-size:8.5px}
+.compact-mode th{padding:2.5px 4px;font-size:8px}
+.compact-mode td{padding:2px 4px}
+.compact-mode .header{margin-bottom:4px;padding-bottom:3px}
+
+/* Gizleme Sınıfları */
+.hide-categories .cat-row-tr{display:none!important}
+.hide-years .year-cell{display:none!important}
+.hide-desc .desc-cell{display:none!important}
+
 @media print{
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .no-print{display:none!important}
@@ -1407,13 +1480,27 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .print-bar{background:${isAfterSales ? '#0284c7' : '#1a6b56'};color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
 .print-bar button{background:#fff;color:${isAfterSales ? '#0284c7' : '#1a6b56'};border:none;padding:5px 10px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11px}
 .print-bar button:hover{background:#e8f5f0}
+.print-bar button.active{background:#0d4536;color:#fff;border:1px solid #fff}
+.print-bar label{font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.print-bar input[type="number"]{padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:11px;width:45px}
 </style></head><body class="${autoFitClass}">
 <div class="print-bar no-print">
   <span>${isAfterSales ? '🛠️ Teknik Servis Fiyatlandırma Paneli' : '📄 Standart BOM Çıktısı'}</span>
+  <button class="${placementFilter === 'pano' ? 'active' : ''}" onclick="setPlacementFilter('pano')">🗄️ Pano İçi</button>
+  <button class="${placementFilter === 'kedi' ? 'active' : ''}" onclick="setPlacementFilter('kedi')">🏗️ Kedi</button>
+  <button class="${placementFilter === 'all' ? 'active' : ''}" onclick="setPlacementFilter('all')">📋 Tüm Liste</button>
+  <span style="opacity:0.4">|</span>
   <button onclick="window.print()">🖨️ Yazdır / PDF</button>
   <button onclick="exportToExcel('${esc(title)}')">📊 Excel İndir</button>
   <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay' : '↕️ Dikey'}</button>
-  ${isAfterSales ? '<button onclick="saveMachinePricing(' + machine.id + ')" style="background:#fef08a;color:#854d0e">💾 Fiyatları Kaydet</button>' : ''}
+  <button onclick="toggleCompact()">🔍 Kompakt</button>
+  <button onclick="recalcNumbers()">🔢 No Yenile</button>
+  <label><input type="checkbox" onchange="toggleVis('hide-categories', this.checked)"> Kat.</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-years', this.checked)"> Yıl</label>
+  <label><input type="checkbox" onchange="toggleVis('hide-desc', this.checked)"> Not</label>
+  <label>Ek Satır: <input type="number" id="erInput" value="${extraRowCount}" min="0" max="50" onchange="reloadBOM()"></label>
+  <label>Ek Sütun: <input type="number" id="ecInput" value="${extraColCount}" min="0" max="10" onchange="reloadBOM()"></label>
+  ${isAfterSales ? '<button onclick="saveMachinePricing(' + machine.id + ')" style="background:#fef08a;color:#854d0e;margin-left:4px">💾 Fiyatları Kaydet</button>' : ''}
   <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)">✕ Kapat</button>
 </div>
 
@@ -1423,7 +1510,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     <div class="header-info">
       <div class="header-title" contenteditable="true">${esc(title)}${esc(capacityStr)}</div>
       <div class="header-sub">
-        <span class="scope-badge">${isAfterSales ? 'REVİZYON & MALİYET LİSTESİ' : scopeLabel}</span>
+        <span class="scope-badge">${isAfterSales ? 'REVİZYON &amp; MALİYET LİSTESİ' : scopeLabel}</span>
         <span contenteditable="true">BOM Reçetesi${machine.notes ? ' — ' + esc(machine.notes) : ''}</span>
       </div>
     </div>
@@ -1476,37 +1563,54 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     <div class="notes-content" contenteditable="true"></div>
   </div>
   
-  <div class="signature-section">
-    <div class="sig-box">
-      <div class="sig-title">HAZIRLAYAN (ELEKTRİK / PROJE)</div>
-      <div class="sig-line" contenteditable="true">Ad Soyad: <strong>${esc(editorName || '—')}</strong></div>
-      <div class="sig-line" contenteditable="true">İmza: </div>
-      <div class="sig-line">Tarih: ${dateStr}</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-title">KONTROL EDEN (ATÖLYE ŞEFİ)</div>
-      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
-      <div class="sig-line" contenteditable="true">İmza: </div>
-      <div class="sig-line">Tarih: </div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-title">${isAfterSales ? 'SERVİS YETKİLİSİ' : 'ONAY / TESLİM ALAN'}</div>
-      <div class="sig-line" contenteditable="true">Ad Soyad: </div>
-      <div class="sig-line" contenteditable="true">İmza: </div>
-      <div class="sig-line">Tarih: </div>
-    </div>
-  </div>
+  ${signatureSectionHtml}
+
   <div class="footer">
     <span>Sekizli Makina &amp; Vinç San. Tic. A.Ş. · Dijital Elektrikhane Üretim Takip Altyapısı</span>
     <span>Düzenlenme Tarihi: ${dateStr}</span>
   </div>
 </div>
 <script>
+function setPlacementFilter(val){
+  var u=new URL(window.location);
+  u.searchParams.set('placement', val);
+  window.location.href=u.toString();
+}
+function reloadBOM(){
+  var er=document.getElementById('erInput').value||0;
+  var ec=document.getElementById('ecInput').value||0;
+  var u=new URL(window.location);
+  u.searchParams.set('extra_rows',er);
+  u.searchParams.set('extra_cols',ec);
+  window.location.href=u.toString();
+}
 function toggleOrient(){
   var u=new URL(window.location);
   var cur = u.searchParams.get('orientation') || '${orientation}';
   u.searchParams.set('orientation', cur === 'portrait' ? 'landscape' : 'portrait');
   window.location.href=u.toString();
+}
+function toggleCompact(){
+  document.body.classList.toggle('compact-mode');
+}
+function toggleVis(className, isHidden){
+  if(isHidden) document.body.classList.add(className);
+  else document.body.classList.remove(className);
+}
+function recalcNumbers(){
+  var rows = document.querySelectorAll('#bomMainTable tbody tr.item-row-tr');
+  var idx = 1;
+  var totalQty = 0;
+  rows.forEach(function(r){
+    var noCell = r.querySelector('.no-col');
+    if(noCell) { noCell.textContent = idx++; }
+    var qtyCell = r.querySelector('.qty-col');
+    if(qtyCell) {
+      var q = parseFloat(qtyCell.textContent.trim()) || 0;
+      totalQty += q;
+    }
+  });
+  document.getElementById('summaryText').textContent = 'Toplam: ' + (idx - 1) + ' Kalem Malzeme | Toplam Adet: ' + totalQty;
 }
 
 function calculatePrices(){
@@ -1555,23 +1659,30 @@ function exportToExcel(filename){
   var sub = document.querySelector('.header-sub').innerText;
   var table = document.getElementById('bomMainTable').cloneNode(true);
   var summary = document.getElementById('summaryText').innerText;
+  var notes = document.querySelector('.notes-content').innerText;
   var thCount = table.querySelectorAll('th').length || 5;
 
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
   html += '<head><meta charset="utf-8">';
   html += '<style>';
-  html += 'body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }';
+  html += 'body { font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; }';
   html += 'table { border-collapse: collapse; width: 100%; }';
   html += 'th { background-color: #1a6b56; color: #ffffff; font-weight: bold; border: 1pt solid #157a5e; padding: 8px; text-align: left; }';
   html += 'td { border: 1pt solid #d0d0d0; padding: 6px 8px; vertical-align: middle; }';
   html += '.category-header-cell { background-color: #e8f5f0; color: #1a6b56; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1a6b56; padding: 8px; }';
+  html += '.no-col { text-align: center; font-weight: bold; }';
+  html += '.qty-col { text-align: center; font-weight: bold; }';
+  html += '.title-cell { font-size: 16pt; font-weight: bold; color: #1a6b56; }';
+  html += '.summary-cell { background-color: #f0f5f3; color: #1a6b56; font-weight: bold; padding: 8px; }';
   html += '</style></head><body>';
-  html += '<table><tr><td colspan="' + thCount + '" style="font-size:16pt;font-weight:bold;color:#1a6b56;border:none;">' + title + '</td></tr>';
-  html += '<tr><td colspan="' + thCount + '" style="color:#666;border:none;">' + sub + '</td></tr></table><br>';
+  html += '<table><tr><td colspan="' + thCount + '" class="title-cell">' + title + '</td></tr>';
+  html += '<tr><td colspan="' + thCount + '">' + sub + '</td></tr></table><br>';
   html += table.outerHTML;
-  html += '<br><table><tr><td colspan="' + thCount + '" style="background:#f0f5f3;font-weight:bold;color:#1a6b56;padding:8px;">' + summary + '</td></tr></table>';
+  html += '<br><table><tr><td colspan="' + thCount + '" class="summary-cell">' + summary + '</td></tr></table>';
+  if(notes && notes.trim()){
+    html += '<br><table><tr><td colspan="' + thCount + '">NOTLAR: ' + notes + '</td></tr></table>';
+  }
   html += '</body></html>';
-
   var blob = new Blob(['\\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -1582,7 +1693,6 @@ function exportToExcel(filename){
 </body></html>`);
   } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
 });
-
 // ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
 app.get('/api/products/:id/lots', auth, async (req, res) => {
   try {
