@@ -59,7 +59,6 @@
         <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">📋</span>Talep Havuzu <span id="pendingBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('shipping')"><span class="nav-icon">🚚</span>Sipariş Edilenler <span id="shippingBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
         <div class="nav-item" onclick="showPage('completed')"><span class="nav-icon">✅</span>Teslim Alınanlar</div>
-        <div class="nav-item" onclick="openDirectInModal()"><span class="nav-icon">📥</span>Doğrudan Stok Girişi</div>
       </div>
     </div>
   </div>
@@ -110,7 +109,7 @@
             <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
           </select>
         </div>
-        <button class="btn btn-success" onclick="openDirectInModal()">📥 Doğrudan Stok Girişi (Alım)</button>
+        <button class="btn btn-primary" onclick="openNewOrderModal()">+ Yeni Sipariş Geç</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderOrders()">↺ Yenile</button>
       </div>
@@ -120,14 +119,17 @@
     <!-- 3. SİPARİŞ EDİLENLER (SHIPPING) -->
     <div class="page" id="page-shipping">
       <div class="toolbar">
-        <div class="search-box-wrap">
-          <input type="text" id="shippingSearch" placeholder="🔍 Ürün / Not ara..." oninput="handleSearchInput(this, renderShipping)">
-          <button class="search-clear-btn" onclick="clearSearchInput('shippingSearch', renderShipping)">✕</button>
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="shippingSearch" placeholder="🔍 Ürün / Not ara..." oninput="handleSearchInput(this, renderShipping)">
+            <button class="search-clear-btn" onclick="clearSearchInput('shippingSearch', renderShipping)">✕</button>
+          </div>
         </div>
+        <button class="btn btn-primary" onclick="openNewOrderModal()">+ Yeni Sipariş Geç</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Talep Tarihi</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Tedarik & Sipariş Notu</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <thead><tr><th>Talep/Sipariş Tarihi</th><th>Ürün Adı & Detayları</th><th>Miktar</th><th>Tedarik & Sipariş Notu</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
         <tbody id="shippingTbody"></tbody>
       </table></div></div>
     </div>
@@ -189,40 +191,40 @@
   </div>
 </div>
 
-<!-- DOĞRUDAN SERBEST STOK GİRİŞİ MODALI (Madde 3) -->
-<div class="modal-overlay" id="directInModal">
-  <div class="modal" style="max-width:480px">
+<!-- SATIN ALMA DOĞRUDAN SİPARİŞ GEÇME MODALI -->
+<div class="modal-overlay" id="newOrderModal">
+  <div class="modal" style="max-width:520px">
     <div class="modal-header">
-      <h3>📥 Doğrudan Serbest Stok Girişi</h3>
-      <button class="modal-close" onclick="closeModal('directInModal')">×</button>
+      <h3>🚚 Yeni Tedarik Siparişi Geç</h3>
+      <button class="modal-close" onclick="closeModal('newOrderModal')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Depoya Alınacak Ürün *</label>
-        <select id="directInProd" style="width:100%"></select>
+        <label>Sipariş Edilen Malzeme / Ürün Adı *</label>
+        <input type="text" id="noProdName" placeholder="Örn: Schneider LC1D09 Kontaktör">
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
         <div class="form-group">
-          <label>Giriş Miktarı *</label>
-          <input type="number" id="directInQty" min="0.01" step="any" placeholder="0">
+          <label>Miktar *</label>
+          <input type="number" id="noQty" min="0.01" step="any" placeholder="0">
         </div>
         <div class="form-group">
-          <label>Model Yılı (Lot)</label>
-          <input type="number" id="directInYear" min="1980" max="2099" placeholder="2026">
+          <label>Birim</label>
+          <input type="text" id="noUnit" value="adet" placeholder="adet">
         </div>
       </div>
       <div class="form-group">
-        <label>Tedarikçi / Kaynak Firma</label>
-        <input type="text" id="directInSupplier" placeholder="Örn: Siemens, Schneider, Emas...">
+        <label>İlgili Vinç / İş (Opsiyonel)</label>
+        <select id="noTaskId" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select>
       </div>
       <div class="form-group">
-        <label>Açıklama / Fatura & İrsaliye Notu</label>
-        <input type="text" id="directInNotes" placeholder="Doğrudan atölye/depo girişi...">
+        <label>Tedarikçi & Sipariş / Fatura Notu</label>
+        <textarea id="noAdminNote" rows="3" placeholder="Örn: X firmasından sipariş geçildi, tahmini varış 2 gün..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('directInModal')">İptal</button>
-      <button class="btn btn-success" id="directInSaveBtn" onclick="saveDirectIn()">📥 Stoğa Ekle</button>
+      <button class="btn btn-ghost" onclick="closeModal('newOrderModal')">İptal</button>
+      <button class="btn btn-primary" id="noSaveBtn" onclick="saveNewOrder()">🚚 Sipariş Olarak Kaydet</button>
     </div>
   </div>
 </div>
@@ -241,7 +243,7 @@ window.fetch = function(url, opts) {
   return _f(url, opts);
 };
 
-let purchases = [], columns = [], products = [], me = null;
+let purchases = [], columns = [], tasks = [], me = null;
 let currentPage = 'dashboard';
 
 function toggleNavGroup(groupId) {
@@ -304,21 +306,14 @@ function connectSSE() {
     if (currentPage === 'shipping') renderShipping();
     if (currentPage === 'completed') renderCompleted();
   });
-  es.addEventListener('stock_update', async () => {
-    await loadProducts();
-  });
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadPurchases(), loadProducts()]);
-}
-
-async function loadColumns() {
-  columns = await api('/api/columns') || [];
-}
-
-async function loadProducts() {
-  products = await api('/api/products') || [];
+  [columns, tasks] = await Promise.all([
+    api('/api/columns') || [],
+    api('/api/tasks') || []
+  ]);
+  await loadPurchases();
 }
 
 async function loadPurchases() {
@@ -570,7 +565,7 @@ function renderCompleted() {
   }).join('');
 }
 
-// ── PROCESS MODAL ACTIONS ────────────────────────────────────────────────
+// ── PROCESS MODAL ACTIONS (Buton Korumalı & Güvenli) ─────────────────────
 function openProcessModal(id) {
   const p = purchases.find(x => x.id == id);
   if (!p) return;
@@ -579,7 +574,6 @@ function openProcessModal(id) {
   document.getElementById('processReqInfo').textContent = `Talep Edilen Miktar: ${p.quantity} ${p.unit || 'adet'} | İlgili İş: ${p.task_title || 'Genel'}`;
   document.getElementById('processExtraDetails').innerHTML = renderExtraTags(p);
   document.getElementById('processActualQty').value = p.product_values?.actual_qty || p.quantity;
-  
   document.getElementById('processStatusSelect').value = 'ordered';
   document.getElementById('processAdminNote').value = p.admin_note || '';
   openModal('processModal');
@@ -607,46 +601,53 @@ async function saveProcessOrder() {
   });
 }
 
-// ── DOĞRUDAN STOK GİRİŞİ (Madde 3) ───────────────────────────────────────
-function openDirectInModal() {
-  const sel = document.getElementById('directInProd');
-  const firstCol = columns[0];
-  sel.innerHTML = '<option value="">— Ürün Seçin —</option>' + products.map(p => {
-    const name = firstCol && p.values?.[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
-    return `<option value="${p.id}">${esc(name)}</option>`;
-  }).join('');
-  document.getElementById('directInQty').value = '';
-  document.getElementById('directInYear').value = new Date().getFullYear();
-  document.getElementById('directInSupplier').value = '';
-  document.getElementById('directInNotes').value = '';
-  openModal('directInModal');
+// ── SATIN ALMA DOĞRUDAN SİPARİŞ GEÇME FONKSİYONLARI ──────────────────────
+function openNewOrderModal() {
+  document.getElementById('noProdName').value = '';
+  document.getElementById('noQty').value = '';
+  document.getElementById('noUnit').value = 'adet';
+  document.getElementById('noAdminNote').value = '';
+
+  const sel = document.getElementById('noTaskId');
+  sel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + (tasks || []).map(t => `<option value="${t.id}">${esc(t.title)}${t.firm_name ? ' (' + esc(t.firm_name) + ')' : ''}</option>`).join('');
+
+  openModal('newOrderModal');
 }
 
-async function saveDirectIn() {
-  await withButtonLock('directInSaveBtn', 'Stoğa Ekleniyor...', async () => {
-    const product_id = document.getElementById('directInProd').value;
-    const quantity = parseFloat(document.getElementById('directInQty').value);
-    const production_year = parseInt(document.getElementById('directInYear').value) || null;
-    const supplier_firm = document.getElementById('directInSupplier').value.trim();
-    const notes = document.getElementById('directInNotes').value.trim();
+async function saveNewOrder() {
+  await withButtonLock('noSaveBtn', 'Sipariş Kaydediliyor...', async () => {
+    const product_name = document.getElementById('noProdName').value.trim();
+    const quantity = parseFloat(document.getElementById('noQty').value);
+    const unit = document.getElementById('noUnit').value.trim() || 'adet';
+    const task_id = document.getElementById('noTaskId').value || null;
+    const admin_note = document.getElementById('noAdminNote').value.trim();
 
-    if (!product_id || isNaN(quantity) || quantity <= 0) {
-      toast('Lütfen geçerli bir ürün ve miktar girin', 'error');
+    if (!product_name) {
+      toast('Lütfen sipariş edilen malzeme adını girin', 'error');
+      return;
+    }
+    if (isNaN(quantity) || quantity <= 0) {
+      toast('Lütfen geçerli bir miktar girin', 'error');
       return;
     }
 
-    const r = await api('/api/products/direct-in', 'POST', {
-      product_id,
+    const payload = {
+      product_name,
       quantity,
-      production_year,
-      supplier_firm,
-      notes
-    });
+      unit,
+      task_id,
+      admin_note,
+      status: 'ordered',
+      reason: 'Satın alma doğrudan sipariş oluşturdu'
+    };
 
+    const r = await api('/api/purchase-requests', 'POST', payload);
     if (!r) return;
-    closeModal('directInModal');
-    await loadProducts();
-    toast('Doğrudan stok alımı başarıyla kaydedildi ✓', 'success');
+
+    closeModal('newOrderModal');
+    await loadPurchases();
+    showPage('shipping');
+    toast('Tedarikçiden sipariş başarıyla kaydedildi ✓', 'success');
   });
 }
 
@@ -666,7 +667,7 @@ async function withButtonLock(btnId, loadingText, asyncAction) {
   }
 }
 
-// ── UTILS (Otomatik Odaklanma & Akıcı Arama) ─────────────────────────────
+// ── UTILS ─────────────────────────────────────────────────────────────────
 function openModal(id) { 
   const el = document.getElementById(id); 
   if (el) {
