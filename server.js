@@ -1198,6 +1198,7 @@ app.post('/api/bom-edit-request', auth, async (req, res) => {
 });
 
 // ── BOM ÇIKTISI & SATIŞ SONRASI FİYATLANDIRMA HESAPLAYICISI ───────────────
+// ── BOM ÇIKTISI & ROL BAZLI GÖRÜNÜM (Yönetici: Standart / Satış Sonrası: Fiyatlı) ──
 app.get('/bom/:machine_id', auth, async (req, res) => {
   try {
     const machine = (await query('SELECT * FROM machines WHERE id=$1', [req.params.id || req.params.machine_id])).rows[0];
@@ -1213,9 +1214,9 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const extraRowCount = parseInt(req.query.extra_rows) || 0;
     const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'landscape';
     
-    // Satış Sonrası modu veya fiyatlı görünüm kontrolü
-    const isPricingView = req.query.pricing === '1' || req.user.role === 'after_sales';
-    const placementFilter = req.query.placement || (isPricingView ? 'all' : 'pano'); 
+    // YETKİ KONTROLÜ: Fiyatları SADECE after_sales görebilir
+    const isAfterSales = req.user.role === 'after_sales';
+    const placementFilter = req.query.placement || (isAfterSales ? 'all' : 'pano'); 
     
     let editorName = '';
     if (machine.updated_by) {
@@ -1228,7 +1229,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     }
 
     const machinePricing = machine.pricing || {};
-
     const categoryMap = {};
     (machine.items || []).forEach(it => {
       const itPlacement = it.placement || 'pano';
@@ -1284,8 +1284,8 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const extraHeaders = [];
     for (let i = 0; i < extraColCount; i++) extraHeaders.push('Ek ' + (i + 1));
     
-    // Satış Sonrası fiyat kolonları
-    const pricingHeaders = isPricingView ? ['Birim Fiyat (TL)', 'Toplam Fiyat (TL)'] : [];
+    // Fiyat başlıkları sadece teknik servis rolü için tabloya eklenir
+    const pricingHeaders = isAfterSales ? ['Birim Fiyat (₺)', 'Toplam Tutar (₺)'] : [];
     const allHeaders = [...defaultHeaders, ...extraHeaders, ...pricingHeaders];
     const totalColCount = allHeaders.length;
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1305,7 +1305,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
           }
           if (mf === 'auto_no' || mf === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
           if (mf === 'auto_name' || mf === 'name') return '<td contenteditable="true">' + esc(it.name) + '</td>';
-          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col" contenteditable="true" data-qty="' + it.qty + '">' + it.qty + '</td>';
+          if (mf === 'auto_qty' || mf === 'qty') return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
           if (mf === 'auto_unit' || mf === 'unit') return '<td contenteditable="true">' + esc(it.unit) + '</td>';
           if (mf === 'auto_desc' || mf === 'notes') return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
           if (mf === 'machine_year') return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
@@ -1315,7 +1315,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
         if (cn.includes('sıra') || cn === 'no') return '<td class="no-col" contenteditable="true">' + it.no + '</td>';
         if (cn.includes('kategori')) return '<td class="cat-name-cell" contenteditable="true">' + esc(it.category || '—') + '</td>';
         if (cn.includes('malzeme') || cn.includes('ürün') || cn.includes('ad')) return '<td contenteditable="true">' + esc(it.name) + '</td>';
-        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col" contenteditable="true" data-qty="' + it.qty + '">' + it.qty + '</td>';
+        if (cn.includes('miktar') || cn.includes('adet')) return '<td class="qty-col" contenteditable="true">' + it.qty + '</td>';
         if (cn.includes('birim')) return '<td contenteditable="true">' + esc(it.unit) + '</td>';
         if (cn.includes('açıklama') || cn.includes('not')) return '<td class="desc-cell" contenteditable="true">' + esc(it.desc) + '</td>';
         if (cn.includes('yıl') || cn.includes('model')) return '<td class="year-cell" contenteditable="true">' + esc(it.rawItem?.machine_year || '—') + '</td>';
@@ -1330,11 +1330,11 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
 
       const extraCells = extraHeaders.map(() => '<td contenteditable="true">&nbsp;</td>').join('');
       
-      const pricingCells = isPricingView ? `
-        <td class="price-input-td" style="background:#fffcf0">
-          <input type="number" step="any" class="price-input" data-pid="${it.product_id}" data-qty="${it.qty}" value="${it.unitPrice}" placeholder="0.00" oninput="calculatePrices()" style="width:100%;border:none;background:transparent;font-family:monospace;font-weight:700;text-align:right">
+      const pricingCells = isAfterSales ? `
+        <td class="price-input-td" style="background:#f0f9ff;text-align:right">
+          <input type="number" step="any" class="price-input" data-pid="${it.product_id}" data-qty="${it.qty}" value="${it.unitPrice}" placeholder="0.00" oninput="calculatePrices()" style="width:100%;border:none;background:transparent;font-family:monospace;font-size:11px;font-weight:700;text-align:right;color:#0284c7;outline:none">
         </td>
-        <td class="row-total-td" style="text-align:right;font-family:monospace;font-weight:800;color:#1a6b56">${it.rowTotal} ₺</td>
+        <td class="row-total-td" style="text-align:right;font-family:monospace;font-size:11px;font-weight:800;color:#0369a1;background:#f8fafc">${it.rowTotal} ₺</td>
       ` : '';
 
       return '<tr class="item-row-tr" data-pid="' + it.product_id + '">' + cells + extraCells + pricingCells + '</tr>';
@@ -1351,7 +1351,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const spanStr = machine.span ? machine.span + ' m' : '—';
     const envStr = machine.environment === 'open' ? 'Açık Saha' : 'Kapalı Saha';
     const scopeLabel = placementFilter === 'pano' ? 'PANO İÇİ LİSTESİ' : placementFilter === 'kedi' ? 'KEDİ (SAHA) LİSTESİ' : 'GENEL MALZEME LİSTESİ';
-
     const autoFitClass = (itemCount + extraRowCount > 18 && orientation === 'portrait') ? 'auto-fit-page' : '';
 
     res.send(`<!DOCTYPE html>
@@ -1389,6 +1388,12 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .no-col{width:32px;text-align:center;font-weight:700;color:#888}
 .qty-col{text-align:center;font-weight:700}
 .summary-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f5f3;border:1px solid #c2ded6;padding:6px 10px;border-radius:4px;margin-top:6px;font-weight:700;font-size:10px;color:#1a6b56}
+
+/* Satış Sonrası Göz Alıcı Toplam Kartı */
+.aftersales-total-card{background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border-radius:8px;padding:12px 16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(2,132,199,0.25)}
+.aftersales-total-label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.aftersales-total-val{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:-.02em}
+
 .notes{margin-top:8px;font-size:9px;color:#555}.notes-title{font-weight:700;margin-bottom:2px}
 .notes-content{min-height:28px;border:1px solid #ddd;border-radius:4px;padding:4px;outline:none}
 .notes-content:focus{background:#fff8dc}
@@ -1398,8 +1403,6 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .sig-line{font-size:8.5px;color:#444;margin-top:3px}
 .footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1px solid #ddd;font-size:8.5px;color:#777}
 
-.grand-total-row{background:#e8f5f0!important;font-weight:800;font-size:11px;color:#1a6b56}
-
 @media print{
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .no-print{display:none!important}
@@ -1407,23 +1410,16 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   td:focus{background:transparent!important;box-shadow:none!important}
   input.price-input{border:none!important;background:transparent!important}
 }
-.print-bar{background:#1a6b56;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.print-bar button{background:#fff;color:#1a6b56;border:none;padding:5px 10px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11px}
+.print-bar{background:${isAfterSales ? '#0284c7' : '#1a6b56'};color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.print-bar button{background:#fff;color:${isAfterSales ? '#0284c7' : '#1a6b56'};border:none;padding:5px 10px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11px}
 .print-bar button:hover{background:#e8f5f0}
-.print-bar button.active{background:#0d4536;color:#fff;border:1px solid #fff}
 </style></head><body class="${autoFitClass}">
 <div class="print-bar no-print">
-  <span>📄 BOM Çıktı</span>
-  <button class="${placementFilter === 'pano' ? 'active' : ''}" onclick="setPlacementFilter('pano')">🗄️ Pano İçi</button>
-  <button class="${placementFilter === 'kedi' ? 'active' : ''}" onclick="setPlacementFilter('kedi')">🏗️ Kedi</button>
-  <button class="${placementFilter === 'all' ? 'active' : ''}" onclick="setPlacementFilter('all')">📋 Tüm Liste</button>
-  <span style="opacity:0.4">|</span>
-  <button class="${isPricingView ? 'active' : ''}" onclick="togglePricing()">${isPricingView ? '💵 Fiyatları Gizle' : '💰 Fiyat Girişi Yap'}</button>
-  ${isPricingView ? '<button onclick="saveMachinePricing(' + machine.id + ')">💾 Fiyatları Kaydet</button>' : ''}
-  <span style="opacity:0.4">|</span>
+  <span>${isAfterSales ? '🛠️ Teknik Servis Fiyatlandırma Paneli' : '📄 Standart BOM Çıktısı'}</span>
   <button onclick="window.print()">🖨️ Yazdır / PDF</button>
   <button onclick="exportToExcel('${esc(title)}')">📊 Excel İndir</button>
   <button onclick="toggleOrient()">${orientation === 'portrait' ? '↔️ Yatay' : '↕️ Dikey'}</button>
+  ${isAfterSales ? '<button onclick="saveMachinePricing(' + machine.id + ')" style="background:#fef08a;color:#854d0e">💾 Fiyatları Kaydet</button>' : ''}
   <button onclick="window.close()" style="margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)">✕ Kapat</button>
 </div>
 
@@ -1433,7 +1429,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     <div class="header-info">
       <div class="header-title" contenteditable="true">${esc(title)}${esc(capacityStr)}</div>
       <div class="header-sub">
-        <span class="scope-badge">${scopeLabel}</span>
+        <span class="scope-badge">${isAfterSales ? 'REVİZYON & MALİYET LİSTESİ' : scopeLabel}</span>
         <span contenteditable="true">BOM Reçetesi${machine.notes ? ' — ' + esc(machine.notes) : ''}</span>
       </div>
     </div>
@@ -1468,18 +1464,18 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   <table id="bomMainTable">
     <thead><tr>${allHeaders.map(h => '<th>' + esc(h) + '</th>').join('')}</tr></thead>
     <tbody>${rowsHtml}${extraRowsHtml}</tbody>
-    ${isPricingView ? `
-      <tfoot>
-        <tr class="grand-total-row">
-          <td colspan="${totalColCount - 1}" style="text-align:right;padding:8px;font-size:11px">GENEL MALİYET TOPLAMI:</td>
-          <td id="grandTotalCell" style="text-align:right;padding:8px;font-family:monospace;font-size:12px">${grandTotalPrice.toFixed(2)} ₺</td>
-        </tr>
-      </tfoot>
-    ` : ''}
   </table>
+
+  ${isAfterSales ? `
+    <div class="aftersales-total-card">
+      <div class="aftersales-total-label">💵 GENEL MALİYET / TEKLİF TOPLAMI:</div>
+      <div class="aftersales-total-val" id="grandTotalCardVal">${grandTotalPrice.toFixed(2)} ₺</div>
+    </div>
+  ` : ''}
+
   <div class="summary-bar">
     <span>📊 Reçete Özeti (${scopeLabel})</span>
-    <span id="summaryText">Toplam: ${itemCount} Kalem Malzeme | Toplam Adet: ${totalQuantityCount} ${isPricingView ? `| Tutar: ${grandTotalPrice.toFixed(2)} ₺` : ''}</span>
+    <span id="summaryText">Toplam: ${itemCount} Kalem Malzeme | Toplam Adet: ${totalQuantityCount}</span>
   </div>
   <div class="notes">
     <div class="notes-title">Notlar:</div>
@@ -1500,7 +1496,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
       <div class="sig-line">Tarih: </div>
     </div>
     <div class="sig-box">
-      <div class="sig-title">ONAY / TESLİM ALAN (YETKİLİ)</div>
+      <div class="sig-title">${isAfterSales ? 'SERVİS YETKİLİSİ' : 'ONAY / TESLİM ALAN'}</div>
       <div class="sig-line" contenteditable="true">Ad Soyad: </div>
       <div class="sig-line" contenteditable="true">İmza: </div>
       <div class="sig-line">Tarih: </div>
@@ -1512,17 +1508,6 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
   </div>
 </div>
 <script>
-function setPlacementFilter(val){
-  var u=new URL(window.location);
-  u.searchParams.set('placement', val);
-  window.location.href=u.toString();
-}
-function togglePricing(){
-  var u=new URL(window.location);
-  var cur = u.searchParams.get('pricing') === '1';
-  u.searchParams.set('pricing', cur ? '0' : '1');
-  window.location.href=u.toString();
-}
 function toggleOrient(){
   var u=new URL(window.location);
   var cur = u.searchParams.get('orientation') || '${orientation}';
@@ -1542,8 +1527,8 @@ function calculatePrices(){
     var totalTd = tr.querySelector('.row-total-td');
     if(totalTd) totalTd.textContent = total.toFixed(2) + ' ₺';
   });
-  var grandCell = document.getElementById('grandTotalCell');
-  if(grandCell) grandCell.textContent = grandTotal.toFixed(2) + ' ₺';
+  var grandCard = document.getElementById('grandTotalCardVal');
+  if(grandCard) grandCard.textContent = grandTotal.toFixed(2) + ' ₺';
 }
 
 async function saveMachinePricing(machineId){
@@ -1601,6 +1586,8 @@ function exportToExcel(filename){
 }
 </script>
 </body></html>`);
+  } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
+});
   } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
 });
 
