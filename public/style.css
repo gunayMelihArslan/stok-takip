@@ -19,7 +19,7 @@
   --service: #38bdf8;
   --service-dim: rgba(56,189,248,0.14);
   --mono: 'JetBrains Mono', monospace;
-  --sans: 'Syne', sans-serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --sidebar-w: 230px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -59,7 +59,7 @@ body {
   font-size: 1rem; flex-shrink: 0;
   box-shadow: 0 0 12px rgba(232,184,75,0.25);
 }
-.sidebar-brand .title { font-weight: 800; font-size: 0.9rem; line-height: 1.2; letter-spacing: -0.01em; }
+.sidebar-brand .title { font-weight: 700; font-size: 0.9rem; line-height: 1.2; letter-spacing: -0.01em; }
 .sidebar-brand .subtitle { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
 
 .sidebar-nav { flex: 1; padding: 0.75rem 0.5rem; overflow-y: auto; }
@@ -148,7 +148,7 @@ body {
   background: var(--accent);
   color: #0a0c0f;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 0.8rem; flex-shrink: 0;
+  font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
   box-shadow: 0 0 8px rgba(232,184,75,0.3);
 }
 .user-chip .info { min-width: 0; }
@@ -182,7 +182,7 @@ body {
   align-items: center;
   justify-content: space-between;
 }
-.mobile-bar .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 800; font-size: 0.95rem; }
+.mobile-bar .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 0.95rem; }
 .mobile-bar .brand .icon { width: 30px; height: 30px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
 .hamburger {
   background: none; border: none; color: var(--text); cursor: pointer;
@@ -214,7 +214,7 @@ body {
   justify-content: space-between;
   position: sticky; top: 0; z-index: 50;
 }
-.topbar h2 { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.topbar h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
 .topbar .meta { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
 
 .content { padding: 1.35rem; flex: 1; }
@@ -230,7 +230,7 @@ body {
 }
 .toolbar-left { display: flex; align-items: center; gap: 0.65rem; flex: 1; flex-wrap: wrap; }
 
-/* ── Cards (Daha Keskin ve Vurgulu) ── */
+/* ── Cards ── */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -243,7 +243,7 @@ body {
   border-color: var(--border2);
 }
 
-/* ── Table (Yüksek Okunabilirlik & Net Sınırlar) ── */
+/* ── Table ── */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
 thead tr { background: var(--surface2); border-bottom: 1.5px solid var(--border2); }
@@ -269,13 +269,13 @@ tbody tr:hover td { background: rgba(255,255,255,0.025); }
 td.editable { cursor: text; transition: background 0.15s; }
 td.editable:hover { background: var(--accent-dim); }
 
-/* ── Inputs & Buttons (Teknik & Endüstriyel Dokunuş) ── */
+/* ── Inputs & Buttons ── */
 .btn {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.55rem 1rem;
   border-radius: 6px; border: none;
   font-family: var(--sans);
-  font-size: 0.82rem; font-weight: 700;
+  font-size: 0.82rem; font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -315,7 +315,7 @@ input:focus, select:focus, textarea:focus {
 select option { background: var(--surface2); color: var(--text); }
 textarea { resize: vertical; min-height: 80px; }
 
-/* ── Hafif Searchable Combobox (Typeahead) Stilleri ── */
+/* ── Combobox Stilleri ── */
 .combobox-wrap {
   position: relative;
   width: 100%;
@@ -385,7 +385,7 @@ textarea { resize: vertical; min-height: 80px; }
   font-size: 0.75rem;
 }
 
-/* ── Toplu Seçim Barı (Bulk Actions Floating Bar) ── */
+/* ── Toplu Seçim Barı ── */
 .bulk-actions-bar {
   position: fixed;
   bottom: 1.5rem;
@@ -458,7 +458,7 @@ textarea { resize: vertical; min-height: 80px; }
   display: flex; align-items: center; justify-content: space-between;
   position: sticky; top: 0; background: var(--surface); z-index: 1;
 }
-.modal-header h3 { font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+.modal-header h3 { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; }
 .modal-close {
   background: none; border: none;
   color: var(--muted); cursor: pointer;
@@ -487,7 +487,7 @@ textarea { resize: vertical; min-height: 80px; }
   margin-bottom: 0.4rem;
 }
 
-/* ── Tags & Badges ── */
+/* ── Badges ── */
 .badge {
   display: inline-block;
   padding: 0.22rem 0.55rem;
@@ -532,7 +532,7 @@ textarea { resize: vertical; min-height: 80px; }
 }
 .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); }
 .stat-card .label { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.35rem; font-weight: 700; }
-.stat-card .value { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.04em; }
+.stat-card .value { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.04em; }
 .stat-card .sub { font-family: var(--mono); font-size: 0.62rem; color: var(--text2); margin-top: 0.2rem; }
 
 /* ── Inline Edit ── */
