@@ -208,6 +208,8 @@ app.get('/api/me', auth, (req, res) => res.json(req.user));
 // ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ ──────────────────────────────────
 app.get('/qr/machine/:id', (req, res) => {
   const machineId = req.params.id;
+  // Doğrudan ana giriş sayfasına redirect parametresiyle yönlendiriyoruz
+  res.redirect(`/?redirect_machine=${machineId}`);
   res.send(`<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8"><title>QR Yönlendiriliyor...</title></head>
 <body>
