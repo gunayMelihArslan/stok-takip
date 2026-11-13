@@ -61,6 +61,15 @@ async function login(){
   try{
     const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
     const data=await res.json();
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetMachine = urlParams.get('machine_id');
+
+    if (targetMachine) {
+    window.location.href = '/personnel.html?machine_id=' + targetMachine;
+    } else {
+    // Normal yönlendirme (Admin veya Personel paneli)
+    window.location.href = data.role === 'admin' ? '/admin.html' : '/personnel.html';
+    }
     if(!res.ok)throw new Error(data.error);
     localStorage.setItem('stok_token',data.token);
     if(data.role === 'admin') window.location.href = '/admin.html';
