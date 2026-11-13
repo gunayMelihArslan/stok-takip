@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const helmet = require('helmet');
 const { query, withTransaction, init, pool } = require('./db');
 
 const app = express();
@@ -16,6 +17,9 @@ process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:'
 process.on('uncaughtException', (err) => { console.error('Uncaught Exception:', err); });
 
 app.set('trust proxy', 1);
+
+// GÜVENLİK BAŞLIKLARI (HELMET) & KISITLI CORS
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use((req,res,next)=>{
   res.header('Access-Control-Allow-Origin','*');
   res.header('Access-Control-Allow-Headers','Authorization,Content-Type');
@@ -169,15 +173,18 @@ async function fetchGold() {
 }
 setInterval(async () => { broadcast('gold_update', await fetchGold()); }, 5 * 60 * 1000);
 
+// Fabrika NAT Kilitlenme Korumalı IP + Username Rate-Limiter
 const loginAttempts = new Map();
 function loginRateLimit(req, res, next) {
-  const ip = req.ip || req.connection.remoteAddress;
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const key = `${ip}_${username}`;
   const now = Date.now();
-  const attempts = loginAttempts.get(ip) || [];
+  const attempts = loginAttempts.get(key) || [];
   const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
   if (recent.length >= 10) return res.status(429).json({ error: 'Çok fazla deneme. 15 dakika bekleyin.' });
   recent.push(now);
-  loginAttempts.set(ip, recent);
+  loginAttempts.set(key, recent);
   next();
 }
 setInterval(() => { loginAttempts.forEach((v, k) => { if (!v.length || Date.now() - v[v.length-1] > 15*60*1000) loginAttempts.delete(k); }); }, 30*60*1000);
@@ -197,6 +204,27 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
 });
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
+
+// ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ ──────────────────────────────────
+app.get('/qr/machine/:id', (req, res) => {
+  const machineId = req.params.id;
+  // Personel paneline vinç ID'sini yönlendirme parametresiyle atıyoruz
+  res.send(`<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><title>QR Yönlendiriliyor...</title></head>
+<body>
+<script>
+  var token = localStorage.getItem('stok_token');
+  var machineId = "${machineId}";
+  if (!token) {
+    // Oturum yoksa login sayfasına at, giriş sonrası bu vincin paneline dönecek
+    window.location.href = '/?redirect_machine=' + machineId;
+  } else {
+    // Oturum açıksa doğrudan personel/atölye paneline ve ilgili vinç işlemine yönlendir
+    window.location.href = '/personnel.html?machine_id=' + machineId;
+  }
+</script>
+</body></html>`);
+});
 
 // ── SSE ──────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
@@ -821,7 +849,6 @@ app.delete('/api/after-sales-requests/:id', auth, adminOrAfterSales, async (req,
     const r = (await query('SELECT * FROM after_sales_requests WHERE id=$1', [req.params.id])).rows[0];
     if (!r) return res.status(404).json({ error: 'Talep bulunamadı' });
 
-    // Personel sadece kendi açtığı talebi silebilir, admin her talebi silebilir
     if (req.user.role === 'after_sales' && r.requested_by !== req.user.id) {
       return res.status(403).json({ error: 'Bu talebi silme yetkiniz yok' });
     }
@@ -1370,7 +1397,6 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
     const scopeLabel = placementFilter === 'pano' ? 'PANO İÇİ LİSTESİ' : placementFilter === 'kedi' ? 'KEDİ (SAHA) LİSTESİ' : 'GENEL MALZEME LİSTESİ';
     const autoFitClass = (itemCount + extraRowCount > 18 && orientation === 'portrait') ? 'auto-fit-page' : '';
 
-    // İMZA ALANI: Teknik Servis için ortada personel adı, sağda müşteri; Yönetici için standart akış
     const signatureSectionHtml = isAfterSales ? `
       <div class="signature-section">
         <div class="sig-box">
@@ -1451,7 +1477,6 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .qty-col{text-align:center;font-weight:700}
 .summary-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f5f3;border:1px solid #c2ded6;padding:6px 10px;border-radius:4px;margin-top:6px;font-weight:700;font-size:10px;color:#1a6b56}
 
-/* Satış Sonrası Göz Alıcı Toplam Kartı */
 .aftersales-total-card{background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border-radius:8px;padding:12px 16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(2,132,199,0.25)}
 .aftersales-total-label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .aftersales-total-val{font-family:monospace;font-size:18px;font-weight:900;letter-spacing:-.02em}
@@ -1465,7 +1490,6 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .sig-line{font-size:8.5px;color:#444;margin-top:3px}
 .footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1px solid #ddd;font-size:8.5px;color:#777}
 
-/* Akıllı Dikey Tek Sayfaya Sığdırma (Auto-Fit) */
 .auto-fit-page table{font-size:8.5px}
 .auto-fit-page th{padding:3px 5px;font-size:8px}
 .auto-fit-page td{padding:2.5px 5px}
@@ -1477,13 +1501,11 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
 .auto-fit-page .sig-title{font-size:7.5px}
 .auto-fit-page .notes-content{min-height:20px}
 
-/* Kompakt Mod Stilleri */
 .compact-mode table{font-size:8.5px}
 .compact-mode th{padding:2.5px 4px;font-size:8px}
 .compact-mode td{padding:2px 4px}
 .compact-mode .header{margin-bottom:4px;padding-bottom:3px}
 
-/* Gizleme Sınıfları */
 .hide-categories .cat-row-tr{display:none!important}
 .hide-years .year-cell{display:none!important}
 .hide-desc .desc-cell{display:none!important}
@@ -1711,6 +1733,7 @@ function exportToExcel(filename){
 </body></html>`);
   } catch(e) { console.error('BOM error:', e.message); res.status(500).send('BOM hatası: ' + e.message); }
 });
+
 // ── LOT YÖNETİMİ ─────────────────────────────────────────────────────────
 app.get('/api/products/:id/lots', auth, async (req, res) => {
   try {
@@ -1876,7 +1899,6 @@ app.post('/api/purchase-requests', auth, async (req, res) => {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Geçerli miktar girin' });
 
-    // Satın alma veya yönetici doğrudan sipariş ekliyorsa 'ordered', personel ise 'pending' başlar
     let initialStatus = 'pending';
     if (req.user.role === 'admin' && status) initialStatus = status;
     else if (req.user.role === 'admin') initialStatus = 'approved';
@@ -1898,7 +1920,6 @@ app.post('/api/purchase-requests', auth, async (req, res) => {
       ]
     )).rows[0];
 
-    // Personel ve yöneticilere bildirim gönder
     const targetUsers = (await query("SELECT id FROM users WHERE role IN ('admin', 'personnel') AND id != $1", [req.user.id])).rows;
     for (const u of targetUsers) {
       await createNotif(
