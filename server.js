@@ -208,7 +208,6 @@ app.get('/api/me', auth, (req, res) => res.json(req.user));
 // ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ ──────────────────────────────────
 app.get('/qr/machine/:id', (req, res) => {
   const machineId = req.params.id;
-  // Personel paneline vinç ID'sini yönlendirme parametresiyle atıyoruz
   res.send(`<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8"><title>QR Yönlendiriliyor...</title></head>
 <body>
@@ -216,10 +215,8 @@ app.get('/qr/machine/:id', (req, res) => {
   var token = localStorage.getItem('stok_token');
   var machineId = "${machineId}";
   if (!token) {
-    // Oturum yoksa login sayfasına at, giriş sonrası bu vincin paneline dönecek
     window.location.href = '/?redirect_machine=' + machineId;
   } else {
-    // Oturum açıksa doğrudan personel/atölye paneline ve ilgili vinç işlemine yönlendir
     window.location.href = '/personnel.html?machine_id=' + machineId;
   }
 </script>
