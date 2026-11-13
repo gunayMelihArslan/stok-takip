@@ -81,6 +81,25 @@ if(t){
         else window.location.href = '/personnel.html';
       }
     });
+  // Sayfa yüklendiğinde URL'de yönlendirme var mı kontrol et
+window.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const redirectMachine = urlParams.get('redirect_machine');
+  
+  if (redirectMachine) {
+    // Eğer kullanıcı giriş yapmışsa doğrudan o vincin işlem/alım modalını aç
+    var token = localStorage.getItem('stok_token');
+    if (token) {
+      // Doğrudan ilgili vincin alım ekranını/fonksiyonunu tetikle
+      if (typeof openMachineTakeModal === 'function') {
+        openMachineTakeModal(redirectMachine);
+      } else {
+        // Doğrudan ilgili sayfa veya sekmesine yönlendir
+        window.location.href = '/personnel.html?machine_id=' + redirectMachine;
+      }
+    }
+  }
+});
 }
 </script>
 </body>
