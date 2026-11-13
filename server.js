@@ -215,8 +215,10 @@ app.get('/qr/machine/:id', (req, res) => {
   var token = localStorage.getItem('stok_token');
   var machineId = "${machineId}";
   if (!token) {
+    // Oturum yoksa login sayfasına at, giriş yaptıktan sonra bu vincin paneline dönecek
     window.location.href = '/?redirect_machine=' + machineId;
   } else {
+    // Oturum açıksa doğrudan ilgili vincin alım / işlem ekranına git
     window.location.href = '/personnel.html?machine_id=' + machineId;
   }
 </script>
