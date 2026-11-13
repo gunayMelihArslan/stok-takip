@@ -205,27 +205,7 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
-// ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ ──────────────────────────────────
-app.get('/qr/machine/:id', (req, res) => {
-  const machineId = req.params.id;
-  // Doğrudan ana giriş sayfasına redirect parametresiyle yönlendiriyoruz
-  res.redirect(`/?redirect_machine=${machineId}`);
-  res.send(`<!DOCTYPE html>
-<html lang="tr"><head><meta charset="UTF-8"><title>QR Yönlendiriliyor...</title></head>
-<body>
-<script>
-  var token = localStorage.getItem('stok_token');
-  var machineId = "${machineId}";
-  if (!token) {
-    // Oturum yoksa login sayfasına at, giriş yaptıktan sonra bu vincin paneline dönecek
-    window.location.href = '/?redirect_machine=' + machineId;
-  } else {
-    // Oturum açıksa doğrudan ilgili vincin alım / işlem ekranına git
-    window.location.href = '/personnel.html?machine_id=' + machineId;
-  }
-</script>
-</body></html>`);
-});
+// ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ
 
 // ── SSE ──────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
