@@ -1438,7 +1438,7 @@ app.get('/bom/:machine_id', auth, async (req, res) => {
       </div>
     `;
 
-    res.send(`<!DOCTYPE html>
+res.send(`<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8">
 <title>BOM — ${esc(title)}</title>
 <style>
@@ -1458,6 +1458,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1a;backgr
 .brand-badge-sub{font-size:8px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.08em}
 .brand-badge-main{font-size:11px;font-weight:800;color:#1a6b56;letter-spacing:-.01em}
 .brand-badge-icon{font-size:16px}
+
+.qr-box{background:#fff;padding:2px;border:1px solid #1a6b56;border-radius:6px;text-align:center;}
+.qr-box img{width:55px;height:55px;display:block;}
 
 .crane-specs-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#f7fbf9;border:1px solid #c2ded6;border-radius:6px;padding:6px 10px;margin-bottom:8px}
 .crane-spec-item{font-size:9.5px}
@@ -1551,12 +1554,17 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
         <span contenteditable="true">BOM Reçetesi${machine.notes ? ' — ' + esc(machine.notes) : ''}</span>
       </div>
     </div>
-    <div class="brand-badge">
-      <div class="brand-badge-text">
-        <span class="brand-badge-sub">SEKİZLİ MAKİNA &amp; VİNÇ A.Ş.</span>
-        <span class="brand-badge-main">DİJİTAL ELEKTRİKHANE</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="qr-box">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://elektrikhane.net.tr/qr/machine/' + machine.id)}" alt="Vinç QR">
       </div>
-      <span class="brand-badge-icon">⚡</span>
+      <div class="brand-badge">
+        <div class="brand-badge-text">
+          <span class="brand-badge-sub">SEKİZLİ MAKİNA &amp; VİNÇ A.Ş.</span>
+          <span class="brand-badge-main">DİJİTAL ELEKTRİKHANE</span>
+        </div>
+        <span class="brand-badge-icon">⚡</span>
+      </div>
     </div>
   </div>
 
