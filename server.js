@@ -1876,7 +1876,7 @@ app.post('/api/purchase-requests', auth, async (req, res) => {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: 'Geçerli miktar girin' });
 
-    // Satın alma veya admin doğrudan sipariş açıyorsa 'ordered', personel ise 'pending' başlar
+    // Satın alma veya yönetici doğrudan sipariş ekliyorsa 'ordered', personel ise 'pending' başlar
     let initialStatus = 'pending';
     if (req.user.role === 'admin' && status) initialStatus = status;
     else if (req.user.role === 'admin') initialStatus = 'approved';
