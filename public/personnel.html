@@ -420,6 +420,7 @@ let html5QrCode = null;
 let activeScannerPrefix = 'take';
 let pBomFirmCollapsed = {};
 let currentBulkPlacement = 'pano'; // Madde 3: Varsayılan pano sekmesi
+let currentPage = 'mytasks';
 
 function toggleNavGroup(groupId) {
   const el = document.getElementById(groupId);
@@ -436,30 +437,37 @@ async function init() {
   updateTime(); 
   setInterval(updateTime, 1000); 
   await loadAll();
-  showPage('mytasks');
   
-  // ── QR Kod ile doğrudan vince yönlendirme kontrolü ──
+  // ── QR Kod ile doğrudan vince yönlendirme kontrolü (URL veya LocalStorage) ──
   const urlParams = new URLSearchParams(window.location.search);
-  const targetMachineId = urlParams.get('machine_id');
+  const targetMachineId = urlParams.get('machine_id') || urlParams.get('redirect_machine') || localStorage.getItem('qr_target_machine');
+  
   if (targetMachineId) {
-    showPage('bulktake');
-    setTimeout(() => {
-      const targetMach = machines.find(m => String(m.id) === String(targetMachineId));
-      if (targetMach && targetMach.firm_id) {
-        const firmSel = document.getElementById('bulkFirmFilter');
-        if (firmSel) {
-          firmSel.value = targetMach.firm_id;
-          filterBulkMachines();
-          setTimeout(() => {
-            const machSel = document.getElementById('bulkMachine');
-            if (machSel) {
-              machSel.value = targetMachineId;
-              loadMachinePreview();
-            }
-          }, 150);
-        }
+    localStorage.removeItem('qr_target_machine'); // Tekrar tekrar açılmasın diye temizle
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, '/personnel.html');
+    }
+    showPage('bulktake', true); // true = tekrar loadAll() çağırıp seçimi sıfırlama!
+    const targetMach = machines.find(m => String(m.id) === String(targetMachineId));
+    if (targetMach) {
+      const firmSel = document.getElementById('bulkFirmFilter');
+      const machSel = document.getElementById('bulkMachine');
+      if (firmSel && targetMach.firm_id) {
+        firmSel.value = String(targetMach.firm_id);
+        filterBulkMachines();
+      } else if (machSel) {
+        // Firması yoksa bile tüm vinçleri doldurup seçtir
+        machSel.innerHTML = '<option value="">— Vinç seçin —</option>' + machines.map(m => `<option value="${m.id}">🏗️ ${esc(m.machine_name)} ${m.capacity ? `[${esc(m.capacity)}]` : ''}</option>`).join('');
+        machSel.disabled = false;
       }
-    }, 200);
+      if (machSel) {
+        machSel.value = String(targetMachineId);
+        await loadMachinePreview();
+        toast('🏗️ ' + targetMach.machine_name + ' reçetesi açıldı', 'success');
+      }
+    }
+  } else {
+    showPage('mytasks', true);
   }
 
   connectSSE();
@@ -619,7 +627,7 @@ const pageTitles = {
   purchase: 'Malzeme Taleplerim' 
 };
 
-function showPage(name) {
+function showPage(name, skipLoad = false) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
@@ -635,8 +643,10 @@ function showPage(name) {
 
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
+  if (name === 'mytasks') renderMyTasks();
+  if (name === 'opentasks') renderOpenTasks();
   if (name === 'history') loadMyHistory();
-  if (['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
+  if (!skipLoad && ['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
   if (name === 'vfd') renderPVfdRecords();
   if (name === 'bom_lists') renderBomLists();
   if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
@@ -1307,7 +1317,7 @@ async function submitBulkTake() {
     document.getElementById('bulkNote').value = '';
     await loadMachinePreview();
     await loadProducts();
-    renderProducts();
+    renderStock();
     toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
   });
 }
@@ -1388,8 +1398,8 @@ async function refresh() {
   const fns = {
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
     opentasks: async () => { await loadTasks(); renderOpenTasks(); },
-    bom_lists: async () => { await loadMachines(); renderBomLists(); },
-    stock: async () => { await loadProducts(); renderStock(); },
+    bom_lists: async () => { await loadAll(); renderBomLists(); },
+    stock: async () => { await loadAll(); renderStock(); },
     vfd: async () => { await loadPVfdAll(); renderPVfdRecords(); },
     take: loadAll,
     bulktake: loadAll,
@@ -1495,7 +1505,7 @@ async function savePComment() {
   if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
   var r = await api('/api/task-stages/' + _pCSid + '/comments', 'POST', { body: b.trim() });
   if (!r) return;
-  document.getElementById('commentBody').value = '';
+  document.getElementById('pCommentBody').value = '';
   await loadPComments(); toast('Not eklendi ✓', 'success');
 }
 
