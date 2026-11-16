@@ -205,7 +205,25 @@ app.post('/api/login', loginRateLimit, async (req, res) => {
 app.post('/api/logout', (req, res) => res.json({ ok: true }));
 app.get('/api/me', auth, (req, res) => res.json(req.user));
 
-// ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ
+// ── QR KOD AKILLI YÖNLENDİRME ENDPOINT'İ ──
+app.get('/qr/machine/:id', (req, res) => {
+  const machineId = req.params.id;
+  res.send(`<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><title>QR Yönlendiriliyor...</title></head>
+<body>
+<script>
+  var machineId = "${machineId}";
+  // URL'de kaybolmaması için doğrudan tarayıcı hafızasına yazıyoruz
+  localStorage.setItem('qr_target_machine', machineId);
+  var token = localStorage.getItem('stok_token');
+  if (!token) {
+    window.location.href = '/?redirect_machine=' + machineId;
+  } else {
+    window.location.href = '/personnel.html?machine_id=' + machineId;
+  }
+</script>
+</body></html>`);
+});
 
 // ── SSE ──────────────────────────────────────────────────────────────────
 app.get('/api/events', (req, res) => {
