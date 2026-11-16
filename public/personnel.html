@@ -401,6 +401,26 @@
 </div>
 
 <div id="toast"></div>
+  window.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetMachineId = urlParams.get('machine_id');
+
+  if (targetMachineId) {
+    // Küçük bir gecikme ekleyelim ki sayfa elementleri ve listeler tam yüklenmiş olsun
+    setTimeout(() => {
+      // Eğer sistemde o vincin toplu alım veya detay modalını açan bir fonksiyon varsa onu tetikle
+      // Örneğin: openMachineTakeModal(targetMachineId) veya makineyi seçili hale getiren fonksiyon
+      const machineCard = document.querySelector(`[data-machine-id="${targetMachineId}"]`) || document.getElementById(`machine-${targetMachineId}`);
+      if (machineCard) {
+        machineCard.click(); // Varsa kartın üzerine tıkla
+      } else if (typeof openMachineTakeModal === 'function') {
+        openMachineTakeModal(targetMachineId);
+      } else {
+        console.log("Hedef vinç ID:", targetMachineId);
+      }
+    }, 500);
+  }
+});
 <script>
 const _f = window.fetch.bind(window);
 window.fetch = function(url, opts) {
