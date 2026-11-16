@@ -309,7 +309,7 @@
             <div style="font-weight:800;font-size:.88rem">🛒 Atölye Talep & Tedarik Havuzu</div>
             <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.15rem">Taleplerinizin durumunu görebilir, tedarikçiden gelen malzemeleri teslim alabilirsiniz</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="loadMyPurchases();renderMyPurchases()">↺ Yenile</button>
+          <button class="btn btn-ghost btn-sm" onclick="refresh()">↺ Yenile</button>
         </div>
         <div class="table-wrap"><table><thead><tr><th>Talep Tarihi</th><th>Talep Eden</th><th>Ürün / Detaylar</th><th>Miktar</th><th>İlgili İş</th><th>Durum</th><th>İşlem</th></tr></thead>
           <tbody id="myPurchaseTbody"></tbody></table></div>
@@ -446,6 +446,7 @@ function toggleNavGroup(groupId) {
   if (el) el.classList.toggle('collapsed');
 }
 
+// ── İLK YÜKLEMEDE TÜM VERİLERİ BİR KERE ÇEKİYORUZ ──
 async function init() {
   const loader = document.getElementById('globalLoader');
   if(loader) loader.style.display = 'flex';
@@ -459,7 +460,10 @@ async function init() {
   updateTime(); 
   setInterval(updateTime, 1000); 
   
+  // Tüm modüllere ait veriler RAM'e alınıyor (Menü geçişlerinde bir daha çekilmeyecek)
   await loadAll();
+  await loadMyHistory();
+  await loadMyPurchases();
   
   const urlParams = new URLSearchParams(window.location.search);
   const targetMachineId = urlParams.get('machine_id') || urlParams.get('redirect_machine') || localStorage.getItem('qr_target_machine');
@@ -469,7 +473,7 @@ async function init() {
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, '/personnel.html');
     }
-    await showPage('bulktake', true);
+    showPage('bulktake');
     const targetMach = machines.find(m => String(m.id) === String(targetMachineId));
     if (targetMach) {
       const firmSel = document.getElementById('bulkFirmFilter');
@@ -488,12 +492,17 @@ async function init() {
       }
     }
   } else {
-    await showPage('mytasks', true);
+    showPage('mytasks');
   }
 
   connectSSE();
   initPExtras();
-  await loadMyPurchases();
+
+  // Yükleme ekranı kapatılıyor, artık menüler şimşek gibi
+  if (loader) {
+    loader.style.opacity = '0';
+    setTimeout(() => { loader.style.display = 'none'; }, 250);
+  }
 }
 
 function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
@@ -591,7 +600,6 @@ async function loadTasks() {
 async function loadMyHistory() {
   const all = await api('/api/transactions?limit=300');
   myTransactions = (all || []).filter(t => t.user_id === me.id);
-  renderHistory();
 }
 
 async function loadPVfdAll() { await Promise.all([loadPVfdDevices(), loadPVfdRecords()]); }
@@ -648,14 +656,8 @@ const pageTitles = {
   purchase: 'Malzeme Taleplerim' 
 };
 
-// ── SEKME GEÇİŞİ VE LOADER ASENKRON YAPISI ──
-async function showPage(name, skipLoad = false) {
-  const loader = document.getElementById('globalLoader');
-  if (loader && !skipLoad) {
-    loader.style.opacity = '1';
-    loader.style.display = 'flex';
-  }
-
+// ── SEKME GEÇİŞİ (VERİ BEKLEMEDEN ANINDA ÇİZİM) ──
+function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
@@ -672,18 +674,7 @@ async function showPage(name, skipLoad = false) {
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
 
-  if (!skipLoad) {
-    try {
-      if (name === 'history') await loadMyHistory();
-      else if (name === 'purchase') await loadMyPurchases();
-      else if (['stock', 'take', 'bulktake', 'return', 'bom_lists', 'mytasks', 'opentasks'].includes(name)) {
-        await loadAll();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
+  // Veriler RAM'de olduğu için anında ekrana basıyoruz
   if (name === 'mytasks') renderMyTasks();
   if (name === 'opentasks') renderOpenTasks();
   if (name === 'history') renderHistory();
@@ -691,11 +682,6 @@ async function showPage(name, skipLoad = false) {
   if (name === 'bom_lists') renderBomLists();
   if (name === 'purchase') renderMyPurchases();
   if (name === 'stock') renderStock();
-
-  if (loader) {
-    loader.style.opacity = '0';
-    setTimeout(() => { loader.style.display = 'none'; }, 250);
-  }
 }
 
 function switchPVfdTab(tab) {
@@ -1438,6 +1424,7 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
 document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); }));
 
+// ── MANUEL YENİLEME BUTONU İÇİN ──
 async function refresh() {
   const loader = document.getElementById('globalLoader');
   if (loader) { loader.style.opacity = '1'; loader.style.display = 'flex'; }
@@ -1451,7 +1438,7 @@ async function refresh() {
     take: loadAll,
     bulktake: loadAll,
     return: loadAll,
-    history: loadMyHistory,
+    history: async () => { await loadMyHistory(); renderHistory(); },
     purchase: async () => { await loadMyPurchases(); renderMyPurchases(); }
   };
   const fn = fns[currentPage];
