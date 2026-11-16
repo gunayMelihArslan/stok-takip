@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <title>Dijital Vinç Pasaportu — Elektrikhane</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --border2: #484f58;
+      --text: #c9d1d9;
+      --text2: #8b949e;
+      --muted: #6e7681;
+      --accent: #e8b84b; /* Endüstriyel Sarı */
+      --accent-dim: rgba(232,184,75,0.15);
+      --primary: #4b95ed;
+      --success: #3cd4a0;
+      --danger: #ff6b6b;
+      --sekizli-green: #1a6b56;
+      --sans: 'Syne', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); padding-bottom: 2rem; }
+    
+    .container { max-width: 600px; margin: 0 auto; padding: 1rem; }
+    
+    /* ── ÜST KİMLİK KARTI ── */
+    .header-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    .header-top { background: var(--sekizli-green); padding: 1rem; display: flex; justify-content: space-between; align-items: flex-start; }
+    .header-top img { height: 28px; filter: brightness(0) invert(1); }
+    .passport-code { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: 0.05em; }
+    .status-badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 6px; font-family: var(--mono); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-top: 0.4rem; }
+    .status-active { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+    .status-expired { background: rgba(255,107,107,0.3); color: #ffadad; border: 1px solid rgba(255,107,107,0.5); }
+    
+    .header-body { padding: 1.25rem 1rem; }
+    .customer-name { font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 0.2rem; }
+    .crane-name { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); font-weight: 700; margin-bottom: 1rem; }
+    
+    .specs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .spec-item { background: var(--surface2); padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border2); }
+    .spec-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 0.2rem; }
+    .spec-val { font-family: var(--mono); font-size: 0.85rem; color: var(--text); font-weight: 700; }
+    
+    /* ── TEKNİK DOKÜMANLAR (ONEDRIVE) ── */
+    .docs-section { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .doc-btn { display: flex; align-items: center; gap: 0.75rem; background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; color: var(--text); text-decoration: none; transition: all 0.2s; }
+    .doc-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    .doc-icon { font-size: 1.5rem; }
+    .doc-text { flex: 1; }
+    .doc-title { font-weight: 700; font-size: 0.95rem; color: #fff; }
+    .doc-sub { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+    
+    /* ── VFD & YEDEK PARÇA ── */
+    .section-title { font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .vfd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; color: var(--text2); }
+    
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; background: var(--surface); padding: 0.35rem; border-radius: 8px; border: 1px solid var(--border); }
+    .tab-btn { flex: 1; background: transparent; border: none; color: var(--muted); font-family: var(--sans); font-weight: 700; font-size: 0.85rem; padding: 0.5rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .tab-btn.active { background: var(--surface2); color: var(--accent); border: 1px solid var(--border2); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    
+    .bom-list { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; }
+    .bom-item { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border2); display: flex; flex-direction: column; gap: 0.25rem; }
+    .bom-item:last-child { border-bottom: none; }
+    .bom-cat { font-family: var(--mono); font-size: 0.65rem; color: var(--success); font-weight: 700; text-transform: uppercase; }
+    .bom-name { font-size: 0.9rem; font-weight: 700; color: #fff; }
+    .bom-qty { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+    
+    /* ── SERVİS FORMU ── */
+    .service-form { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text2); margin-bottom: 0.4rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); color: #fff; padding: 0.75rem; border-radius: 6px; font-family: var(--sans); font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+    .btn { display: block; width: 100%; background: var(--accent); color: #000; border: none; padding: 0.85rem; border-radius: 6px; font-family: var(--sans); font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: opacity 0.2s; text-align: center; }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* ── SERVİS GEÇMİŞİ ── */
+    .ticket-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; border-left: 4px solid var(--muted); }
+    .ticket-card.open { border-left-color: var(--danger); }
+    .ticket-card.in_progress { border-left-color: var(--warning); }
+    .ticket-card.resolved { border-left-color: var(--success); }
+    
+    #loading { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+    .spinner { width: 40px; height: 40px; border: 4px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="margin-top:1rem;font-family:var(--mono);font-size:0.8rem;color:var(--muted);font-weight:700;letter-spacing:0.1em">PASAPORT YÜKLENİYOR...</div>
+</div>
+
+<div class="container" id="mainContainer" style="display:none">
+  
+  <!-- 1. KİMLİK KARTI -->
+  <div class="header-card">
+    <div class="header-top">
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:rgba(255,255,255,0.7);margin-bottom:0.2rem">DİJİTAL VİNÇ PASAPORTU</div>
+        <div class="passport-code" id="hPassportCode">—</div>
+      </div>
+      <div style="text-align:right">
+        <span class="status-badge" id="hWarrantyBadge">—</span>
+      </div>
+    </div>
+    <div class="header-body">
+      <div class="customer-name" id="hCustomerName">—</div>
+      <div class="crane-name" id="hCraneName">—</div>
+      
+      <div class="specs-grid">
+        <div class="spec-item">
+          <div class="spec-label">Kapasite</div>
+          <div class="spec-val" id="sCapacity">—</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">Vinç Tipi</div>
+          <div class="spec-val" id="sCraneType">—</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">Aks Açıklığı</div>
+          <div class="spec-val" id="sSpan">—</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">Yükseklik</div>
+          <div class="spec-val" id="sHeight">—</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-top:1rem;text-align:center" id="hCommDate">Devreye Alma: —</div>
+    </div>
+  </div>
+
+  <!-- 2. TEKNİK DOKÜMANLAR -->
+  <div class="docs-section" id="docsSection">
+    <a href="#" target="_blank" class="doc-btn" id="btnEplan" style="display:none">
+      <div class="doc-icon">📐</div>
+      <div class="doc-text">
+        <div class="doc-title">EPLAN Elektrik Projesi</div>
+        <div class="doc-sub">Devre şemaları ve klemens planı (PDF)</div>
+      </div>
+      <div style="color:var(--muted)">↗</div>
+    </a>
+    <a href="#" target="_blank" class="doc-btn" id="btnFolder" style="display:none">
+      <div class="doc-icon">📁</div>
+      <div class="doc-text">
+        <div class="doc-title">Teknik Doküman Klasörü</div>
+        <div class="doc-sub">Kılavuzlar ve saha fotoğrafları</div>
+      </div>
+      <div style="color:var(--muted)">↗</div>
+    </a>
+  </div>
+
+  <!-- VFD ÖZETİ -->
+  <div id="vfdSection" style="display:none">
+    <h3 class="section-title">⚡ Sürücü (VFD) Parametre Özeti</h3>
+    <div class="vfd-card" id="vfdContent"></div>
+  </div>
+
+  <!-- 3. BİLEŞEN & YEDEK PARÇA (BOM) LİSTESİ -->
+  <h3 class="section-title">🗄️ Bileşen ve Yedek Parça Listesi</h3>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabPano" onclick="switchBomTab('pano')">Pano İçi Malzemeler</button>
+    <button class="tab-btn" id="tabKedi" onclick="switchBomTab('kedi')">Kedi / Saha Malzemeleri</button>
+  </div>
+  <div class="bom-list" id="bomListContainer"></div>
+
+  <!-- 4. SERVİS & ARIZA BİLDİRİM FORMU -->
+  <h3 class="section-title" style="margin-top:2rem;color:var(--danger)">🚨 Servis / Arıza Bildirimi Oluştur</h3>
+  <div class="service-form">
+    <div class="form-group">
+      <label>Yetkili Ad Soyad *</label>
+      <input type="text" id="tName" placeholder="Adınız Soyadınız">
+    </div>
+    <div class="form-group">
+      <label>Telefon Numarası *</label>
+      <input type="tel" id="tPhone" placeholder="05XX XXX XX XX">
+    </div>
+    <div class="form-group">
+      <label>Arıza Tipi *</label>
+      <select id="tCategory">
+        <option value="genel">Genel Arıza / Bilinmiyor</option>
+        <option value="elektrik">Elektrik Panosu / Şalt</option>
+        <option value="surucu_vfd">Sürücü (İnvertör) Hatası</option>
+        <option value="kumanda">Kumanda / Joyistik Problemi</option>
+        <option value="mekanik">Mekanik / Yürüyüş Problemi</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Sürücü Hata Kodu (Varsa)</label>
+      <input type="text" id="tCode" placeholder="Örn: OCF, OBF, Er08 (Sürücü ekranında yazan kod)">
+    </div>
+    <div class="form-group">
+      <label>Arıza Açıklaması *</label>
+      <textarea id="tDesc" rows="3" placeholder="Arızayı kısaca tarif ediniz..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Medya (OneDrive Foto/Video Linki - Opsiyonel)</label>
+      <input type="url" id="tMedia" placeholder="https://onedrive.live.com/...">
+    </div>
+    <button type="button" class="btn" id="tSubmitBtn" onclick="submitTicket()">Servis Talebini Gönder</button>
+    
+    <div id="vfdDiagnosticBox" style="display:none;margin-top:1rem;background:rgba(232,184,75,0.1);border:1px solid var(--accent);border-radius:8px;padding:1rem">
+      <div style="font-weight:800;color:var(--accent);margin-bottom:0.4rem">⚠️ Ön Teşhis Bilgisi Bulundu:</div>
+      <div id="vfdDiagnosticContent" style="font-family:var(--mono);font-size:0.8rem;color:var(--text);white-space:pre-wrap"></div>
+    </div>
+  </div>
+
+  <!-- 5. GEÇMİŞ SERVİS KAYITLARI -->
+  <div id="ticketsSection" style="display:none">
+    <h3 class="section-title">🕒 Geçmiş Servis Kayıtları</h3>
+    <div id="ticketsContainer"></div>
+  </div>
+
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const pCode = urlParams.get('code');
+let passportData = null;
+let currentBomTab = 'pano';
+
+async function init() {
+  if (!pCode) {
+    document.getElementById('loading').innerHTML = '<div style="color:var(--danger);font-weight:700">Geçersiz Pasaport Kodu!</div>';
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/public/passport/' + encodeURIComponent(pCode));
+    if (!res.ok) throw new Error('Pasaport bulunamadı veya yetkisiz erişim');
+    passportData = await res.json();
+    renderPassport();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('mainContainer').style.display = 'block';
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--danger);font-weight:700">${e.message}</div>`;
+  }
+}
+
+function renderPassport() {
+  const m = passportData.machine;
+  document.title = `Pasaport — ${m.machine_name}`;
+  
+  document.getElementById('hPassportCode').textContent = m.passport_code;
+  document.getElementById('hCustomerName').textContent = m.firm_name || 'Bilinmeyen Müşteri';
+  document.getElementById('hCraneName').textContent = m.machine_name;
+  
+  document.getElementById('sCapacity').textContent = m.capacity || '—';
+  document.getElementById('sCraneType').textContent = m.crane_type || '—';
+  document.getElementById('sSpan').textContent = m.span ? m.span + ' m' : '—';
+  document.getElementById('sHeight').textContent = m.lifting_height ? m.lifting_height + ' m' : '—';
+  
+  if (m.commissioning_date) {
+    document.getElementById('hCommDate').textContent = `Devreye Alma: ${new Date(m.commissioning_date).toLocaleDateString('tr-TR')}`;
+  }
+
+  // Garanti Rozeti
+  const badge = document.getElementById('hWarrantyBadge');
+  if (m.warranty_end_date) {
+    const end = new Date(m.warranty_end_date);
+    if (end > new Date()) {
+      badge.textContent = 'GARANTİSİ DEVAM EDİYOR';
+      badge.className = 'status-badge status-active';
+    } else {
+      badge.textContent = 'GARANTİ SÜRESİ DOLMUŞ';
+      badge.className = 'status-badge status-expired';
+    }
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Doküman Butonları
+  if (m.onedrive_eplan_url) {
+    const btn = document.getElementById('btnEplan');
+    btn.href = m.onedrive_eplan_url;
+    btn.style.display = 'flex';
+  }
+  if (m.onedrive_folder_url) {
+    const btn = document.getElementById('btnFolder');
+    btn.href = m.onedrive_folder_url;
+    btn.style.display = 'flex';
+  }
+
+  if (m.vfd_summary) {
+    document.getElementById('vfdSection').style.display = 'block';
+    document.getElementById('vfdContent').textContent = m.vfd_summary;
+  }
+
+  renderBomList();
+  renderTickets();
+}
+
+function switchBomTab(tab) {
+  currentBomTab = tab;
+  document.getElementById('tabPano').classList.toggle('active', tab === 'pano');
+  document.getElementById('tabKedi').classList.toggle('active', tab === 'kedi');
+  renderBomList();
+}
+
+function renderBomList() {
+  const items = passportData.items || [];
+  const filtered = items.filter(it => (it.placement || 'pano') === currentBomTab);
+  const container = document.getElementById('bomListContainer');
+  
+  if (!filtered.length) {
+    container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.8rem;font-family:var(--mono)">Bu bölümde kayıtlı bileşen bulunamadı.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(it => `
+    <div class="bom-item">
+      <div class="bom-cat">${esc(it.category_name || 'Genel')}</div>
+      <div class="bom-name">${esc(it.product_name)}</div>
+      <div class="bom-qty">Miktar: <strong style="color:var(--text)">${it.quantity}</strong> ${it.machine_year ? ` | Model Yılı: <strong style="color:var(--text)">${it.machine_year}</strong>` : ''}</div>
+    </div>
+  `).join('');
+}
+
+const statusMap = {
+  open: { l: 'Açık / İnceleniyor', c: 'open' },
+  in_progress: { l: 'Müdahale Ediliyor', c: 'in_progress' },
+  resolved: { l: 'Çözüldü / Kapatıldı', c: 'resolved' },
+  closed: { l: 'İptal / Kapatıldı', c: 'resolved' }
+};
+
+function renderTickets() {
+  const tickets = passportData.tickets || [];
+  if (!tickets.length) return;
+  
+  document.getElementById('ticketsSection').style.display = 'block';
+  const container = document.getElementById('ticketsContainer');
+  
+  container.innerHTML = tickets.map(t => {
+    const st = statusMap[t.status] || statusMap.open;
+    return `
+      <div class="ticket-card ${st.c}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+          <span style="font-size:0.75rem;font-weight:700;color:var(--text)">Servis No: #${t.id}</span>
+          <span style="font-size:0.7rem;font-family:var(--mono);font-weight:700" class="${st.c === 'open' ? 'txt-danger' : st.c === 'in_progress' ? 'txt-warning' : 'txt-success'}">${st.l}</span>
+        </div>
+        <div style="font-size:0.85rem;margin-bottom:0.5rem"><strong>Sorun:</strong> ${esc(t.fault_description)}</div>
+        ${t.fault_code ? `<div style="font-family:var(--mono);font-size:0.75rem;color:var(--accent);margin-bottom:0.5rem">Hata Kodu: ${esc(t.fault_code)}</div>` : ''}
+        ${t.admin_resolution_note ? `<div style="background:var(--surface2);padding:0.5rem;border-radius:4px;font-size:0.8rem;color:var(--success);margin-bottom:0.5rem"><strong>Çözüm Notu:</strong> ${esc(t.admin_resolution_note)}</div>` : ''}
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted)">Tarih: ${new Date(t.created_at).toLocaleString('tr-TR')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function submitTicket() {
+  const btn = document.getElementById('tSubmitBtn');
+  const name = document.getElementById('tName').value.trim();
+  const phone = document.getElementById('tPhone').value.trim();
+  const cat = document.getElementById('tCategory').value;
+  const code = document.getElementById('tCode').value.trim();
+  const desc = document.getElementById('tDesc').value.trim();
+  const media = document.getElementById('tMedia').value.trim();
+
+  if (!name || !phone || !desc) {
+    alert('Lütfen ad, telefon ve açıklama alanlarını eksiksiz doldurun.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Gönderiliyor...';
+
+  try {
+    const res = await fetch(`/api/public/passport/${encodeURIComponent(pCode)}/ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: name,
+        customer_phone: phone,
+        fault_category: cat,
+        fault_code: code,
+        fault_description: desc,
+        onedrive_media_url: media
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gönderim başarısız');
+
+    alert('Servis talebiniz başarıyla alınmıştır. En kısa sürede sizinle iletişime geçeceğiz.');
+    
+    // Formu temizle
+    document.getElementById('tCode').value = '';
+    document.getElementById('tDesc').value = '';
+    document.getElementById('tMedia').value = '';
+
+    // Teşhis varsa göster
+    if (data.diagnostic) {
+      document.getElementById('vfdDiagnosticBox').style.display = 'block';
+      document.getElementById('vfdDiagnosticContent').textContent = 
+        `${data.diagnostic.title}\n\nÇözüm Adımları:\n${data.diagnostic.solution_steps}`;
+    } else {
+      document.getElementById('vfdDiagnosticBox').style.display = 'none';
+    }
+
+    // Listeyi yenilemek için sayfayı yeniden başlat
+    await init();
+
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Servis Talebini Gönder';
+  }
+}
+
+function esc(s) { 
+  if (s == null) return ''; 
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); 
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<style>
+  .txt-danger { color: var(--danger); }
+  .txt-warning { color: var(--warning); }
+  .txt-success { color: var(--success); }
+</style>
+</body>
+</html>
