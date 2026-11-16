@@ -622,6 +622,114 @@ app.post('/api/machines/ai-suggest', auth, admin, async (req, res) => {
   }
 });
 
+// ── PASAPORT & SERVİS BİLDİRİM API'LERİ (DİJİTAL VİNÇ PASAPORTU) ─────────
+app.get('/p/:code', (req, res) => {
+  res.redirect('/passport.html?code=' + encodeURIComponent(req.params.code));
+});
+
+app.get('/api/public/passport/:code', async (req, res) => {
+  try {
+    const code = req.params.code;
+    const m = (await query('SELECT m.*, f.name as firm_name FROM machines m LEFT JOIN firms f ON m.firm_id = f.id WHERE m.passport_code=$1', [code])).rows[0];
+    if (!m) return res.status(404).json({ error: 'Pasaport bulunamadı veya geçersiz QR kod' });
+    
+    // Güvenlik gerekirse ?pin= kontrolü buraya eklenebilir, şu an public-read-only modelinde
+    const firstCol = await getFirstCol();
+    const items = await Promise.all((m.items || []).map(async it => {
+      const p = (await query('SELECT "values" FROM products WHERE id=$1', [it.product_id])).rows[0];
+      return { ...it, placement: it.placement || 'pano', product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
+    }));
+
+    const tickets = (await query('SELECT * FROM crane_service_tickets WHERE machine_id=$1 ORDER BY created_at DESC', [m.id])).rows;
+    res.json({ machine: m, items, tickets });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/public/passport/:code/ticket', async (req, res) => {
+  try {
+    const { customer_name, customer_phone, fault_category, fault_description, fault_code, onedrive_media_url } = req.body;
+    const code = req.params.code;
+    
+    const m = (await query('SELECT id, machine_name, firm_id FROM machines WHERE passport_code=$1', [code])).rows[0];
+    if (!m) return res.status(404).json({ error: 'Vinç bulunamadı, kayıt geçersiz' });
+    
+    const firm = m.firm_id ? (await query('SELECT name FROM firms WHERE id=$1', [m.firm_id])).rows[0] : null;
+    const firmName = firm ? firm.name : 'Bilinmeyen Müşteri';
+
+    const r = (await query(
+      `INSERT INTO crane_service_tickets(machine_id, customer_name, customer_phone, fault_category, fault_description, fault_code, onedrive_media_url) 
+       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [m.id, customer_name, customer_phone, fault_category || 'genel', fault_description, fault_code || null, onedrive_media_url || null]
+    )).rows[0];
+
+    let diagnostic = null;
+    if (fault_code) {
+      const diag = (await query('SELECT title, solution_steps FROM vfd_records WHERE record_type=$1 AND LOWER(code)=LOWER($2) LIMIT 1', ['fault', fault_code.trim()])).rows[0];
+      if (diag) diagnostic = diag;
+    }
+
+    const admins = (await query("SELECT id FROM users WHERE role IN ('admin', 'after_sales', 'personnel')")).rows;
+    for (const a of admins) {
+      await createNotif(
+        a.id, 
+        `🚨 SAHA ARIZA BİLDİRİMİ: ${firmName} - ${m.machine_name}`, 
+        `Müşteri: ${customer_name} | Hata Kodu: ${fault_code || 'Yok'} | Sorun: ${fault_description.substring(0, 80)}...`, 
+        'warning'
+      );
+    }
+    
+    broadcast('after_sales_new', {});
+    broadcast('ticket_new', {});
+    
+    res.json({ ticket: r, diagnostic });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/machines/:id/passport', auth, admin, async (req, res) => {
+  try {
+    const { passport_code, onedrive_eplan_url, onedrive_folder_url, vfd_summary, warranty_end_date, commissioning_date, passport_pin } = req.body;
+    await query(
+      `UPDATE machines SET passport_code=$1, onedrive_eplan_url=$2, onedrive_folder_url=$3, vfd_summary=$4, warranty_end_date=$5, commissioning_date=$6, passport_pin=$7 WHERE id=$8`,
+      [passport_code || null, onedrive_eplan_url || null, onedrive_folder_url || null, vfd_summary || null, warranty_end_date || null, commissioning_date || null, passport_pin || null, req.params.id]
+    );
+    await logActivity(req.user.id, 'Dijital Vinç Pasaport Bilgileri Güncellendi', 'machine', parseInt(req.params.id), { passport_code }, req);
+    broadcast('machine_update', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/service-tickets', auth, async (req, res) => {
+  try {
+    const rows = (await query(`
+      SELECT t.*, m.machine_name, m.passport_code, f.name as firm_name 
+      FROM crane_service_tickets t
+      JOIN machines m ON m.id = t.machine_id
+      LEFT JOIN firms f ON f.id = m.firm_id
+      ORDER BY t.created_at DESC
+    `)).rows;
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/service-tickets/:id', auth, admin, async (req, res) => {
+  try {
+    const { status, admin_resolution_note, onedrive_media_url } = req.body;
+    const t = (await query('SELECT * FROM crane_service_tickets WHERE id=$1', [req.params.id])).rows[0];
+    if (!t) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+    
+    let resolvedQuery = status === 'resolved' || status === 'closed' ? ', resolved_at=NOW()' : ', resolved_at=NULL';
+    
+    await query(
+      `UPDATE crane_service_tickets SET status=$1, admin_resolution_note=$2, onedrive_media_url=$3 ${resolvedQuery} WHERE id=$4`,
+      [status || t.status, admin_resolution_note !== undefined ? admin_resolution_note : t.admin_resolution_note, onedrive_media_url !== undefined ? onedrive_media_url : t.onedrive_media_url, req.params.id]
+    );
+    await logActivity(req.user.id, 'Saha Servis Arıza Kaydı Güncellendi', 'after_sales', parseInt(req.params.id), { status }, req);
+    broadcast('after_sales_update', {});
+    broadcast('ticket_new', {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── TRANSACTIONS ──────────────────────────────────────────────────────────
 app.get('/api/transactions', auth, async (req, res) => {
   try {
@@ -1558,7 +1666,7 @@ tr:nth-child(even){background:#f7f9f8}tr:hover{background:#e8f5f0}
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://elektrikhane.net.tr/qr/machine/' + machine.id)}" alt="Vinç QR">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://elektrikhane.net.tr/p/' + machine.passport_code)}" alt="Vinç Pasaport QR" title="Dijital Vinç Pasaportu">
       </div>
       <div class="brand-badge">
         <div class="brand-badge-text">
@@ -2170,6 +2278,40 @@ async function start() {
     ]);
     console.log('✓ Varsayılan veriler — admin / admin123');
   }
+
+  // DIJITAL PASAPORT & SERVİS TABLO GÜNCELLEMELERİ
+  try {
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS passport_code VARCHAR(64) UNIQUE;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS onedrive_eplan_url TEXT;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS onedrive_folder_url TEXT;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS vfd_summary TEXT;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS warranty_end_date DATE;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS commissioning_date DATE;`);
+    await query(`ALTER TABLE machines ADD COLUMN IF NOT EXISTS passport_pin VARCHAR(20);`);
+    
+    // Mevcutlara QR kodu tanımla
+    await query(`UPDATE machines SET passport_code = 'SKZ-' || EXTRACT(YEAR FROM COALESCE(created_at, NOW())) || '-' || LPAD(id::text, 4, '0') WHERE passport_code IS NULL;`);
+    
+    await query(`
+    CREATE TABLE IF NOT EXISTS crane_service_tickets (
+      id SERIAL PRIMARY KEY,
+      machine_id INTEGER NOT NULL REFERENCES machines(id) ON DELETE CASCADE,
+      customer_name VARCHAR(120) NOT NULL,
+      customer_phone VARCHAR(40) NOT NULL,
+      fault_category VARCHAR(60) DEFAULT 'genel',
+      fault_description TEXT NOT NULL,
+      fault_code VARCHAR(50),
+      onedrive_media_url TEXT,
+      status VARCHAR(30) DEFAULT 'open',
+      admin_resolution_note TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      resolved_at TIMESTAMP
+    );`);
+    console.log('✓ Dijital Pasaport ve Servis Veritabanı Yapısı Güncellendi');
+  } catch (err) {
+    console.error('DB Migration Error:', err);
+  }
+
   app.listen(PORT, '0.0.0.0', () => console.log(`🏭 Stok Takip → http://localhost:${PORT}`));
 }
 start().catch(err => { console.error('Hata:', err); process.exit(1); });
