@@ -119,7 +119,6 @@
     <div class="nav-section-label">İş Takibi & Servis</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
     <div class="nav-item" onclick="showPage('after_sales')"><span class="nav-icon">🛠️</span>Satış Sonrası Talepleri <span id="asAdminBadge" style="display:none;background:#38bdf8;color:#0a0c0f;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span></div>
-    <div class="nav-item" onclick="showPage('service_tickets')"><span class="nav-icon">🚨</span>Saha Arıza & Servis <span id="ticketBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span></div>
 
     <div class="nav-section-label">Atölye & Operasyon</div>
     <div class="nav-item" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
@@ -146,6 +145,7 @@
     <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
   </div>
 </nav>
+
 <div class="main">
   <div class="topbar">
     <h2 id="pageTitle">Gösterge Paneli</h2>
@@ -266,26 +266,6 @@
         <button class="btn btn-ghost" onclick="loadAdminAfterSales();renderAdminAfterSales()">↺ Yenile</button>
       </div>
       <div id="asAdminList"></div>
-    </div>
-
-    <!-- SAHA ARIZA & SERVİS YÖNETİMİ -->
-    <div class="page" id="page-service_tickets">
-      <div class="toolbar">
-        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <div class="search-box-wrap">
-            <input type="text" id="ticketSearch" placeholder="🔍 Müşteri, telefon veya arıza ara..." oninput="handleSearchInput(this, renderServiceTickets)">
-            <button class="search-clear-btn" onclick="clearSearchInput('ticketSearch', renderServiceTickets)">✕</button>
-          </div>
-          <select id="ticketStatusFilter" style="max-width:180px" onchange="renderServiceTickets()">
-            <option value="">Tüm Durumlar</option>
-            <option value="open">⏳ Açık / İnceleniyor</option>
-            <option value="in_progress">🔧 Müdahale Ediliyor</option>
-            <option value="resolved">✅ Çözüldü / Kapatıldı</option>
-          </select>
-        </div>
-        <button class="btn btn-ghost" onclick="loadServiceTickets();renderServiceTickets()">↺ Yenile</button>
-      </div>
-      <div id="serviceTicketsList"></div>
     </div>
 
     <!-- TASKS -->
@@ -541,273 +521,3157 @@
     </div>
   </div>
 </div>
-// ── DİJİTAL PASAPORT & QR ETİKET MODAL FONKSİYONLARI ────────────────────────
-function openPassportModal(machineId) {
-  const m = machines.find(x => x.id == machineId);
-  if (!m) return;
-  
-  // Modal içeriğini oluştur ve aç
-  let modal = document.getElementById('passportConfigModal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'passportConfigModal';
-    modal.innerHTML = `
-      <div class="modal" style="max-width:540px">
-        <div class="modal-header">
-          <h3>🪪 Dijital Vinç Pasaportu & OneDrive Ayarları</h3>
-          <button class="modal-close" onclick="closeModal('passportConfigModal')">×</button>
-        </div>
-        <div class="modal-body" style="max-height:75vh;overflow-y:auto">
-          <input type="hidden" id="pcMachineId">
-          <div class="form-group">
-            <label>Pasaport Kodu (QR URL için benzersiz)</label>
-            <input type="text" id="pcCode" placeholder="SKZ-2026-0001">
-          </div>
-          <div class="form-group">
-            <label>📐 OneDrive EPLAN Proje Linki (PDF)</label>
-            <input type="url" id="pcEplan" placeholder="https://1drv.ms/b/s!A...">
-            <small style="color:var(--muted);font-size:0.68rem">Müşterinin telefonda tek tıkla açabileceği salt okunur paylaşım linki.</small>
-          </div>
-          <div class="form-group">
-            <label>📁 OneDrive Teknik Klasör Linki</label>
-            <input type="url" id="pcFolder" placeholder="https://1drv.ms/f/s!A...">
-            <small style="color:var(--muted);font-size:0.68rem">Kılavuzlar, test raporları ve saha görsellerini içeren klasör linki.</small>
-          </div>
-          <div class="form-group">
-            <label>⚡ Sürücü (VFD) Parametre Özeti</label>
-            <textarea id="pcVfd" rows="3" placeholder="Sürücü marka, model ve özel klemens notları..."></textarea>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
-            <div class="form-group">
-              <label>Devreye Alma Tarihi</label>
-              <input type="date" id="pcCommDate">
-            </div>
-            <div class="form-group">
-              <label>Garanti Bitiş Tarihi</label>
-              <input type="date" id="pcWarrantyDate">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('passportConfigModal')">İptal</button>
-          <button class="btn btn-primary" onclick="savePassportConfig()">💾 Pasaportu Kaydet</button>
+
+<!-- Modals -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header"><h3 id="productModalTitle">Yeni Ürün Ekle</h3><button class="modal-close" onclick="closeModal('productModal')">×</button></div>
+    <div class="modal-body" id="productModalBody" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('productModal')">İptal</button><button class="btn btn-primary" id="prodModalSaveBtn" onclick="saveProductModal()">Kaydet</button></div>
+  </div>
+</div>
+
+<!-- Madde 3: Siparişe Bağlı Olmayan Doğrudan Stok Girişi Modalı -->
+<div class="modal-overlay" id="directInModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3>📥 Doğrudan Serbest Stok Girişi</h3><button class="modal-close" onclick="closeModal('directInModal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Ürün Seçin *</label><select id="directInProd" style="width:100%"></select></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Giriş Miktarı *</label><input type="number" id="directInQty" min="0.01" step="any" placeholder="0"></div>
+        <div class="form-group"><label>Model Yılı (Lot)</label><input type="number" id="directInYear" min="1980" max="2099" placeholder="2026"></div>
+      </div>
+      <div class="form-group"><label>Tedarikçi / Kaynak Firma</label><input type="text" id="directInSupplier" placeholder="Örn: Siemens, Schneider veya Atölye Artanı"></div>
+      <div class="form-group"><label>Açıklama / Fatura Notu</label><input type="text" id="directInNotes" placeholder="Serbest depo girişi..."></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('directInModal')">İptal</button><button class="btn btn-success" id="directInSaveBtn" onclick="saveDirectIn()">📥 Stoğa Ekle</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="columnModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="columnModalTitle">Yeni Sütun</h3><button class="modal-close" onclick="closeModal('columnModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editColId">
+      <div class="form-group"><label>Sütun Adı</label><input type="text" id="colName"></div>
+      <div class="form-group"><label>Veri Tipi</label><select id="colType" onchange="document.getElementById('minStockGroup').style.display=this.value==='number'?'block':'none'"><option value="text">Metin</option><option value="number">Sayı</option></select></div>
+      <div class="form-group" id="minStockGroup" style="display:none"><label>Min. Stok</label><input type="number" id="colMinStock" value="5"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('columnModal')">İptal</button><button class="btn btn-primary" id="colModalSaveBtn" onclick="saveColumn()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bomColModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="bomColModalTitle">BOM Sütunu</h3><button class="modal-close" onclick="closeModal('bomColModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editBomColId">
+      <div class="form-group"><label>Sütun Başlığı</label><input type="text" id="bomColName" placeholder="Örn: Marka"></div>
+      <div class="form-group"><label>BOM Çıktısında Yazılacak Değişken (Eşleşme)</label><select id="bomColMappedField"></select><small style="color:var(--muted);font-size:.68rem">Bu sütunun altında ürünün hangi özelliğinin yazılacağını seçin.</small></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomColModal')">İptal</button><button class="btn btn-primary" id="bomColSaveBtn" onclick="saveBomCol()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bomCatModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="bomCatModalTitle">Yeni Kategori</h3><button class="modal-close" onclick="closeModal('bomCatModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editBomCatId"><div class="form-group"><label>Kategori Adı</label><input type="text" id="bomCatName" placeholder="Örn: Kanca Cihazı"></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('bomCatModal')">İptal</button><button class="btn btn-primary" id="bomCatSaveBtn" onclick="saveBomCat()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="firmModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="firmModalTitle">Yeni Firma</h3><button class="modal-close" onclick="closeModal('firmModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editFirmId"><div class="form-group"><label>Firma Adı</label><input type="text" id="firmName"></div><div class="form-group"><label>Not</label><input type="text" id="firmNotes"></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('firmModal')">İptal</button><button class="btn btn-primary" id="firmSaveBtn" onclick="saveFirm()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="machineModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header"><h3 id="machineModalTitle">Yeni Vinç</h3><button class="modal-close" onclick="closeModal('machineModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editMachineId">
+      <input type="hidden" id="linkedAfterSalesReqId">
+      <div class="form-group"><label>Firma *</label><select id="machineFirm"><option value="">— Firma seçin —</option></select></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Vinç Adı / Seri No *</label><input type="text" id="machineName" placeholder="Köprülü Vinç 10T"></div>
+        <div class="form-group"><label>Tonaj / Kapasite</label><input type="text" id="machineCapacity" placeholder="Örn: 10 Ton, 32/5T"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Vinç Tipi</label><input type="text" id="machineCraneType" placeholder="Örn: Çift Kiriş Köprülü"></div>
+        <div class="form-group"><label>Kaldırma Yüksekliği (m)</label><input type="text" id="machineLiftingHeight" placeholder="Örn: 9 veya 12.5"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Köprü Aks Açıklığı (m)</label><input type="text" id="machineSpan" placeholder="Örn: 24 veya 18.5"></div>
+        <div class="form-group"><label>Çalışma Şartları *</label>
+          <select id="machineEnvironment" style="width:100%">
+            <option value="closed">Kapalı Saha (Atölye / Fabrika)</option>
+            <option value="open">Açık Saha (Dış Ortam / Sundurma)</option>
+          </select>
         </div>
       </div>
-    `;
-    document.body.appendChild(modal);
-  }
 
-  document.getElementById('pcMachineId').value = m.id;
-  document.getElementById('pcCode').value = m.passport_code || `SKZ-2026-${String(m.id).padStart(4, '0')}`;
-  document.getElementById('pcEplan').value = m.onedrive_eplan_url || '';
-  document.getElementById('pcFolder').value = m.onedrive_folder_url || '';
-  document.getElementById('pcVfd').value = m.vfd_summary || '';
-  document.getElementById('pcCommDate').value = m.commissioning_date ? m.commissioning_date.slice(0, 10) : '';
-  document.getElementById('pcWarrantyDate').value = m.warranty_end_date ? m.warranty_end_date.slice(0, 10) : '';
+      <!-- Madde 4: AI Akıllı BOM Öneri Çubuğu -->
+      <div style="background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;padding:.75rem;margin:.2rem 0 .85rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--accent)">🤖 Akıllı BOM Motoru (Geçmiş Verilerden Öğrenme)</div>
+          <div style="font-size:.68rem;color:var(--muted)">Tonaj, vinç tipi ve açıklığa göre geçmiş projelerden otomatik reçete önerir.</div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="triggerAiSuggest()">✨ Taslak Reçete Öner</button>
+      </div>
 
-  openModal('passportConfigModal');
-}
-
-async function savePassportConfig() {
-  const id = document.getElementById('pcMachineId').value;
-  const passport_code = document.getElementById('pcCode').value.trim();
-  const onedrive_eplan_url = document.getElementById('pcEplan').value.trim();
-  const onedrive_folder_url = document.getElementById('pcFolder').value.trim();
-  const vfd_summary = document.getElementById('pcVfd').value.trim();
-  const commissioning_date = document.getElementById('pcCommDate').value || null;
-  const warranty_end_date = document.getElementById('pcWarrantyDate').value || null;
-
-  if (!passport_code) {
-    toast('Pasaport kodu zorunludur', 'error');
-    return;
-  }
-
-  const res = await api('/api/machines/' + id + '/passport', 'PUT', {
-    passport_code,
-    onedrive_eplan_url,
-    onedrive_folder_url,
-    vfd_summary,
-    commissioning_date,
-    warranty_end_date
-  });
-
-  if (!res) return;
-  closeModal('passportConfigModal');
-  await loadMachines();
-  renderMachines();
-  toast('Dijital Pasaport ayarları başarıyla kaydedildi ✓', 'success');
-}
-
-function printQrLabel(machineId) {
-  const m = machines.find(x => x.id == machineId);
-  if (!m) return;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('https://elektrikhane.net.tr/p/' + (m.passport_code || 'SKZ-' + m.id))}`;
-  
-  const w = window.open('', '_blank', 'width=450,height=550');
-  w.document.write(`<!DOCTYPE html>
-<html lang="tr"><head><meta charset="UTF-8"><title>Pano Etiketi — ${esc(m.machine_name)}</title>
-<style>
-body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#fff;color:#000}
-.tag-box{border:3px solid #000;border-radius:12px;padding:20px;max-width:380px;margin:0 auto}
-.brand{font-size:16px;font-weight:900;letter-spacing:1px;margin-bottom:4px}
-.sub{font-size:11px;color:#444;margin-bottom:15px;text-transform:uppercase}
-.qr{margin:10px 0}
-.qr img{width:180px;height:180px}
-.title{font-size:14px;font-weight:800;margin-top:10px}
-.code{font-family:monospace;font-size:13px;font-weight:700;background:#eee;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px}
-.footer{font-size:9px;color:#666;margin-top:15px;border-top:1px solid #ccc;padding-top:6px}
-@media print{button{display:none}}
-</style></head><body>
-<div class="tag-box">
-  <div class="brand">SEKİZLİ MAKİNA &amp; VİNÇ</div>
-  <div class="sub">Dijital Vinç Pasaportu (Digital Twin)</div>
-  <div class="title">${esc(m.machine_name)} ${m.capacity ? '(' + esc(m.capacity) + ')' : ''}</div>
-  <div class="qr"><img src="${qrUrl}" alt="QR"></div>
-  <div>Panodaki QR kodu telefonunuzla okutarak elektrik projesine ve yedek parçalara ulaşın.</div>
-  <div class="code">Pasaport: ${esc(m.passport_code || 'SKZ-' + m.id)}</div>
-  <div class="footer">Teknik Servis &amp; Arıza Bildirimi için taratın · elektrikhane.net.tr</div>
+      <div class="form-group"><label>Notlar</label><textarea id="machineNotes"></textarea></div>
+      <div class="form-group"><label>Gerekli Ürünler (Reçete)</label>
+        <div id="machineItems" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addMachineItem()">+ Ürün Ekle</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('machineModal')">İptal</button><button class="btn btn-primary" id="machineSaveBtn" onclick="saveMachine()">Kaydet</button></div>
+  </div>
 </div>
-<br><button onclick="window.print()" style="padding:10px 20px;font-weight:bold;cursor:pointer">🖨️ Etiketi Yazdır</button>
-</body></html>`);
-  w.document.close();
+
+<div class="modal-overlay" id="cloneMachineModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3>📋 Vinci Kopyala (Klonla)</h3><button class="modal-close" onclick="closeModal('cloneMachineModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="cloneSourceId">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem;font-size:.82rem">
+        <div>Kaynak Vinç: <strong id="cloneSourceName">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);margin-top:.2rem" id="cloneSourceItemCount">0 kalem malzeme aktarılacak</div>
+      </div>
+      <div class="form-group"><label>Hedef Firma</label><select id="cloneTargetFirm" style="width:100%"></select></div>
+      <div class="form-group"><label>Yeni Vinç Adı / Modeli / Seri No *</label><input type="text" id="cloneNewName" placeholder="Yeni vinç adı giriniz..."></div>
+      <div class="form-group"><label>Yeni Tonaj / Kapasite</label><input type="text" id="cloneNewCapacity" placeholder="Örn: 10 Ton, 20T"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('cloneMachineModal')">İptal</button><button class="btn btn-primary" id="cloneExecuteBtn" onclick="executeCloneMachine()">📋 Kopyala ve Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="taskModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><h3>Manuel İş Ekle</h3><button class="modal-close" onclick="closeModal('taskModal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>İş Başlığı</label><input type="text" id="taskTitle" placeholder="Özel iş açıklaması..."></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div class="form-group"><label>Firma</label><select id="taskFirm" onchange="filterTaskMachines()"><option value="">— Firma —</option></select></div>
+        <div class="form-group"><label>Vinç (opsiyonel)</label><select id="taskMachine"><option value="">— Vinç —</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div class="form-group"><label>Öncelik</label><select id="taskPriority"><option value="normal" selected>Normal</option><option value="high">Yüksek</option><option value="urgent">Acil</option><option value="low">Düşük</option></select></div>
+        <div class="form-group"><label>Aşama İsimleri</label><input type="text" id="taskStages" placeholder="Pano, Yerleştirme, Kedi Tesisat" value="Pano, Yerleştirme, Kedi Tesisat"></div>
+      </div>
+      <div class="form-group"><label>Not</label><textarea id="taskNotes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('taskModal')">İptal</button><button class="btn btn-primary" id="taskSaveBtn" onclick="saveTask()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="assignModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="assignModalTitle">Aşama Ata</h3><button class="modal-close" onclick="closeModal('assignModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="assignStageId">
+      <div class="form-group"><label>Personel / Satın Alma / Yönetici</label><select id="assignUser"><option value="">— Atamayı Kaldır —</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('assignModal')">İptal</button><button class="btn btn-primary" id="assignDoBtn" onclick="doAssign()">Ata</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header"><h3 id="historyModalTitle">Stok Hareketi</h3><button class="modal-close" onclick="closeModal('historyModal')">×</button></div>
+    <div class="modal-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Firma</th><th>Miktar</th><th>Tür</th></tr></thead><tbody id="historyTbody"></tbody></table></div></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="modal-close" onclick="closeModal('userModal')">×</button></div>
+    <div class="modal-body"><input type="hidden" id="editUserId">
+      <div class="form-group"><label>Ad Soyad</label><input type="text" id="userDisplayName"></div>
+      <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="userUsername"></div>
+      <div class="form-group"><label>Şifre <span id="passOptional" style="display:none;color:var(--muted);font-size:.7em">(boş = değişmez)</span></label><input type="password" id="userPassword"></div>
+      <div class="form-group"><label>Rol</label>
+        <select id="userRole">
+          <option value="personnel">Personel</option>
+          <option value="purchase">Satın Alma (Tedarik)</option>
+          <option value="after_sales">Satış Sonrası (Servis)</option>
+          <option value="admin">Yönetici</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('userModal')">İptal</button><button class="btn btn-primary" id="userSaveBtn" onclick="saveUser()">Kaydet</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="lotModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div><h3 id="lotTitle">Model Yılı Yönetimi</h3><div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Toplam Stok: <span id="lotTotal" style="color:var(--accent);font-weight:800">0</span> adet</div></div>
+      <button class="modal-close" onclick="closeModal('lotModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lotPid">
+      <div id="lotRows" style="margin-bottom:1rem"></div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem">
+        <div style="font-family:var(--mono);font-size:.63rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-bottom:.65rem">⚡ Model Yılı Ekle / Güncelle</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
+          <div class="form-group" style="margin:0"><label>Model / Üretim Yılı</label><input type="number" id="lotYear" placeholder="2024" min="1980" max="2099"></div>
+          <div class="form-group" style="margin:0"><label>Adet (Miktar)</label><input type="number" id="lotQty" placeholder="0" min="0" step="any"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 .65rem"><label>Not (opsiyonel)</label><input type="text" id="lotNotes" placeholder="Örn: Yeni sevkiyat"></div>
+        <button type="button" class="btn btn-primary" id="lotSaveBtn" style="width:100%" onclick="lotSave()">💾 Kaydet</button>
+        <div id="lotMsg" style="font-family:var(--mono);font-size:.72rem;min-height:1.4em;margin-top:.4rem;text-align:center"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('lotModal')">Kapat</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="commentModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><h3 id="commentTitle">Notlar</h3><button class="modal-close" onclick="closeModal('commentModal')">×</button></div>
+    <div class="modal-body"><div id="commentList" style="margin-bottom:1rem;max-height:280px;overflow-y:auto"></div><div class="form-group" style="margin:0"><label>Yeni Not</label><textarea id="commentBody" rows="3" placeholder="Bu aşama hakkında not..." style="resize:vertical"></textarea></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('commentModal')">Kapat</button><button class="btn btn-primary" id="commentSaveBtn" onclick="saveComment()">💬 Not Ekle</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transferModal">
+  <div class="modal"><div class="modal-header"><h3 id="transferModalTitle">Aşamayı Devret</h3><button class="modal-close" onclick="closeModal('transferModal')">×</button></div>
+  <div class="modal-body"><input type="hidden" id="transferStageId"><div class="form-group"><label>Devredilecek Kullanıcı</label><select id="transferTo"><option value="">— Kullanıcı Seçin —</option></select></div><div class="form-group"><label>Mesaj (opsiyonel)</label><input type="text" id="transferMsg" placeholder="Neden devrediyorsunuz?"></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('transferModal')">İptal</button><button class="btn btn-primary" id="transferDoBtn" onclick="doTransfer()">Devret</button></div></div>
+</div>
+
+<div class="modal-overlay" id="actDetailModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header"><h3 id="actDetailTitle">🛡️ İşlem / Denetim Detayı</h3><button class="modal-close" onclick="closeModal('actDetailModal')">×</button></div>
+    <div class="modal-body" style="font-size:.83rem">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.85rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.3rem"><span>Kullanıcı: <strong id="actDetailUser">—</strong></span><span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)" id="actDetailDate">—</span></div>
+        <div>İşlem: <strong id="actDetailAction" style="color:var(--accent)">—</strong></div>
+        <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-top:.2rem">Varlık: <span id="actDetailEntity">—</span> | IP: <span id="actDetailIP">—</span></div>
+      </div>
+      <div class="form-group" style="margin:0"><label>Kayıt Değişiklik Detayları (JSON / Veri):</label><pre id="actDetailJson" style="background:#000;color:#3cd4a0;padding:.75rem;border-radius:6px;font-family:var(--mono);font-size:.72rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></pre></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('actDetailModal')">Kapat</button></div>
+  </div>
+</div>
+
+<!-- SATIN ALMA / MALZEME TALEBİ MODALI -->
+<div class="modal-overlay" id="purchaseModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header"><h3 id="purchaseModalTitle">🛒 Yeni Malzeme Talebi Oluştur</h3><button class="modal-close" onclick="closeModal('purchaseModal')">×</button></div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="editPurchaseId">
+      <div class="form-group"><label>Malzeme / Ürün Adı *</label><input type="text" id="prModalName" placeholder="Örn: 10mm² NYY Kablo"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group"><label>Miktar *</label><input type="number" id="prModalQty" min="0.01" step="any" placeholder="0"></div>
+        <div class="form-group"><label>Birim</label><input type="text" id="prModalUnit" value="adet" placeholder="adet"></div>
+      </div>
+      <div class="form-group"><label>İlgili İş / Vinç (Opsiyonel)</label><select id="prModalTask" style="width:100%"><option value="">— Genel Atölye İhtiyacı —</option></select></div>
+      <div class="form-group"><label>Talep Nedeni / Açıklama</label><textarea id="prModalReason" rows="2" placeholder="Neden talep ediliyor?"></textarea></div>
+      <div class="form-group"><label>Tedarik / Talep Durumu</label>
+        <select id="prModalStatus" style="width:100%">
+          <option value="approved">✅ Onaylandı (Sipariş Bekliyor)</option>
+          <option value="pending">⏳ Onay Bekliyor</option>
+          <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
+          <option value="shipping">🚢 Sevkiyatta</option>
+          <option value="received">📦 Depoya Ulaştı (Teslim Alındı)</option>
+        </select>
+      </div>
+      <div id="prModalColFields" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem"></div>
+      <div class="form-group" style="margin-top:.75rem"><label>Tedarikçi / Sipariş / Kargo Notu</label><input type="text" id="prModalAdminNote" placeholder="Tedarikçi firma, sipariş no, kargo takip veya özel not..."></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('purchaseModal')">İptal</button><button class="btn btn-primary" id="prModalSaveBtn" onclick="savePurchaseRequest()">💾 Talebi Kaydet</button></div>
+  </div>
+</div>
+
+<!-- ── VFD CİHAZ MARKA/MODEL TANIMLARI MODALI ── -->
+<div class="modal-overlay" id="vfdDevicesModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h3>⚙️ Sürücü & Cihaz Tanımları</h3>
+      <button class="modal-close" onclick="closeModal('vfdDevicesModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:1rem">
+        <input type="hidden" id="editVfdDevId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.4rem">
+          <div class="form-group" style="margin:0"><label>Marka *</label><input type="text" id="vfdDevBrand" placeholder="Örn: Schneider"></div>
+          <div class="form-group" style="margin:0"><label>Model *</label><input type="text" id="vfdDevModel" placeholder="Örn: ATV320"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 .5rem"><label>Açıklama / Not</label><input type="text" id="vfdDevNotes" placeholder="Örn: Vinç kedi/yürütme sürücüsü"></div>
+        <div style="display:flex;justify-content:flex-end;gap:.4rem">
+          <button type="button" class="btn btn-ghost btn-sm" id="vfdDevCancelEditBtn" style="display:none" onclick="cancelVfdDevEdit()">Vazgeç</button>
+          <button type="button" class="btn btn-primary btn-sm" id="vfdDevSaveBtn" onclick="saveVfdDevice()">💾 Cihazı Kaydet</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table style="font-size:.8rem">
+        <thead><tr><th>Marka</th><th>Model</th><th>Not</th><th>İşlem</th></tr></thead>
+        <tbody id="vfdDevicesTbody"></tbody>
+      </table></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('vfdDevicesModal')">Kapat</button></div>
+  </div>
+</div>
+
+<!-- ── VFD PARAMETRE / HATA KAYIT MODALI ── -->
+<div class="modal-overlay" id="vfdRecordModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="vfdRecordModalTitle">⚡ Yeni Sürücü Kaydı</h3>
+      <button class="modal-close" onclick="closeModal('vfdRecordModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="editVfdRecId">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group">
+          <label>Kayıt Türü *</label>
+          <select id="vfdRecType" style="width:100%" onchange="updateVfdRecordLabels()">
+            <option value="parameter">📋 Parametre</option>
+            <option value="fault">⚠️ Hata Kodu (Arıza Teşhis)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cihaz / Model *</label>
+          <select id="vfdRecDeviceId" style="width:100%"></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:.65rem">
+        <div class="form-group">
+          <label id="vfdRecCodeLabel">Parametre Kodu *</label>
+          <input type="text" id="vfdRecCode" placeholder="Örn: ACC veya OCF">
+        </div>
+        <div class="form-group">
+          <label id="vfdRecTitleLabel">Parametre Adı / Başlık *</label>
+          <input type="text" id="vfdRecTitle" placeholder="Örn: Hızlanma Rampası Süresi">
+        </div>
+      </div>
+      <div class="form-group">
+        <label id="vfdRecDescLabel">Açıklama / Fabrika Değeri</label>
+        <textarea id="vfdRecDesc" rows="2" placeholder="Örn: 3.0s — Motorun 0'dan nominal hıza çıkış süresi..."></textarea>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label id="vfdRecStepsLabel">Atölye Ayar / Çözüm Adımları</label>
+        <textarea id="vfdRecSteps" rows="4" placeholder="1. Menüden CONF -> FULL -> FUN_ girin&#10;2. ACC değerini 5.0 yapın..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('vfdRecordModal')">İptal</button>
+      <button class="btn btn-primary" id="vfdRecSaveBtn" onclick="saveVfdRecord()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script>
+const _f = window.fetch.bind(window);
+window.fetch = function(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    var t = localStorage.getItem('stok_token');
+    if (t) opts.headers['Authorization'] = 'Bearer ' + t;
+  }
+  return _f(url, opts);
+};
+
+let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
+let pendingTransfers = [], activityLogs = [], adminAfterSales = [], me = null;
+let vfdDevices = [], vfdRecords = [], currentVfdTab = 'parameter';
+let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
+let firmCollapsed = {};
+
+async function init() {
+  me = await api('/api/me');
+  if (!me) return window.location.href = '/';
+  document.getElementById('userName').textContent = me.display_name || me.username;
+  document.getElementById('avatarInit').textContent = (me.display_name || me.username)[0].toUpperCase();
+  updateTime(); 
+  setInterval(updateTime, 1000); // Saniye saniye akış
+  await loadAll();
+  showPage('dashboard');
+  connectSSE();
+  loadGold();
+  setInterval(loadGold, 5 * 60 * 1000);
 }
 
-// ── SAHA ARIZA & SERVİS YÖNETİMİ (TICKET) FONKSİYONLARI ──────────────────
-let serviceTickets = [];
+function connectSSE() {
+  const _sseToken = localStorage.getItem('stok_token') || '';
+  const es = new EventSource('/api/events?token=' + encodeURIComponent(_sseToken));
+  es.addEventListener('connected', () => { document.getElementById('liveInd').innerHTML = '<span class="live-dot"></span>canlı'; });
+  es.addEventListener('after_sales_new', async () => {
+    await loadAdminAfterSales();
+    if (currentPage === 'after_sales') renderAdminAfterSales();
+  });
+  es.addEventListener('after_sales_update', async () => {
+    await loadAdminAfterSales();
+    if (currentPage === 'after_sales') renderAdminAfterSales();
+  });
+  es.addEventListener('tx_new', async () => {
+    await loadTransactions();
+    if (currentPage === 'transactions') renderTransactions();
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'bulktake' && document.getElementById('bulkMachine')?.value) loadMachinePreview();
+    else { newTxCount++; document.getElementById('txBadge').textContent = newTxCount; document.getElementById('txBadge').style.display = 'inline'; }
+  });
+  es.addEventListener('stock_update', async () => {
+    await loadProducts();
+    if (currentPage === 'products') renderProducts();
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'machines') { await loadMachines(); renderMachines(); }
+    if (currentPage === 'bulktake' && document.getElementById('bulkMachine')?.value) loadMachinePreview();
+  });
+  es.addEventListener('bom_category_update', async () => {
+    await loadBomCategories();
+    if (currentPage === 'bom_categories') renderBomCategories();
+    if (currentPage === 'products') renderProducts();
+    if (currentPage === 'machines') renderMachines();
+  });
+  es.addEventListener('firm_update', async () => {
+    await loadFirms(); await loadMachines();
+    renderFirmLists();
+    if (currentPage === 'firms') renderFirms();
+    if (currentPage === 'machines') renderMachines();
+    if (currentPage === 'tasks') renderTasks();
+    if (currentPage === 'opentasks') renderOpenTasks();
+    if (currentPage === 'bulktake') filterBulkMachines();
+    if (currentPage === 'dashboard') renderDashboard();
+  });
+  es.addEventListener('machine_update', async () => {
+    await loadMachines();
+    if (currentPage === 'machines') renderMachines();
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'bulktake') filterBulkMachines();
+  });
+  es.addEventListener('user_update', async () => {
+    await loadUsers();
+    if (currentPage === 'users') renderUsers();
+    if (currentPage === 'tasks') renderTasks();
+    if (currentPage === 'activity') renderActivityLogs();
+  });
+  es.addEventListener('column_update', async () => {
+    await loadColumns(); await loadProducts();
+    if (currentPage === 'columns') renderColumns();
+    if (currentPage === 'products') renderProducts();
+    if (currentPage === 'dashboard') renderDashboard();
+  });
+  es.addEventListener('vfd_device_update', async () => {
+    await loadVfdDevices();
+    if (currentPage === 'vfd') renderVfdRecords();
+  });
+  es.addEventListener('vfd_record_update', async () => {
+    await loadVfdRecords();
+    if (currentPage === 'vfd') renderVfdRecords();
+  });
+  es.addEventListener('activity_new', function() { if (currentPage === 'activity') loadActivityLogs().then(renderActivityLogs); });
+  es.addEventListener('notif_new', function() { loadNotifs(); });
+  es.addEventListener('purchase_new', function() { loadPurchases().then(function() { if (currentPage === 'purchases') renderPurchases(); }); });
+  es.addEventListener('comment_new', function() { if (_commentSid && document.getElementById('commentModal')?.classList.contains('open')) loadComments(); });
+  es.addEventListener('task_update', async () => {
+    await loadTasks();
+    document.getElementById('taskBadge').style.display = 'inline';
+    if (currentPage === 'tasks') renderTasks();
+    if (currentPage === 'mytasks') renderMyTasks();
+    if (currentPage === 'opentasks') renderOpenTasks();
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'performance') await loadPerformance();
+  });
+  es.addEventListener('gold_update', e => { updateGoldDisplay(JSON.parse(e.data)); });
+  es.onerror = () => {
+    document.getElementById('liveInd').innerHTML = '<span style="color:var(--danger)">● yeniden bağlanıyor</span>';
+    es.close(); setTimeout(connectSSE, 3000);
+  };
+}
 
-async function loadServiceTickets() {
-  serviceTickets = await api('/api/service-tickets') || [];
-  const openCount = serviceTickets.filter(t => t.status === 'open' || t.status === 'in_progress').length;
-  const badge = document.getElementById('ticketBadge');
-  if (badge) {
-    badge.textContent = openCount;
-    badge.style.display = openCount > 0 ? 'inline' : 'none';
+async function loadAll() {
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll(), loadAdminAfterSales()]);
+  renderFirmLists();
+}
+async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
+async function loadBomCategories() { bomCategories = await api('/api/bom-categories') || []; }
+async function loadColumns() { columns = await api('/api/columns') || []; }
+async function loadProducts() {
+  const [prods, lc] = await Promise.all([api('/api/products'), api('/api/lots/counts')]);
+  products = prods || [];
+  if (lc) products.forEach(p => { p._lc = lc[p.id] || 0; });
+}
+async function loadTransactions() { transactions = await api('/api/transactions?limit=300') || []; }
+async function loadUsers() { users = await api('/api/users') || []; if (currentPage === 'users') renderUsers(); }
+async function loadActivityLogs() { activityLogs = await api('/api/activity-logs?limit=300') || []; }
+async function loadMachines() { machines = await api('/api/machines') || []; }
+async function loadFirms() { firms = await api('/api/firms') || []; }
+async function loadTasks() { 
+  tasks = await api('/api/tasks') || []; 
+  pendingTransfers = await api('/api/task-transfers/pending') || [];
+  const cnt = pendingTransfers.length;
+  const ab = document.getElementById('alertBadge');
+  if (ab) { if (cnt) { ab.textContent = cnt; ab.style.display = 'inline'; } else ab.style.display = 'none'; }
+}
+async function loadPerformance() { perf = await api('/api/performance') || []; renderPerformance(); }
+async function loadGold() { const g = await api('/api/gold'); if (g) updateGoldDisplay(g); }
+
+async function loadVfdAll() { await Promise.all([loadVfdDevices(), loadVfdRecords()]); }
+async function loadVfdDevices() { vfdDevices = await api('/api/vfd/devices') || []; }
+async function loadVfdRecords() { vfdRecords = await api('/api/vfd/records') || []; }
+
+async function loadAdminAfterSales() {
+  adminAfterSales = await api('/api/after-sales-requests') || [];
+  const pCount = adminAfterSales.filter(r => r.status === 'pending').length;
+  const b = document.getElementById('asAdminBadge');
+  if (b) { b.textContent = pCount; b.style.display = pCount > 0 ? 'inline' : 'none'; }
+}
+
+function updateGoldDisplay(g) {
+  if (g.error) { document.getElementById('goldPrice').textContent = '—'; document.getElementById('goldMeta').textContent = g.error; return; }
+  document.getElementById('goldPrice').textContent = parseFloat(g.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺';
+  document.getElementById('goldMeta').textContent = '1 USD = ' + parseFloat(g.usdtry).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺';
+}
+
+async function api(url, method = 'GET', body = null) {
+  try {
+    const token = localStorage.getItem('stok_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (err) {
+      if (res.status === 401) { localStorage.removeItem('stok_token'); window.location.href = '/'; return null; }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error'); return null;
+    }
+    if (!res.ok) { toast(data.error || 'İşlem başarısız (' + res.status + ')', 'error'); return null; }
+    return data;
+  } catch (e) { toast('Bağlantı sorunu oluştu', 'error'); return null; }
+}
+
+function downloadCSV(url) {
+  const token = localStorage.getItem('stok_token') || '';
+  window.location.href = url + '?token=' + encodeURIComponent(token);
+}
+
+// Buton Kilitleme & Yükleniyor Güvencesi
+async function withButtonLock(btnId, loadingText, asyncAction) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return await asyncAction();
+  if (btn.disabled) return;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  if (loadingText) btn.innerHTML = loadingText;
+  try {
+    return await asyncAction();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
   }
 }
 
-function renderServiceTickets() {
-  const q = (document.getElementById('ticketSearch')?.value || '').toLowerCase();
-  const f = document.getElementById('ticketStatusFilter')?.value || '';
-  
-  let list = serviceTickets;
-  if (f) list = list.filter(t => t.status === f);
+// Arama Debounce'u
+let searchDebounceTimers = {};
+function handleSearchInput(inputEl, callbackFn) {
+  const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+  if (clearBtn) clearBtn.style.display = inputEl.value ? 'block' : 'none';
+  const key = inputEl.id || 'default';
+  clearTimeout(searchDebounceTimers[key]);
+  searchDebounceTimers[key] = setTimeout(() => {
+    if (callbackFn) callbackFn();
+  }, 180);
+}
+
+function clearSearchInput(inputId, callbackFn) {
+  const inputEl = document.getElementById(inputId);
+  if (inputEl) {
+    inputEl.value = '';
+    const clearBtn = inputEl.parentElement.querySelector('.search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (callbackFn) callbackFn();
+    inputEl.focus();
+  }
+}
+
+const pageTitles = { 
+  dashboard: 'Gösterge Paneli', 
+  products: 'Ürün Yönetimi', 
+  columns: 'Sütun Yönetimi', 
+  firms: 'Firma Yönetimi', 
+  machines: 'Vinç Yönetimi', 
+  after_sales: 'Satış Sonrası Revizyon Talepleri',
+  bom: 'BOM Sütunları', 
+  bom_categories: 'BOM Kategorileri', 
+  vfd: 'Sürücü & Parametre Kütüphanesi',
+  tasks: 'İş Panosu',
+  mytasks: 'İşlerim (Yönetici)',
+  opentasks: 'Açık İşler (Üstlen)',
+  take: 'Ürün Al',
+  bulktake: 'Vinç İçin Al',
+  return: 'Ürün İade',
+  performance: 'Performans', 
+  transactions: 'İşlem Geçmişi', 
+  users: 'Kullanıcı Yönetimi', 
+  activity: 'Aktivite Günlüğü (Audit Trail)',
+  purchases: 'Satın Alma Talepleri' 
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const targetPage = document.getElementById('page-' + name);
+  if (targetPage) targetPage.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  document.getElementById('pageTitle').textContent = pageTitles[name] || name;
+  currentPage = name;
+  if (name === 'transactions') { newTxCount = 0; document.getElementById('txBadge').style.display = 'none'; }
+  if (name === 'tasks') document.getElementById('taskBadge').style.display = 'none';
+
+  const renderNow = { 
+    dashboard: renderDashboard, 
+    products: renderProducts, 
+    columns: renderColumns, 
+    firms: renderFirms, 
+    machines: renderMachines, 
+    after_sales: renderAdminAfterSales,
+    bom: renderBomColumns, 
+    bom_categories: renderBomCategories, 
+    vfd: renderVfdRecords,
+    tasks: renderTasks,
+    mytasks: renderMyTasks,
+    opentasks: renderOpenTasks,
+    take: () => { renderFirmLists(); },
+    bulktake: () => { renderFirmLists(); filterBulkMachines(); },
+    return: () => { renderFirmLists(); },
+    transactions: renderTransactions, 
+    users: renderUsers,
+    activity: renderActivityLogs,
+    purchases: renderPurchases 
+  };
+  renderNow[name]?.();
+}
+
+function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+// ── SATIŞ SONRASI TALEPLERİ (YÖNETİCİ PANELİ) ─────────────────────────────
+function renderAdminAfterSales() {
+  const q = (document.getElementById('asAdminSearch')?.value || '').toLowerCase();
+  const f = document.getElementById('asAdminStatusFilter')?.value || '';
+  let list = adminAfterSales;
+  if (f) list = list.filter(r => r.status === f);
   if (q) {
-    list = list.filter(t => 
-      (t.customer_name || '').toLowerCase().includes(q) ||
-      (t.customer_phone || '').toLowerCase().includes(q) ||
-      (t.fault_description || '').toLowerCase().includes(q) ||
-      (t.machine_name || '').toLowerCase().includes(q) ||
-      (t.firm_name || '').toLowerCase().includes(q) ||
-      (t.fault_code || '').toLowerCase().includes(q)
+    list = list.filter(r => 
+      (r.customer_firm || '').toLowerCase().includes(q) ||
+      (r.serial_number || '').toLowerCase().includes(q) ||
+      (r.hoist_motor_kw || '').toLowerCase().includes(q) ||
+      (r.bridge_motor_kw || '').toLowerCase().includes(q) ||
+      (r.brake_voltage || '').toLowerCase().includes(q)
     );
   }
-
-  const cont = document.getElementById('serviceTicketsList');
+  const cont = document.getElementById('asAdminList');
   if (!cont) return;
   if (!list.length) {
-    cont.innerHTML = '<div class="card empty"><div class="icon">🚨</div>Saha arıza veya servis bildirimi bulunmuyor</div>';
+    cont.innerHTML = '<div class="card empty"><div class="icon">🛠️</div>Satış sonrası revizyon talebi bulunmuyor</div>';
     return;
   }
 
-  const stLabels = {
-    open: { l: '⏳ Açık / İnceleniyor', c: 'var(--danger)' },
-    in_progress: { l: '🔧 Müdahale Ediliyor', c: 'var(--warning)' },
-    resolved: { l: '✅ Çözüldü / Kapatıldı', c: 'var(--success)' },
-    closed: { l: '❌ İptal Edildi', c: 'var(--muted)' }
-  };
-
-  cont.innerHTML = list.map(t => {
-    const st = stLabels[t.status] || stLabels.open;
+  cont.innerHTML = list.map(r => {
+    const isPending = r.status === 'pending';
     return `
-      <div class="card" style="margin-bottom:.75rem;padding:1rem 1.15rem;border-left:4px solid ${st.c}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap">
+      <div class="as-request-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
           <div>
-            <span class="badge" style="background:rgba(255,107,107,0.15);color:var(--danger)">🚨 Saha Servis #${t.id}</span>
-            <strong style="font-size:1rem;color:#fff;margin-left:.4rem">${esc(t.firm_name || 'Bilinmeyen Firma')} — ${esc(t.machine_name)}</strong>
-            <span style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-left:.5rem">Pasaport: ${esc(t.passport_code)}</span>
+            <span class="badge badge-after_sales">🛠️ Pano Revizyon Talebi #${r.id}</span>
+            <strong style="font-size:1rem;color:#fff;margin-left:.4rem">${esc(r.customer_firm)}</strong>
+            ${r.serial_number ? `<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-left:.35rem">Seri No: ${esc(r.serial_number)}</span>` : ''}
+            <span style="font-size:.72rem;color:var(--muted);margin-left:.5rem">Talep Eden: <strong>${esc(r.requester_name || r.requester_username || '?')}</strong></span>
           </div>
-          <div style="display:flex;gap:.4rem;align-items:center">
-            <span style="font-family:var(--mono);font-size:.72rem;font-weight:700;color:${st.c}">${st.l}</span>
-          </div>
-        </div>
-
-        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem;margin-bottom:.6rem;font-size:.85rem">
-          <div><strong>Bildiren:</strong> ${esc(t.customer_name)} (${esc(t.customer_phone)})</div>
-          <div style="margin-top:.3rem"><strong>Arıza Kategori:</strong> <span style="text-transform:uppercase;font-family:var(--mono);font-size:.75rem">${esc(t.fault_category)}</span></div>
-          ${t.fault_code ? `<div style="margin-top:.3rem"><strong>Sürücü Hata Kodu:</strong> <span style="font-family:var(--mono);color:var(--accent);font-weight:800">${esc(t.fault_code)}</span></div>` : ''}
-          <div style="margin-top:.4rem"><strong>Şikayet / Açıklama:</strong> ${esc(t.fault_description)}</div>
-          ${t.onedrive_media_url ? `<div style="margin-top:.4rem"><strong>Medya / Fotoğraf:</strong> <a href="${esc(t.onedrive_media_url)}" target="_blank" style="color:var(--primary)">OneDrive Linkini Aç ↗</a></div>` : ''}
-        </div>
-
-        ${t.admin_resolution_note ? `<div style="background:rgba(60,212,160,0.1);border:1px solid rgba(60,212,160,0.3);border-radius:6px;padding:.6rem;font-size:.8rem;color:var(--success);margin-bottom:.6rem"><strong>Atölye Çözüm Notu:</strong> ${esc(t.admin_resolution_note)}</div>` : ''}
-
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
-          <span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Bildirim Zamanı: ${fmtDate(t.created_at)}</span>
-          <div style="display:flex;gap:.4rem">
-            <button class="btn btn-ghost btn-sm" onclick="openTicketActionModal(${t.id})">✏️ Durum & Çözüm Notu Güncelle</button>
+          <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            ${isPending ? `<button class="btn btn-primary btn-sm" onclick="createBomFromAfterSales(${r.id})">🛠️ Bu Talebe BOM Listesi Oluştur</button>` : `<span class="badge badge-ok">✅ BOM Bağlandı (#${r.machine_id})</span>`}
+            ${r.machine_id ? `<button class="btn btn-ghost btn-sm" onclick="openBomPricingAdmin(${r.machine_id})">💰 Fiyatlı BOM Aç</button>` : ''}
+            ${r.status !== 'completed' ? `<button class="btn btn-success btn-sm" onclick="markAfterSalesCompleted(${r.id})">✓ Tamamlandı İşaretle</button>` : '<span class="badge badge-ok">🎉 Tamamlandı</span>'}
           </div>
         </div>
+        <div style="margin-top:.4rem">
+          <span class="as-spec-chip">Kanca Motoru: <strong style="color:#38bdf8">${esc(r.hoist_motor_kw)}</strong></span>
+          <span class="as-spec-chip">Kedi Motoru: <strong style="color:#38bdf8">${esc(r.trolley_motor_kw)} (${r.trolley_motor_count} Adet)</strong></span>
+          <span class="as-spec-chip">Köprü Motoru: <strong style="color:#38bdf8">${esc(r.bridge_motor_kw)}</strong></span>
+          <span class="as-spec-chip">Fren Voltajı: <strong style="color:var(--accent)">${esc(r.brake_voltage)}</strong></span>
+          ${r.lifting_height ? `<span class="as-spec-chip">Kaldırma Yüksekliği: <strong>${esc(r.lifting_height)} m</strong></span>` : ''}
+          <span class="as-spec-chip" style="color:${r.bridge_installation_requested ? 'var(--success)' : 'var(--muted)'}">Köprü Tesisatı: <strong>${r.bridge_installation_requested ? 'İsteniyor' : 'Yok'}</strong></span>
+          ${r.bridge_span ? `<span class="as-spec-chip">Köprü Aks Açıklığı: <strong>${esc(r.bridge_span)} m</strong></span>` : ''}
+        </div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.45rem">Talep Tarihi: ${fmtDate(r.created_at)}</div>
       </div>
     `;
   }).join('');
 }
 
-function openTicketActionModal(ticketId) {
-  const t = serviceTickets.find(x => x.id == ticketId);
-  if (!t) return;
+function openBomPricingAdmin(machineId) {
+  const token = localStorage.getItem('stok_token');
+  window.open(`/bom/${machineId}?pricing=1&token=${encodeURIComponent(token)}`, '_blank');
+}
 
-  let modal = document.getElementById('ticketActionModal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'ticketActionModal';
-    modal.innerHTML = `
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <h3>🚨 Saha Servis Talebi İşlemi</h3>
-          <button class="modal-close" onclick="closeModal('ticketActionModal')">×</button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="tamTicketId">
-          <div class="form-group">
-            <label>Talep Durumu</label>
-            <select id="tamStatus" style="width:100%">
-              <option value="open">⏳ Açık / İnceleniyor</option>
-              <option value="in_progress">🔧 Müdahale Ediliyor</option>
-              <option value="resolved">✅ Çözüldü / Kapatıldı</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Atölye Çözüm / Müdahale Notu</label>
-            <textarea id="tamNote" rows="3" placeholder="Müşteriye iletilecek çözüm notu..."></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('ticketActionModal')">İptal</button>
-          <button class="btn btn-primary" onclick="saveTicketAction()">💾 Güncelle</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
+function createBomFromAfterSales(reqId) {
+  const r = adminAfterSales.find(x => x.id == reqId);
+  if (!r) return;
+  openMachineModal();
+  document.getElementById('linkedAfterSalesReqId').value = r.id;
+  document.getElementById('machineName').value = `${r.customer_firm}${r.serial_number ? ' (' + r.serial_number + ')' : ''} - Revizyon Panosu`;
+  document.getElementById('machineCapacity').value = `Kanca ${r.hoist_motor_kw}`;
+  document.getElementById('machineSpan').value = r.bridge_span || '';
+  document.getElementById('machineLiftingHeight').value = r.lifting_height || '';
+  document.getElementById('machineNotes').value = `Satış Sonrası Talebi (#${r.id}) | Kanca: ${r.hoist_motor_kw}, Kedi: ${r.trolley_motor_kw} (${r.trolley_motor_count} Ad), Köprü: ${r.bridge_motor_kw}, Fren Voltajı: ${r.brake_voltage}${r.bridge_installation_requested ? ', Köprü Tesisatı İsteniyor' : ''}`;
+  toast('9 teknik kriter vinç reçetesine aktarıldı. Malzemeleri ekleyip kaydedin ✓', 'success');
+}
+
+async function markAfterSalesCompleted(reqId) {
+  if (!confirm('Bu revizyon talebini tamamlandı olarak işaretlemek istiyor musunuz?')) return;
+  await api('/api/after-sales-requests/' + reqId, 'PUT', { status: 'completed' });
+  await loadAdminAfterSales();
+  renderAdminAfterSales();
+  toast('Talep tamamlandı olarak işaretlendi ✓', 'success');
+}
+
+// ── MADDE 4: AKILLI BOM ÖNERİ MOTORU (AI SUGGEST) ────────────────────────
+async function triggerAiSuggest() {
+  const capacity = document.getElementById('machineCapacity').value.trim();
+  const crane_type = document.getElementById('machineCraneType').value.trim();
+  const span = document.getElementById('machineSpan').value.trim();
+  const environment = document.getElementById('machineEnvironment').value;
+
+  if (!capacity && !crane_type && !span) {
+    toast('Lütfen önce tonaj, vinç tipi veya köprü açıklığı bilgilerinden en az birini girin', 'error');
+    return;
   }
 
-  document.getElementById('tamTicketId').value = t.id;
-  document.getElementById('tamStatus').value = t.status || 'open';
-  document.getElementById('tamNote').value = t.admin_resolution_note || '';
-  openModal('ticketActionModal');
+  const res = await api('/api/machines/ai-suggest', 'POST', { capacity, crane_type, span, environment });
+  if (!res || !res.items || !res.items.length) {
+    toast('Geçmişte bu parametrelere benzer yeterli reçete verisi bulunamadı', 'error');
+    return;
+  }
+
+  if (confirm(`Geçmişteki benzer proje "${res.matched_source}" (%${res.similarity_score} eşleşme) üzerinden ${res.items.length} kalem malzeme taslağa eklensin mi?`)) {
+    document.getElementById('machineItems').innerHTML = '';
+    res.items.forEach(it => {
+      addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || '', it.placement || 'pano');
+    });
+    toast('Akıllı taslak reçete başarıyla yüklendi ✓', 'success');
+  }
 }
 
-async function saveTicketAction() {
-  const id = document.getElementById('tamTicketId').value;
-  const status = document.getElementById('tamStatus').value;
-  const admin_resolution_note = document.getElementById('tamNote').value.trim();
-
-  const res = await api('/api/service-tickets/' + id, 'PUT', { status, admin_resolution_note });
-  if (!res) return;
-
-  closeModal('ticketActionModal');
-  await loadServiceTickets();
-  renderServiceTickets();
-  toast('Servis talebi güncellendi ✓', 'success');
+// ── MADDE 3: SERBEST DOĞRUDAN STOK GİRİŞİ ─────────────────────────────────
+function openDirectInModal() {
+  const sel = document.getElementById('directInProd');
+  const firstCol = columns[0];
+  sel.innerHTML = '<option value="">— Ürün Seçin —</option>' + products.map(p => {
+    const name = firstCol && p.values?.[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
+    return `<option value="${p.id}">${esc(name)}</option>`;
+  }).join('');
+  document.getElementById('directInQty').value = '';
+  document.getElementById('directInYear').value = new Date().getFullYear();
+  document.getElementById('directInSupplier').value = '';
+  document.getElementById('directInNotes').value = '';
+  openModal('directInModal');
 }
+
+async function saveDirectIn() {
+  await withButtonLock('directInSaveBtn', 'Stoğa Ekleniyor...', async () => {
+    const product_id = document.getElementById('directInProd').value;
+    const quantity = parseFloat(document.getElementById('directInQty').value);
+    const production_year = parseInt(document.getElementById('directInYear').value) || null;
+    const supplier_firm = document.getElementById('directInSupplier').value.trim();
+    const notes = document.getElementById('directInNotes').value.trim();
+
+    if (!product_id || isNaN(quantity) || quantity <= 0) {
+      toast('Lütfen geçerli bir ürün ve miktar girin', 'error');
+      return;
+    }
+
+    const r = await api('/api/products/direct-in', 'POST', { product_id, quantity, production_year, supplier_firm, notes });
+    if (!r) return;
+    closeModal('directInModal');
+    await Promise.all([loadProducts(), loadTransactions()]);
+    renderProducts();
+    toast('Doğrudan stok girişi başarıyla yapıldı ✓', 'success');
+  });
+}
+
+// ── VFD / SÜRÜCÜ & CİHAZ KÜTÜPHANESİ FONKSİYONLARI ────────────────────────
+function switchVfdTab(tab) {
+  currentVfdTab = tab;
+  document.getElementById('vfdTabParamBtn').classList.toggle('active', tab === 'parameter');
+  document.getElementById('vfdTabFaultBtn').classList.toggle('active', tab === 'fault');
+  renderVfdRecords();
+}
+
+function renderVfdRecords() {
+  const fsel = document.getElementById('vfdDeviceFilter');
+  if (fsel) {
+    const cur = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Cihazlar / Modeller</option>' + vfdDevices.map(d => `<option value="${d.id}" ${String(d.id) === cur ? 'selected' : ''}>⚡ ${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+    fsel.value = cur;
+  }
+  const curDev = fsel?.value || '';
+  const sq = (document.getElementById('vfdSearch')?.value || '').toLowerCase();
+
+  let list = vfdRecords.filter(r => r.record_type === currentVfdTab);
+  if (curDev) list = list.filter(r => String(r.device_id) === curDev);
+  if (sq) {
+    list = list.filter(r => 
+      (r.code || '').toLowerCase().includes(sq) ||
+      (r.title || '').toLowerCase().includes(sq) ||
+      (r.description || '').toLowerCase().includes(sq) ||
+      (r.solution_steps || '').toLowerCase().includes(sq) ||
+      (r.brand || '').toLowerCase().includes(sq) ||
+      (r.model || '').toLowerCase().includes(sq)
+    );
+  }
+
+  const tbody = document.getElementById('vfdRecordsTbody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty"><div class="icon">⚡</div>${currentVfdTab === 'parameter' ? 'Kayıtlı parametre bulunamadı' : 'Kayıtlı hata kodu bulunamadı'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(r => `<tr>
+    <td><span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚡ ${esc(r.brand)} ${esc(r.model)}</span></td>
+    <td><strong style="font-family:var(--mono);color:var(--accent);font-size:.9rem">${esc(r.code)}</strong></td>
+    <td><strong>${esc(r.title)}</strong></td>
+    <td style="font-size:.8rem;color:var(--text2)">${esc(r.description || '—')}</td>
+    <td style="font-size:.8rem;line-height:1.4;white-space:pre-wrap">${esc(r.solution_steps || '—')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="editVfdRecord(${r.id})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVfdRecord(${r.id})">×</button>
+    </td>
+  </tr>`).join('');
+}
+
+function openVfdRecordModal() {
+  document.getElementById('editVfdRecId').value = '';
+  document.getElementById('vfdRecType').value = currentVfdTab;
+  document.getElementById('vfdRecDeviceId').innerHTML = vfdDevices.map(d => `<option value="${d.id}">${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+  document.getElementById('vfdRecCode').value = '';
+  document.getElementById('vfdRecTitle').value = '';
+  document.getElementById('vfdRecDesc').value = '';
+  document.getElementById('vfdRecSteps').value = '';
+  updateVfdRecordLabels();
+  document.getElementById('vfdRecordModalTitle').textContent = `⚡ Yeni ${currentVfdTab === 'fault' ? 'Hata Kodu' : 'Parametre'} Ekle`;
+  openModal('vfdRecordModal');
+}
+
+function editVfdRecord(id) {
+  const r = vfdRecords.find(x => x.id == id);
+  if (!r) return;
+  document.getElementById('editVfdRecId').value = r.id;
+  document.getElementById('vfdRecType').value = r.record_type;
+  document.getElementById('vfdRecDeviceId').innerHTML = vfdDevices.map(d => `<option value="${d.id}" ${d.id == r.device_id ? 'selected' : ''}>${esc(d.brand)} - ${esc(d.model)}</option>`).join('');
+  document.getElementById('vfdRecCode').value = r.code || '';
+  document.getElementById('vfdRecTitle').value = r.title || '';
+  document.getElementById('vfdRecDesc').value = r.description || '';
+  document.getElementById('vfdRecSteps').value = r.solution_steps || '';
+  updateVfdRecordLabels();
+  document.getElementById('vfdRecordModalTitle').textContent = `✏ ${r.record_type === 'fault' ? 'Hata Kodu' : 'Parametre'} Düzenle`;
+  openModal('vfdRecordModal');
+}
+
+function updateVfdRecordLabels() {
+  const typ = document.getElementById('vfdRecType').value;
+  const isFault = typ === 'fault';
+  document.getElementById('vfdRecCodeLabel').textContent = isFault ? 'Hata Kodu *' : 'Parametre Kodu *';
+  document.getElementById('vfdRecTitleLabel').textContent = isFault ? 'Hata Başlığı / Anlamı *' : 'Parametre Adı / Başlık *';
+  document.getElementById('vfdRecDescLabel').textContent = isFault ? 'Olası Nedenler' : 'Açıklama / Fabrika Değeri';
+  document.getElementById('vfdRecStepsLabel').textContent = isFault ? 'Atölye Çözüm / Kontrol Adımları' : 'Atölye Ayar Adımları / Değerler';
+}
+
+async function saveVfdRecord() {
+  await withButtonLock('vfdRecSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editVfdRecId').value;
+    const record_type = document.getElementById('vfdRecType').value;
+    const device_id = document.getElementById('vfdRecDeviceId').value;
+    const code = document.getElementById('vfdRecCode').value.trim();
+    const title = document.getElementById('vfdRecTitle').value.trim();
+    const description = document.getElementById('vfdRecDesc').value.trim();
+    const solution_steps = document.getElementById('vfdRecSteps').value.trim();
+
+    if (!device_id || !code || !title) { toast('Cihaz, kod ve başlık zorunludur', 'error'); return; }
+
+    const payload = { record_type, device_id, code, title, description, solution_steps };
+    let r;
+    if (id) r = await api('/api/vfd/records/' + id, 'PUT', payload);
+    else r = await api('/api/vfd/records', 'POST', payload);
+
+    if (!r) return;
+    closeModal('vfdRecordModal');
+    await loadVfdRecords();
+    renderVfdRecords();
+    toast('Kayıt kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteVfdRecord(id) {
+  if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
+  await api('/api/vfd/records/' + id, 'DELETE');
+  await loadVfdRecords();
+  renderVfdRecords();
+  toast('Kayıt silindi ✓', 'success');
+}
+
+// Cihaz (Marka & Model) Yönetim Fonksiyonları
+function openVfdDevicesModal() {
+  cancelVfdDevEdit();
+  renderVfdDevicesTable();
+  openModal('vfdDevicesModal');
+}
+
+function renderVfdDevicesTable() {
+  const tbody = document.getElementById('vfdDevicesTbody');
+  if (!tbody) return;
+  tbody.innerHTML = vfdDevices.map(d => `<tr>
+    <td><strong>${esc(d.brand)}</strong></td>
+    <td><strong style="color:var(--accent)">${esc(d.model)}</strong></td>
+    <td style="color:var(--text2);font-size:.75rem">${esc(d.notes || '—')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="editVfdDevice(${d.id})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVfdDevice(${d.id})">×</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">Tanımlı cihaz yok</td></tr>';
+}
+
+function editVfdDevice(id) {
+  const d = vfdDevices.find(x => x.id == id);
+  if (!d) return;
+  document.getElementById('editVfdDevId').value = d.id;
+  document.getElementById('vfdDevBrand').value = d.brand || '';
+  document.getElementById('vfdDevModel').value = d.model || '';
+  document.getElementById('vfdDevNotes').value = d.notes || '';
+  document.getElementById('vfdDevCancelEditBtn').style.display = 'inline-block';
+}
+
+function cancelVfdDevEdit() {
+  document.getElementById('editVfdDevId').value = '';
+  document.getElementById('vfdDevBrand').value = '';
+  document.getElementById('vfdDevModel').value = '';
+  document.getElementById('vfdDevNotes').value = '';
+  document.getElementById('vfdDevCancelEditBtn').style.display = 'none';
+}
+
+async function saveVfdDevice() {
+  await withButtonLock('vfdDevSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editVfdDevId').value;
+    const brand = document.getElementById('vfdDevBrand').value.trim();
+    const model = document.getElementById('vfdDevModel').value.trim();
+    const notes = document.getElementById('vfdDevNotes').value.trim();
+
+    if (!brand || !model) { toast('Marka ve model zorunludur', 'error'); return; }
+
+    let r;
+    if (id) r = await api('/api/vfd/devices/' + id, 'PUT', { brand, model, notes });
+    else r = await api('/api/vfd/devices', 'POST', { brand, model, notes });
+
+    if (!r) return;
+    cancelVfdDevEdit();
+    await loadVfdDevices();
+    renderVfdDevicesTable();
+    renderVfdRecords();
+    toast('Cihaz kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteVfdDevice(id) {
+  if (!confirm('Bu cihazı ve bu cihaza bağlı tüm parametre/hata kayıtlarını silmek istediğinizden emin misiniz?')) return;
+  await api('/api/vfd/devices/' + id, 'DELETE');
+  await loadVfdAll();
+  renderVfdDevicesTable();
+  renderVfdRecords();
+  toast('Cihaz silindi ✓', 'success');
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const numCol = columns.find(c => c.data_type === 'number');
+  const minS = numCol?.min_stock || 5;
+  const lowP = numCol ? products.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS) : [];
+  const openT = tasks.filter(t => t.status === 'open').length;
+  const inProg = tasks.filter(t => t.status === 'in_progress').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="label">Toplam Ürün</div><div class="value">${products.length}</div><div class="sub">stok kalemi</div></div>
+    <div class="stat-card"><div class="label">Düşük Stok</div><div class="value" style="color:var(--danger)">${lowP.length}</div><div class="sub">kritik</div></div>
+    <div class="stat-card"><div class="label">Açık İşler</div><div class="value" style="color:var(--warning)">${openT}</div><div class="sub">aşama bekleniyor</div></div>
+    <div class="stat-card"><div class="label">Devam Eden</div><div class="value" style="color:var(--success)">${inProg}</div><div class="sub">aktif</div></div>`;
+  renderLiveBoard();
+  document.querySelector('#dashTxTable tbody').innerHTML = transactions.slice(0, 8).map(t => `<tr><td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.product_name || '—')}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.quantity}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">—</td></tr>';
+  const ll = document.getElementById('lowStockList');
+  const firstCol = columns[0];
+  ll.innerHTML = lowP.length ? lowP.map(p => {
+    const name = firstCol ? (p.values?.[firstCol.id] || '—') : `#${p.id}`;
+    const qty = numCol ? (p.values?.[numCol.id] || 0) : '?';
+    return `<div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)"><span style="font-size:.83rem">${esc(name)}</span><span class="badge badge-low">${qty}</span></div>`;
+  }).join('') : '<div class="empty"><div class="icon">✅</div>Stok normal</div>';
+}
+
+function renderLiveBoard() {
+  const el = document.getElementById('liveBoard');
+  const active = [];
+  tasks.forEach(t => {
+    (t.stages || []).filter(s => s.status === 'in_progress' || s.status === 'pending_transfer').forEach(s => {
+      active.push({ task: t, stage: s });
+    });
+  });
+  if (!active.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1rem">Aktif iş yok</div>'; return; }
+  el.innerHTML = active.map(({ task: t, stage: s}) => `
+    <div style="display:flex;align-items:center;gap:.6rem;padding:.45rem .65rem;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;margin-bottom:.35rem">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--text2)">${esc(s.stage_name)} · ${esc(t.firm_name || '—')}</div>
+      </div>
+      <span class="badge" style="background:var(--success-dim);color:var(--success);white-space:nowrap">${esc(s.assignee_name || '?')}</span>
+      ${s.status === 'pending_transfer' ? '<span class="badge badge-low" style="font-size:.6rem">Devir</span>' : ''}
+    </div>`).join('');
+}
+
+// ── PRODUCTS & BOM CATEGORY HELPER ─────────────────────────────────────────
+function getProductCategory(p) {
+  if (!p || !p.values) return 'Genel';
+  const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
+  if (catCol && p.values[catCol.id]) return String(p.values[catCol.id]);
+  return String(p.values.category || p.values._category || 'Genel');
+}
+
+function renderProducts() {
+  const catSel = document.getElementById('productCatFilter');
+  if (catSel) {
+    const curCat = catSel.value;
+    catSel.innerHTML = '<option value="">📁 Tüm Kategoriler</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === curCat ? 'selected' : ''}>📁 ${esc(c.name)}</option>`).join('');
+    catSel.value = curCat;
+  }
+  const otherCols = columns.filter(c => (c.name || '').toLowerCase() !== 'kategori');
+  const theadTr = document.getElementById('productThead')?.querySelector('tr');
+  if (theadTr) {
+    theadTr.innerHTML = '<th>Sıra</th><th>Kategori</th>' + otherCols.map(c => `<th>${esc(c.name || 'Sütun')}</th>`).join('') + '<th>Model Yılı (Lot)</th><th>Sıralama</th><th></th><th>İşlem</th>';
+  }
+  filterProducts();
+}
+
+function renderProductRows(prods) {
+  const otherCols = columns.filter(c => (c.name || '').toLowerCase() !== 'kategori');
+  const numCol = columns.find(c => c.data_type === 'number');
+  const firstCol = columns[0];
+  const tbody = document.getElementById('productTbody');
+  if (!tbody) return;
+  if (!prods.length) {
+    tbody.innerHTML = `<tr><td colspan="${otherCols.length + 6}" class="empty"><div class="icon">📦</div>Ürün yok</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = prods.map((p, idx) => {
+    const catName = getProductCategory(p);
+    const nm = firstCol && p.values ? (p.values[firstCol.id] || '#' + p.id) : '#' + p.id;
+    const safeNm = esc(String(nm)).replace(/'/g, "\\'");
+    const safeCat = esc(String(catName)).replace(/'/g, "\\'");
+    const catCell = `<td><span class="badge badge-admin" style="cursor:pointer" onclick="editProductCategory(${p.id}, '${safeCat}')" title="Kategoriyi değiştir">📁 ${esc(catName)}</span></td>`;
+    const cells = otherCols.map(c => {
+      const val = p.values?.[c.id] ?? '';
+      const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
+      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow ? `<span class="badge badge-low">${esc(String(val))}</span>` : esc(String(val))}</td>`;
+    }).join('');
+    const lc = p._lc || 0;
+    const curOrder = p.display_order !== undefined ? p.display_order : (idx + 1);
+
+    return `<tr data-pid="${p.id}">
+      <td style="font-family:var(--mono);color:var(--muted);width:50px">${curOrder}</td>
+      ${catCell}
+      ${cells}
+      <td>
+        <button class="btn ${lc > 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="lotOpen(${p.id},'${safeNm}')" style="font-family:var(--mono);font-size:.72rem">
+          ${lc > 0 ? `⚡ ${lc} Model Yılı (Lot)` : '🗂️ Model Yılı Ekle'}
+        </button>
+      </td>
+      <td>
+        <div class="order-btn-wrap">
+          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, -1)">▲</button>
+          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, 1)">▼</button>
+        </div>
+      </td>
+      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})" title="Stok Geçmişi">📋</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterProducts() {
+  const q = (document.getElementById('productSearch')?.value || '').toLowerCase();
+  const catFilter = (document.getElementById('productCatFilter')?.value || '').toLowerCase();
+  
+  let prods = products;
+  if (catFilter) { prods = prods.filter(p => (getProductCategory(p) || '').toLowerCase() === catFilter); }
+  if (q) {
+    prods = prods.filter(p => {
+      const cName = (getProductCategory(p) || '').toLowerCase();
+      return cName.includes(q) || columns.some(c => String(p.values?.[c.id] ?? '').toLowerCase().includes(q));
+    });
+  }
+  renderProductRows(prods);
+}
+
+function openProductModal() {
+  const body = document.getElementById('productModalBody');
+  let html = `
+    <div class="form-group">
+      <label>📁 BOM Kategorisi</label>
+      <select id="prodModalCat" style="width:100%">
+        <option value="">— Kategori Seçin —</option>
+        ${bomCategories.map(cat => `<option value="${esc(cat.name)}">${esc(cat.name)}</option>`).join('')}
+      </select>
+    </div>
+  `;
+
+  columns.forEach(c => {
+    if (c.name && c.name.toLowerCase() === 'kategori') return;
+    html += `
+      <div class="form-group">
+        <label>${esc(c.name || 'Sütun')} ${c.data_type === 'number' ? '(Sayısal Stok)' : ''}</label>
+        <input type="${c.data_type === 'number' ? 'number' : 'text'}" class="prod-input" data-cid="${c.id}" data-type="${c.data_type}" placeholder="${esc(c.name || '')} giriniz...">
+      </div>
+    `;
+  });
+
+  html += `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.85rem;margin-top:.75rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--accent);font-weight:700;text-transform:uppercase">⚡ Model Yılı (Lot) Dağılımı (Opsiyonel)</div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addModalLotRow()" style="font-size:.68rem">+ Model Yılı Ekle</button>
+      </div>
+      <div style="font-size:.65rem;color:var(--muted);margin-bottom:.6rem">Farklı model yıllarına göre adet girebilirsiniz. Girilen adetlerin toplamı ana stok miktarı olacaktır.</div>
+      <div id="modalLotList">
+        <div class="lot-row-item">
+          <input type="number" class="modal-lot-year" placeholder="Yıl (2024)" min="1980" max="2099">
+          <input type="number" class="modal-lot-qty" placeholder="Adet" min="0" step="any">
+          <input type="text" class="modal-lot-note" placeholder="Not (opsiyonel)">
+          <span></span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  body.innerHTML = html;
+  openModal('productModal');
+}
+
+function addModalLotRow() {
+  const container = document.getElementById('modalLotList');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'lot-row-item';
+  div.innerHTML = `
+    <input type="number" class="modal-lot-year" placeholder="Yıl (2025)" min="1980" max="2099">
+    <input type="number" class="modal-lot-qty" placeholder="Adet" min="0" step="any">
+    <input type="text" class="modal-lot-note" placeholder="Not (opsiyonel)">
+    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:4px">×</button>
+  `;
+  container.appendChild(div);
+}
+
+async function saveProductModal() {
+  await withButtonLock('prodModalSaveBtn', 'Kaydediliyor...', async () => {
+    const inputs = document.querySelectorAll('#productModalBody .prod-input');
+    const catVal = document.getElementById('prodModalCat')?.value || 'Genel';
+
+    const values = {};
+    inputs.forEach(inp => {
+      const cid = inp.getAttribute('data-cid');
+      if (cid) values[cid] = inp.value.trim();
+    });
+
+    const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
+    if (catCol) values[catCol.id] = catVal;
+    values.category = catVal;
+    values._category = catVal;
+
+    const lotRows = document.querySelectorAll('#modalLotList .lot-row-item');
+    const validLots = [];
+    let totalLotQty = 0;
+
+    lotRows.forEach(row => {
+      const yr = parseInt(row.querySelector('.modal-lot-year')?.value);
+      const qty = parseFloat(row.querySelector('.modal-lot-qty')?.value);
+      const note = row.querySelector('.modal-lot-note')?.value.trim() || '';
+      if (!isNaN(yr) && yr >= 1980 && !isNaN(qty) && qty >= 0) {
+        validLots.push({ production_year: yr, quantity: qty, notes: note });
+        totalLotQty += qty;
+      }
+    });
+
+    const numCol = columns.find(c => c.data_type === 'number');
+    if (numCol) {
+      if (validLots.length > 0) values[numCol.id] = String(totalLotQty);
+      else if (!values[numCol.id]) values[numCol.id] = '0';
+    }
+
+    const r = await api('/api/products', 'POST', { values });
+    if (!r) return;
+
+    if (validLots.length > 0) {
+      for (const lot of validLots) { await api('/api/products/' + r.id + '/lots', 'POST', lot); }
+    }
+
+    closeModal('productModal');
+    await loadProducts();
+    renderProducts();
+    toast('Ürün başarıyla kaydedildi ✓', 'success');
+  });
+}
+
+async function editProductCategory(pid, curCat) {
+  const p = products.find(x => x.id == pid);
+  if (!p) return;
+  const catOpts = bomCategories.map(c => c.name).filter(Boolean);
+  let promptMsg = 'Yeni BOM Kategorisini girin:\n';
+  if (catOpts.length > 0) promptMsg += 'Mevcut Kategoriler: ' + catOpts.join(', ') + '\n';
+  const newCat = prompt(promptMsg, curCat || 'Genel');
+  if (newCat === null) return;
+  const trimmed = newCat.trim() || 'Genel';
+  const catCol = columns.find(c => c.name && c.name.toLowerCase() === 'kategori');
+  const vals = Object.assign({}, p.values, { category: trimmed, _category: trimmed });
+  if (catCol) vals[catCol.id] = trimmed;
+  await api('/api/products/' + pid, 'PUT', { values: vals });
+  await loadProducts();
+  renderProducts();
+  toast('Kategori güncellendi ✓', 'success');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  await api('/api/products/' + id, 'DELETE');
+  await loadProducts();
+  renderProducts();
+  toast('Silindi ✓', 'success');
+}
+
+async function moveEntityOrder(type, id, direction) {
+  let list = [];
+  let apiPath = '';
+  if (type === 'columns') { list = columns; apiPath = '/api/columns/'; }
+  else if (type === 'bom_columns') { list = bomColumns; apiPath = '/api/bom-columns/'; }
+  else if (type === 'bom_categories') { list = bomCategories; apiPath = '/api/bom-categories/'; }
+  else if (type === 'products') { list = products; apiPath = '/api/products/'; }
+  else if (type === 'firms') { list = firms; apiPath = '/api/firms/'; }
+  else if (type === 'machines') { list = machines; apiPath = '/api/machines/'; }
+
+  const index = list.findIndex(x => x.id == id);
+  if (index === -1) return;
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= list.length) return;
+
+  const currentItem = list[index];
+  const targetItem = list[targetIndex];
+
+  const currentOrder = currentItem.display_order !== undefined ? currentItem.display_order : index + 1;
+  const targetOrder = targetItem.display_order !== undefined ? targetItem.display_order : targetIndex + 1;
+
+  const newOrderForCurrent = targetOrder;
+  const newOrderForTarget = currentOrder === targetOrder ? (direction > 0 ? targetOrder - 1 : targetOrder + 1) : currentOrder;
+
+  await Promise.all([
+    api(apiPath + currentItem.id, 'PUT', { ...currentItem, display_order: newOrderForCurrent }),
+    api(apiPath + targetItem.id, 'PUT', { ...targetItem, display_order: newOrderForTarget })
+  ]);
+
+  if (type === 'columns') { await loadColumns(); renderColumns(); }
+  else if (type === 'bom_columns') { await loadBomColumns(); renderBomColumns(); }
+  else if (type === 'bom_categories') { await loadBomCategories(); renderBomCategories(); }
+  else if (type === 'products') { await loadProducts(); renderProducts(); }
+  else if (type === 'firms') { await loadFirms(); renderFirms(); }
+  else if (type === 'machines') { await loadMachines(); renderMachines(); }
+  toast('Sıralama güncellendi ✓', 'success');
+}
+
+function startEdit(td, pid, cid, dtype) {
+  if (editingCell) cancelEdit();
+  const oldVal = td.querySelector('.badge') ? td.querySelector('.badge').textContent.trim() : td.textContent.trim();
+  editingCell = { td, pid, cid, oldVal };
+  td.innerHTML = `<input class="inline-edit" type="${dtype === 'number' ? 'number' : 'text'}" value="${esc(oldVal)}" onblur="commitEdit()" onkeydown="if(event.key==='Enter')commitEdit();if(event.key==='Escape')cancelEdit()">`;
+  const inp = td.querySelector('input');
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+async function commitEdit() {
+  if (!editingCell) return;
+  const { td, pid, cid, oldVal } = editingCell;
+  const input = td.querySelector('input');
+  const newVal = input ? input.value.trim() : oldVal;
+  editingCell = null;
+  td.textContent = newVal;
+  if (newVal !== oldVal) {
+    const prevScroll = window.scrollY;
+    await api('/api/products/' + pid, 'PUT', { values: { [cid]: newVal } });
+    await loadProducts();
+    renderProducts();
+    window.scrollTo(0, prevScroll);
+  }
+}
+
+function cancelEdit() {
+  if (!editingCell) return;
+  editingCell.td.textContent = editingCell.oldVal;
+  editingCell = null;
+}
+
+async function showHistory(pid) {
+  const txs = await api('/api/transactions?product_id=' + pid + '&limit=100');
+  const prod = products.find(p => p.id === pid);
+  const firstCol = columns[0];
+  document.getElementById('historyModalTitle').textContent = 'Stok Hareketi — ' + (prod && firstCol ? (prod.values?.[firstCol.id] || `#${pid}`) : `#${pid}`);
+  document.getElementById('historyTbody').innerHTML = (txs || []).length ? (txs || []).map(t => `<tr><td style="font-family:var(--mono);font-size:.72rem">${fmtDate(t.created_at)}</td><td>${esc(t.user_name)}</td><td>${esc(t.company)}</td><td style="font-family:var(--mono)">${t.tx_type === 'return' ? '+' : '-'}${t.quantity}</td><td><span class="badge ${t.tx_type === 'return' ? 'badge-ok' : 'badge-low'}">${t.tx_type === 'return' ? 'İade' : 'Çıkış'}</span></td></tr>`).join('') : '<tr><td colspan="5" class="empty">İşlem yok</td></tr>';
+  openModal('historyModal');
+}
+
+// ── COLUMNS ──────────────────────────────────────────────────────────────
+function renderColumns() {
+  const q = (document.getElementById('columnSearch')?.value || '').toLowerCase();
+  let cols = columns;
+  if (q) cols = cols.filter(c => (c.name || '').toLowerCase().includes(q));
+  const tbody = document.getElementById('columnsTbody');
+  if (!tbody) return;
+  tbody.innerHTML = cols.map(c => `<tr>
+    <td style="font-family:var(--mono);color:var(--muted)">${c.display_order}</td>
+    <td><strong>${esc(c.name || '')}</strong></td>
+    <td><span class="badge" style="background:var(--accent-dim);color:var(--accent)">${c.data_type === 'number' ? 'Sayı' : 'Metin'}</span></td>
+    <td style="font-family:var(--mono)">${c.data_type === 'number' ? (c.min_stock || 5) : '—'}</td>
+    <td>
+      <div class="order-btn-wrap">
+        <button class="btn btn-ghost" onclick="moveEntityOrder('columns', ${c.id}, -1)">▲</button>
+        <button class="btn btn-ghost" onclick="moveEntityOrder('columns', ${c.id}, 1)">▼</button>
+      </div>
+    </td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editColumn(${c.id})">Düzenle</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteColumn(${c.id})">Sil</button>
+    </td>
+  </tr>`).join('');
+}
+
+function openColumnModal() {
+  document.getElementById('editColId').value = '';
+  document.getElementById('colName').value = '';
+  document.getElementById('colType').value = 'text';
+  document.getElementById('colMinStock').value = 5;
+  document.getElementById('minStockGroup').style.display = 'none';
+  document.getElementById('columnModalTitle').textContent = 'Yeni Sütun';
+  openModal('columnModal');
+}
+
+function editColumn(id) {
+  const c = columns.find(x => x.id == id);
+  if (!c) return;
+  document.getElementById('editColId').value = c.id;
+  document.getElementById('colName').value = c.name || '';
+  document.getElementById('colType').value = c.data_type || 'text';
+  document.getElementById('colMinStock').value = c.min_stock || 5;
+  document.getElementById('minStockGroup').style.display = c.data_type === 'number' ? 'block' : 'none';
+  document.getElementById('columnModalTitle').textContent = 'Sütun Düzenle';
+  openModal('columnModal');
+}
+
+async function saveColumn() {
+  await withButtonLock('colModalSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editColId').value;
+    const name = document.getElementById('colName').value.trim();
+    const data_type = document.getElementById('colType').value;
+    const min_stock = parseInt(document.getElementById('colMinStock').value) || 0;
+    if (!name) { toast('Sütun adı gerekli', 'error'); return; }
+    
+    if (id) {
+      const existing = columns.find(c => c.id == id);
+      const display_order = existing ? existing.display_order : 0;
+      await api('/api/columns/' + id, 'PUT', { name, data_type, display_order, min_stock });
+    } else {
+      await api('/api/columns', 'POST', { name, data_type, min_stock });
+    }
+    closeModal('columnModal');
+    await loadColumns();
+    await loadProducts();
+    renderColumns();
+    if (currentPage === 'products') renderProducts();
+    toast('Kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteColumn(id) {
+  if (!confirm('Bu sütunu silmek istediğinizden emin misiniz?')) return;
+  await api('/api/columns/' + id, 'DELETE');
+  await loadColumns();
+  await loadProducts();
+  renderColumns();
+  if (currentPage === 'products') renderProducts();
+  toast('Sütun silindi ✓', 'success');
+}
+
+// ── FIRMS ────────────────────────────────────────────────────────────────
+function renderFirms() {
+  const q = (document.getElementById('firmSearch')?.value || '').toLowerCase();
+  let fms = firms;
+  if (q) fms = fms.filter(f => (f.name || '').toLowerCase().includes(q));
+  const tbody = document.getElementById('firmsTbody');
+  if (!tbody) return;
+  tbody.innerHTML = fms.length ? fms.map(f => {
+    const vc = machines.filter(m => m.firm_id === f.id).length;
+    return `<tr>
+      <td style="font-family:var(--mono);color:var(--muted)">${f.display_order || 0}</td>
+      <td><strong>${esc(f.name)}</strong></td>
+      <td style="color:var(--text2);font-size:.82rem">${esc(f.notes || '')}</td>
+      <td><span class="badge badge-admin">${vc} vinç</span></td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="filterFirmMachines(${f.id})" style="font-size:.72rem">🏗️ Vinçlerini Gör</button>
+      </td>
+      <td>
+        <div class="order-btn-wrap">
+          <button class="btn btn-ghost" onclick="moveEntityOrder('firms', ${f.id}, -1)">▲</button>
+          <button class="btn btn-ghost" onclick="moveEntityOrder('firms', ${f.id}, 1)">▼</button>
+        </div>
+      </td>
+      <td style="display:flex;gap:.4rem">
+        <button class="btn btn-ghost btn-sm" onclick="editFirm(${f.id})">Düzenle</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFirm(${f.id})">Sil</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">Firma yok</td></tr>';
+}
+
+function filterFirmMachines(firmId) {
+  showPage('machines');
+  const sel = document.getElementById('machineFilter');
+  if (sel) { sel.value = String(firmId); renderMachines(); }
+}
+
+function openFirmModal() {
+  document.getElementById('editFirmId').value = '';
+  document.getElementById('firmName').value = '';
+  document.getElementById('firmNotes').value = '';
+  document.getElementById('firmModalTitle').textContent = 'Yeni Firma';
+  openModal('firmModal');
+}
+
+function editFirm(id) {
+  const f = firms.find(x => x.id == id);
+  if (!f) return;
+  document.getElementById('editFirmId').value = id;
+  document.getElementById('firmName').value = f.name || '';
+  document.getElementById('firmNotes').value = f.notes || '';
+  document.getElementById('firmModalTitle').textContent = 'Firma Düzenle';
+  openModal('firmModal');
+}
+
+async function saveFirm() {
+  await withButtonLock('firmSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editFirmId').value;
+    const name = document.getElementById('firmName').value.trim();
+    const notes = document.getElementById('firmNotes').value.trim();
+    if (!name) { toast('Firma adı gerekli', 'error'); return; }
+    if (id) await api('/api/firms/' + id, 'PUT', { name, notes });
+    else await api('/api/firms', 'POST', { name, notes });
+    closeModal('firmModal');
+    await loadFirms();
+    await loadMachines();
+    renderFirms();
+    toast('Kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteFirm(id) {
+  if (!confirm('Bu firmayı silmek istediğinizden emin misiniz?')) return;
+  await api('/api/firms/' + id, 'DELETE');
+  await loadFirms();
+  await loadMachines();
+  renderFirms();
+  toast('Silindi ✓', 'success');
+}
+
+// ── MACHINES ─────────────────────────────────────────────────────────────
+function toggleFirmAccordion(fn) {
+  firmCollapsed[fn] = !firmCollapsed[fn];
+  renderMachines();
+}
+
+function toggleMachineItems(mid) {
+  const el = document.getElementById('machine-items-' + mid);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderMachines() {
+  const sel = document.getElementById('machineFilter');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}" ${String(f.id) === cur ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+    sel.value = cur;
+  }
+  const list = document.getElementById('machineList');
+  if (!list) return;
+  const q = (document.getElementById('machineSearchTxt')?.value || '').toLowerCase();
+  const cur = sel?.value || '';
+  let filtered = machines;
+  if (cur) filtered = filtered.filter(m => String(m.firm_id) === cur);
+  
+  if (q) {
+    filtered = filtered.filter(m => 
+      (m.machine_name || '').toLowerCase().includes(q) || 
+      (m.firm_name || '').toLowerCase().includes(q) ||
+      (m.capacity || '').toLowerCase().includes(q) ||
+      (m.crane_type || '').toLowerCase().includes(q) ||
+      (m.notes || '').toLowerCase().includes(q) ||
+      (m.span || '').toLowerCase().includes(q) ||
+      (m.lifting_height || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (!filtered.length) { list.innerHTML = '<div class="card empty"><div class="icon">🏗️</div>Vinç bulunamadı</div>'; return; }
+  
+  const grouped = {};
+  filtered.forEach(m => { const k = m.firm_name || 'Tanımsız Firma'; if (!grouped[k]) grouped[k] = []; grouped[k].push(m); });
+  
+  let html = '';
+  Object.entries(grouped).forEach(([fn, list2]) => {
+    const isCollapsed = firmCollapsed[fn] !== undefined ? firmCollapsed[fn] : true;
+    html += `
+      <div class="firm-divider" onclick="toggleFirmAccordion('${esc(fn).replace(/'/g, "\\'")}')">
+        <div></div>
+        <span>🏢 ${esc(fn)} (${list2.length} Vinç) ${isCollapsed ? '▶' : '▼'}</span>
+        <div></div>
+      </div>
+    `;
+    if (!isCollapsed) {
+      html += list2.map(m => `
+        <div class="card" style="margin-bottom:.5rem;overflow:hidden">
+          <div class="machine-accordion-head" onclick="toggleMachineItems(${m.id})">
+            <div>
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                <span style="font-weight:800;font-size:.88rem">🏗️ ${esc(m.machine_name)}</span>
+                ${m.capacity ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:700">⚖️ ${esc(m.capacity)}</span>` : ''}
+                ${m.crane_type ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--accent);font-size:.65rem">🏗️ ${esc(m.crane_type)}</span>` : ''}
+                ${m.lifting_height ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↕ ${esc(m.lifting_height)}m</span>` : ''}
+                ${m.span ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↔ ${esc(m.span)}m</span>` : ''}
+                <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
+              </div>
+              ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
+              ${m.editor_name ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.1rem">Son Düzenleyen: ${esc(m.editor_name)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:.4rem;align-items:center" onclick="event.stopPropagation()">
+              <div class="order-btn-wrap">
+                <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, -1)">▲</button>
+                <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, 1)">▼</button>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="openCloneMachineModal(${m.id})" title="Bu vinci kopyala">📋 Kopyala</button>
+              <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
+              <button class="btn btn-ghost btn-sm" onclick="openBomPricingAdmin(${m.id})" title="Satış Sonrası Fiyatlı BOM">💰 Fiyatlı BOM</button>
+              <button class="btn btn-ghost btn-sm" onclick="editMachine(${m.id})">Düzenle</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id})">Sil</button>
+            </div>
+          </div>
+          <div id="machine-items-${m.id}" style="padding:.75rem 1rem;display:none;background:var(--surface)">
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+              <span>Vinç Tipi: <strong style="color:var(--text)">${esc(m.crane_type || '—')}</strong></span>
+              <span>Kaldırma Yüksekliği: <strong style="color:var(--text)">${m.lifting_height ? m.lifting_height + ' m' : '—'}</strong></span>
+              <span>Köprü Aks Açıklığı: <strong style="color:var(--text)">${m.span ? m.span + ' m' : '—'}</strong></span>
+              <span>Çalışma Şartı: <strong style="color:var(--text)">${m.environment === 'open' ? 'Açık Saha' : 'Kapalı Saha'}</strong></span>
+            </div>
+            ${(m.items || []).length ? `
+              <table style="font-size:.8rem;width:100%">
+                <thead><tr><th>Montaj Yeri</th><th>Kategori</th><th>Malzeme</th><th>Gerekli Miktar</th><th>Model Yılı</th></tr></thead>
+                <tbody>${m.items.map(it => `<tr>
+                  <td><span class="badge" style="background:${it.placement === 'kedi' ? 'rgba(75,149,237,0.15)' : 'rgba(26,107,86,0.15)'};color:${it.placement === 'kedi' ? '#4b95ed' : 'var(--success)'};font-size:.65rem">${it.placement === 'kedi' ? '🏗️ Kedi / Saha' : '🗄 Pano İçi'}</span></td>
+                  <td><span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.65rem">${esc(it.category_name || 'Genel')}</span></td>
+                  <td><strong>${esc(it.product_name || '—')}</strong></td>
+                  <td style="font-family:var(--mono)">${it.quantity}</td>
+                  <td style="font-family:var(--mono);color:var(--text2)">${it.machine_year || '—'}</td>
+                </tr>`).join('')}</tbody>
+              </table>
+            ` : '<span style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Malzeme eklenmemiş</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+  });
+  list.innerHTML = html;
+}
+
+function openMachineModal() {
+  document.getElementById('editMachineId').value = '';
+  document.getElementById('linkedAfterSalesReqId').value = '';
+  document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  document.getElementById('machineName').value = '';
+  document.getElementById('machineCapacity').value = '';
+  document.getElementById('machineCraneType').value = '';
+  document.getElementById('machineLiftingHeight').value = '';
+  document.getElementById('machineSpan').value = '';
+  document.getElementById('machineEnvironment').value = 'closed';
+  document.getElementById('machineNotes').value = '';
+  document.getElementById('machineItems').innerHTML = '';
+  document.getElementById('machineModalTitle').textContent = 'Yeni Vinç';
+  openModal('machineModal');
+}
+
+function editMachine(id) {
+  const m = machines.find(x => x.id == id);
+  if (!m) return;
+  document.getElementById('editMachineId').value = id;
+  document.getElementById('linkedAfterSalesReqId').value = '';
+  document.getElementById('machineFirm').innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  document.getElementById('machineName').value = m.machine_name || '';
+  document.getElementById('machineCapacity').value = m.capacity || '';
+  document.getElementById('machineCraneType').value = m.crane_type || '';
+  document.getElementById('machineLiftingHeight').value = m.lifting_height || '';
+  document.getElementById('machineSpan').value = m.span || '';
+  document.getElementById('machineEnvironment').value = m.environment || 'closed';
+  document.getElementById('machineNotes').value = m.notes || '';
+  document.getElementById('machineItems').innerHTML = '';
+  (m.items || []).forEach(it => addMachineItem(it.product_id, it.quantity, it.machine_year || '', it.category_name || '', it.placement || 'pano'));
+  document.getElementById('machineModalTitle').textContent = 'Vinç Düzenle';
+  openModal('machineModal');
+}
+
+function openCloneMachineModal(id) {
+  const m = machines.find(x => x.id == id);
+  if (!m) return;
+  document.getElementById('cloneSourceId').value = m.id;
+  document.getElementById('cloneSourceName').textContent = m.machine_name + (m.firm_name ? ` (${m.firm_name})` : '');
+  document.getElementById('cloneSourceItemCount').textContent = `${(m.items || []).length} kalem malzeme listesi aktarılacak`;
+  document.getElementById('cloneTargetFirm').innerHTML = firms.map(f => `<option value="${f.id}" ${f.id == m.firm_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  document.getElementById('cloneNewName').value = m.machine_name + ' (Kopya)';
+  document.getElementById('cloneNewCapacity').value = m.capacity || '';
+  openModal('cloneMachineModal');
+}
+
+async function executeCloneMachine() {
+  await withButtonLock('cloneExecuteBtn', 'Kopyalanıyor...', async () => {
+    const sourceId = document.getElementById('cloneSourceId').value;
+    const targetFirmId = document.getElementById('cloneTargetFirm').value || null;
+    const newName = document.getElementById('cloneNewName').value.trim();
+    const newCapacity = document.getElementById('cloneNewCapacity').value.trim();
+
+    if (!newName) { toast('Yeni vinç adı / seri no gerekli', 'error'); return; }
+    const sourceMachine = machines.find(x => x.id == sourceId);
+    if (!sourceMachine) return;
+
+    const payload = { 
+      machine_name: newName, 
+      firm_id: targetFirmId, 
+      capacity: newCapacity, 
+      crane_type: sourceMachine.crane_type || '',
+      lifting_height: sourceMachine.lifting_height || '',
+      span: sourceMachine.span || '',
+      environment: sourceMachine.environment || 'closed',
+      notes: sourceMachine.notes || '', 
+      items: sourceMachine.items || [] 
+    };
+    const r = await api('/api/machines', 'POST', payload);
+    if (!r) return;
+    closeModal('cloneMachineModal');
+    await Promise.all([loadMachines(), loadTasks()]);
+    renderMachines();
+    toast('Vinç başarıyla kopyalandı ve yeni iş açıldı ✓', 'success');
+  });
+}
+
+function addMachineItem(pid, qty, machineYear, catName, placement) {
+  pid = pid || ''; qty = qty || 1; machineYear = machineYear || ''; catName = catName || ''; placement = placement || 'pano';
+  var div = document.createElement('div');
+  div.className = 'machine-item-row';
+  div.style.cssText = 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.4rem;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;position:relative';
+  
+  var catOpts = '<option value="">— Kategori —</option>' + bomCategories.map(c => `<option value="${esc(c.name)}" ${c.name === catName ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  var placeOpts = `<option value="pano" ${placement === 'pano' ? 'selected' : ''}>🗄️ Pano İçi</option><option value="kedi" ${placement === 'kedi' ? 'selected' : ''}>🏗️ Kedi / Saha</option>`;
+
+  var firstCol = columns[0];
+  var prodName = '';
+  if (pid) {
+    var p = products.find(x => x.id == pid);
+    if (p) prodName = firstCol && p.values && p.values[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
+  }
+
+  div.innerHTML =
+    '<select class="mi-place" style="width:115px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">' + placeOpts + '</select>' +
+    '<select class="mi-cat" style="width:120px;padding:.2rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px" onchange="window.miCatChange(this)">' + catOpts + '</select>' +
+    '<div style="flex:2;min-width:160px;position:relative">' +
+      '<input type="hidden" class="mi-pid" value="' + pid + '">' +
+      '<input type="text" class="mi-search" value="' + esc(prodName) + '" placeholder="🔍 Ürün Ara..." style="width:100%" autocomplete="off" onfocus="window.acFocus(this)" oninput="window.acInput(this)">' +
+      '<div class="ac-list" style="position:absolute;z-index:999;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:4px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.2)"></div>' +
+    '</div>' +
+    '<input type="number" class="mi-qty" value="' + qty + '" min="0" step="any" style="width:70px" placeholder="Adet" title="Adet">' +
+    '<input type="number" class="mi-year" value="' + machineYear + '" min="1980" max="2099" style="width:75px" placeholder="Model" title="Model Yılı">' +
+    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>';
+  document.getElementById('machineItems').appendChild(div);
+}
+
+window.miCatChange = function(select) {
+  var row = select.closest('.machine-item-row');
+  row.querySelector('.mi-pid').value = '';
+  row.querySelector('.mi-search').value = '';
+};
+
+window.acFocus = function(input) { window.acInput(input, true); };
+window.acInput = function(input, showAll = false) {
+  var q = input.value.toLowerCase();
+  var listDiv = input.nextElementSibling;
+  var row = input.closest('.machine-item-row');
+  var catSelect = row ? row.querySelector('.mi-cat') : null;
+  var catVal = catSelect ? catSelect.value : '';
+
+  var filtered = products;
+  if (catVal) filtered = products.filter(p => getProductCategory(p).trim().toLowerCase() === catVal.trim().toLowerCase());
+  if (q && !showAll) filtered = filtered.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
+  if (!filtered.length) { listDiv.innerHTML = '<div style="padding:.5rem;font-size:.8rem;color:var(--muted)">Sonuç yok</div>'; listDiv.style.display = 'block'; return; }
+  var firstCol = columns[0];
+  var numCol = columns.find(col => col.data_type === 'number');
+  var html = filtered.slice(0, 30).map(p => {
+    var name = firstCol && p.values && p.values[firstCol.id] ? p.values[firstCol.id] : '#' + p.id;
+    var extra = columns.filter(col => col.data_type !== 'number').slice(1).map(col => p.values && p.values[col.id]).filter(Boolean).slice(0, 2).join(' · ');
+    var stock = numCol && p.values ? parseFloat(p.values[numCol.id] || 0) : null;
+    var label = '<strong>' + esc(name) + '</strong>' + (extra ? ' <span style="font-size:.7rem;color:var(--muted)">[' + esc(extra) + ']</span>' : '');
+    var badgeStyle = stock > 0 ? 'background:rgba(75,232,160,0.15);color:var(--success)' : 'background:rgba(232,75,75,0.15);color:var(--danger)';
+    var badge = stock != null ? '<span class="badge" style="font-size:.65rem;' + badgeStyle + '">Stok: ' + stock + '</span>' : '';
+    return '<div class="ac-item" style="padding:.5rem;cursor:pointer;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center" onclick="window.acSelect(this, ' + p.id + ', \'' + esc(name).replace(/'/g, "\\'") + '\', ' + (stock || 0) + ')"><div style="font-size:.8rem">' + label + '</div>' + badge + '</div>';
+  }).join('');
+  listDiv.innerHTML = html;
+  listDiv.style.display = 'block';
+};
+
+window.acSelect = function(item, pid, name, stock) {
+  if (stock <= 0) { toast('Uyarı: Bu üründen stokta hiç yok!', 'error'); }
+  var wrap = item.parentElement.parentElement;
+  wrap.querySelector('.mi-pid').value = pid;
+  wrap.querySelector('.mi-search').value = name;
+  item.parentElement.style.display = 'none';
+};
+
+document.addEventListener('click', function(e) {
+  if (!e.target.classList.contains('mi-search')) { document.querySelectorAll('.ac-list').forEach(l => l.style.display = 'none'); }
+});
+
+async function saveMachine() {
+  await withButtonLock('machineSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editMachineId').value;
+    const linkedReqId = document.getElementById('linkedAfterSalesReqId').value;
+    const machine_name = document.getElementById('machineName').value.trim();
+    const capacity = document.getElementById('machineCapacity').value.trim();
+    const crane_type = document.getElementById('machineCraneType').value.trim();
+    const lifting_height = document.getElementById('machineLiftingHeight').value.trim();
+    const span = document.getElementById('machineSpan').value.trim();
+    const environment = document.getElementById('machineEnvironment').value;
+    const notes = document.getElementById('machineNotes').value.trim();
+    const firm_id = document.getElementById('machineFirm').value || null;
+    if (!machine_name) { toast('Vinç adı gerekli', 'error'); return; }
+    
+    const rows = document.getElementById('machineItems').children;
+    const items = Array.from(rows).map(r => {
+      return {
+        product_id: r.querySelector('.mi-pid').value,
+        quantity: parseFloat(r.querySelector('.mi-qty').value) || 1,
+        machine_year: r.querySelector('.mi-year').value ? parseInt(r.querySelector('.mi-year').value) : null,
+        category_name: r.querySelector('.mi-cat').value || null,
+        placement: r.querySelector('.mi-place').value || 'pano'
+      };
+    }).filter(i => i.product_id);
+
+    const payload = { machine_name, capacity, crane_type, lifting_height, span, environment, firm_id, notes, items };
+
+    let savedRes;
+    if (id) savedRes = await api('/api/machines/' + id, 'PUT', payload);
+    else savedRes = await api('/api/machines', 'POST', payload);
+    if (!savedRes) return;
+
+    // Eğer Satış Sonrası talebinden oluşturulduysa talebi otomatik eşleştir
+    if (linkedReqId && savedRes.id) {
+      await api('/api/after-sales-requests/' + linkedReqId, 'PUT', {
+        status: 'bom_created',
+        machine_id: savedRes.id
+      });
+      await loadAdminAfterSales();
+      if (currentPage === 'after_sales') renderAdminAfterSales();
+    }
+
+    closeModal('machineModal');
+    await Promise.all([loadMachines(), loadTasks()]);
+    if (currentPage === 'machines') renderMachines();
+    toast('Vinç reçetesi başarıyla kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteMachine(id) {
+  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  await api('/api/machines/' + id, 'DELETE');
+  await Promise.all([loadMachines(), loadTasks()]);
+  renderMachines();
+  toast('Silindi ✓', 'success');
+}
+
+// ── TASKS ─────────────────────────────────────────────────────────────────
+const stageStatusIcon = { open: '○', in_progress: '⚡', pending_transfer: '🔄', completed: '✅' };
+
+function renderTasks() {
+  const sq = (document.getElementById('taskSearch')?.value || '').toLowerCase();
+  const fsel = document.getElementById('taskFirmFilter');
+  if (fsel) {
+    const curF = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}" ${String(f.id) === curF ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+    fsel.value = curF;
+  }
+  let filtered = tasks;
+  const curF = fsel?.value || '';
+  if (curF) filtered = filtered.filter(t => String(t.firm_id) === curF);
+  if (sq) filtered = filtered.filter(t => (t.title || '').toLowerCase().includes(sq) || (t.firm_name || '').toLowerCase().includes(sq));
+  const statF = document.getElementById('taskStatusFilter')?.value || '';
+  if (statF) filtered = filtered.filter(t => t.status === statF);
+
+  const board = document.getElementById('taskBoard');
+  if (!board) return;
+  if (!filtered.length) { board.innerHTML = '<div class="card empty"><div class="icon">📋</div>İş yok</div>'; return; }
+
+  const grouped = {};
+  filtered.forEach(t => { const k = t.firm_name || '__'; if (!grouped[k]) grouped[k] = []; grouped[k].push(t); });
+  let html = '';
+  Object.entries(grouped).forEach(([fn, list]) => {
+    if (fn !== '__') html += `<div class="firm-divider"><div></div><span>🏢 ${esc(fn)}</span><div></div></div>`;
+    html += list.map(t => {
+      const allDone = t.stages?.every(s => s.status === 'completed');
+      const stagesHtml = (t.stages || []).map(s => `
+        <div class="stage-cell">
+          <div class="stage-name">${esc(s.stage_name)}</div>
+          <div class="stage-assignee stage-status-${s.status}">
+            ${stageStatusIcon[s.status] || '○'} ${esc(s.assignee_name || 'Boş')}
+          </div>
+          <div class="stage-actions">
+            ${s.status !== 'completed' ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal(${s.id},'${esc(s.stage_name).replace(/'/g, "\\'")}')">${s.assigned_to ? 'Yeniden Ata' : 'Ata'}</button>` : ''}
+            ${s.status === 'in_progress' ? `<button class="btn btn-success btn-sm" onclick="completeStage(${s.id},${t.id})">✓</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="openComments(${s.id},'${esc(s.stage_name).replace(/'/g, "\\'")}')" title="Notlar">💬</button>
+          </div>
+        </div>`).join('');
+      return `<div class="task-row">
+        <div class="task-row-header">
+          <span style="font-size:.9rem">🏗️</span>
+          <span style="font-weight:800;font-size:.9rem;flex:1">${esc(t.title)}</span>
+          ${t.is_auto ? '<span class="badge" style="background:var(--success-dim);color:var(--success);font-size:.6rem">Otomatik</span>' : '<span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.6rem">Manuel</span>'}
+          ${allDone ? '<span class="badge badge-ok">Tamamlandı</span>' : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">Sil</button>
+        </div>
+        <div class="stages-grid">${stagesHtml}</div>
+      </div>`;
+    }).join('');
+  });
+  board.innerHTML = html;
+}
+
+function openAssignModal(stageId, stageName) {
+  document.getElementById('assignStageId').value = stageId;
+  document.getElementById('assignModalTitle').textContent = 'Ata: ' + stageName;
+  document.getElementById('assignUser').innerHTML = '<option value="">— Atamayı Kaldır —</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : u.role === 'after_sales' ? 'Satış Sonrası' : 'Personel'})</option>`).join('');
+  openModal('assignModal');
+}
+
+async function doAssign() {
+  await withButtonLock('assignDoBtn', 'Atanıyor...', async () => {
+    const stage_id = document.getElementById('assignStageId').value;
+    const user_id = document.getElementById('assignUser').value || null;
+    const r = await api('/api/task-stages/' + stage_id + '/assign', 'POST', { user_id });
+    if (!r) return;
+    closeModal('assignModal');
+    await loadTasks();
+    renderTasks();
+    renderLiveBoard();
+    if (currentPage === 'mytasks') renderMyTasks();
+    if (currentPage === 'opentasks') renderOpenTasks();
+    toast(user_id ? 'Atandı ✓' : 'Atama kaldırıldı', 'success');
+  });
+}
+
+async function completeStage(stageId, taskId) {
+  if (!confirm('Bu aşamayı tamamlandı olarak işaretlemek istiyor musunuz?')) return;
+  await api('/api/task-stages/' + stageId + '/complete', 'POST');
+  await loadTasks();
+  renderTasks();
+  renderLiveBoard();
+  if (currentPage === 'mytasks') renderMyTasks();
+  toast('Aşama tamamlandı ✓', 'success');
+}
+
+function openTaskModal() {
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskFirm').innerHTML = '<option value="">— Firma —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  document.getElementById('taskMachine').innerHTML = '<option value="">— Vinç —</option>';
+  document.getElementById('taskPriority').value = 'normal';
+  document.getElementById('taskStages').value = 'Pano, Yerleştirme, Kedi Tesisat';
+  document.getElementById('taskNotes').value = '';
+  openModal('taskModal');
+}
+
+function filterTaskMachines() {
+  const fid = document.getElementById('taskFirm').value;
+  const sel = document.getElementById('taskMachine');
+  sel.innerHTML = '<option value="">— Vinç —</option>' + (fid ? machines.filter(m => String(m.firm_id) === fid) : machines).map(m => `<option value="${m.id}">${esc(m.machine_name)}</option>`).join('');
+}
+
+async function saveTask() {
+  await withButtonLock('taskSaveBtn', 'Kaydediliyor...', async () => {
+    const title = document.getElementById('taskTitle').value.trim();
+    const firm_id = document.getElementById('taskFirm').value || null;
+    const machine_id = document.getElementById('taskMachine').value || null;
+    const priority = document.getElementById('taskPriority').value;
+    const notes = document.getElementById('taskNotes').value.trim();
+    const stage_names = document.getElementById('taskStages').value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!title) { toast('Başlık gerekli', 'error'); return; }
+    await api('/api/tasks', 'POST', { title, firm_id, machine_id, priority, notes, stage_names });
+    closeModal('taskModal');
+    await loadTasks();
+    renderTasks();
+    toast('İş oluşturuldu ✓', 'success');
+  });
+}
+
+async function deleteTask(id) {
+  if (!confirm('Bu işi silmek istediğinizden emin misiniz?')) return;
+  await api('/api/tasks/' + id, 'DELETE');
+  await loadTasks();
+  renderTasks();
+  toast('Silindi ✓', 'success');
+}
+
+// ── ATÖLYE & OPERASYON FONKSİYONLARI ──────────────────────────────────────
+function renderFirmLists() {
+  const opts = firms.map(f => `<option value="${esc(f.name)}">`).join('');
+  ['firmList', 'firmList3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
+  const fsel = document.getElementById('openFirmFilter'); if (fsel) fsel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  const bsel = document.getElementById('bulkFirmFilter'); if (bsel) bsel.innerHTML = '<option value="">— Firma seçin —</option>' + firms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+}
+
+function renderMyTasks() {
+  const alertEl = document.getElementById('transferAlerts');
+  if (alertEl) {
+    alertEl.innerHTML = pendingTransfers.map(tr => `
+      <div class="transfer-alert">
+        <span style="font-size:1.1rem">🔄</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.85rem">${esc(tr.from_name)} sizden bir aşamayı devralmanızı istiyor</div>
+          <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${esc(tr.task_title)} → ${esc(tr.stage_name)}</div>
+          ${tr.message ? `<div style="font-size:.8rem;color:var(--text2);margin-top:.2rem">"${esc(tr.message)}"</div>` : ''}
+        </div>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-success btn-sm" onclick="respondTransfer(${tr.id},true)">Kabul</button>
+          <button class="btn btn-danger btn-sm" onclick="respondTransfer(${tr.id},false)">Reddet</button>
+        </div>
+      </div>`).join('');
+  }
+
+  const sq = (document.getElementById('myTaskSearch')?.value || '').toLowerCase();
+  const myStages = [];
+  tasks.forEach(t => {
+    if (sq && !(t.title || '').toLowerCase().includes(sq) && !(t.firm_name || '').toLowerCase().includes(sq)) return;
+    (t.stages || []).filter(s => s.assigned_to === me?.id).forEach(s => {
+      myStages.push({ task: t, stage: s });
+    });
+  });
+
+  const el = document.getElementById('myTaskList');
+  if (!el) return;
+  if (!myStages.length && !pendingTransfers.length) {
+    el.innerHTML = '<div class="card empty"><div class="icon">🎯</div>Aktif aşamanız yok — Açık İşler menüsünden bir işi üstlenebilirsiniz</div>';
+    return;
+  }
+
+  const byTask = {};
+  myStages.forEach(({ task: t, stage: s }) => { if (!byTask[t.id]) byTask[t.id] = { task: t, stages: [] }; byTask[t.id].stages.push(s); });
+
+  el.innerHTML = Object.values(byTask).map(({ task: t, stages: ss }) => `
+    <div class="job-card">
+      <div class="job-header">
+        <span>🏗️</span>
+        <div style="flex:1"><div style="font-weight:800;font-size:.88rem">${esc(t.title)}</div>${t.firm_name ? `<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2)">🏢 ${esc(t.firm_name)}</div>` : ''}</div>
+      </div>
+      ${ss.map(s => `
+        <div class="stage-row">
+          <div class="stage-dot dot-${s.status}"></div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:.85rem">${esc(s.stage_name)}</div>
+            ${s.status === 'pending_transfer' ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--warning)">⏳ Devir onayı bekleniyor</div>' : ''}
+          </div>
+          <div style="display:flex;gap:.35rem">
+            ${s.status === 'in_progress' ? `<button class="btn btn-success btn-sm" onclick="completeStage(${s.id}, ${t.id})">✅ Tamamla</button>` : ''}
+            ${s.status === 'in_progress' ? `<button class="btn btn-ghost btn-sm" onclick="openTransferModal(${s.id},'${esc(s.stage_name)}')">🔄 Devret</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="openComments(${s.id},'${esc(s.stage_name)}')" title="Notlar">💬</button>
+            ${s.status === 'completed' ? '<span class="badge badge-ok">Tamamlandı</span>' : ''}
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function renderOpenTasks() {
+  const fsel = document.getElementById('openFirmFilter');
+  if (fsel) {
+    const cur = fsel.value;
+    fsel.innerHTML = '<option value="">Tüm Firmalar</option>' + firms.map(f => `<option value="${f.id}" ${String(f.id) === cur ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+    fsel.value = cur;
+  }
+  const curF = fsel?.value || '';
+  const sq = (document.getElementById('openTaskSearch')?.value || '').toLowerCase();
+  
+  const openStages = [];
+  tasks.forEach(t => {
+    if (curF && String(t.firm_id) !== curF) return;
+    if (sq && !(t.title || '').toLowerCase().includes(sq) && !(t.firm_name || '').toLowerCase().includes(sq)) return;
+    (t.stages || []).filter(s => s.status === 'open').forEach(s => openStages.push({ task: t, stage: s }));
+  });
+  const el = document.getElementById('openTaskList');
+  if (!el) return;
+  if (!openStages.length) { el.innerHTML = '<div class="card empty"><div class="icon">📭</div>Üstlenilecek açık iş yok</div>'; return; }
+  
+  const byTask = {};
+  openStages.forEach(({ task: t, stage: s }) => { if (!byTask[t.id]) byTask[t.id] = { task: t, stages: [] }; byTask[t.id].stages.push(s); });
+  const byFirm = {};
+  Object.values(byTask).forEach(({ task: t, stages: ss }) => { const k = t.firm_name || '__'; if (!byFirm[k]) byFirm[k] = []; byFirm[k].push({ task: t, stages: ss }); });
+  let html = '';
+  Object.entries(byFirm).forEach(([fn, list]) => {
+    if (fn !== '__') html += `<div class="firm-divider"><div></div><span>🏢 ${esc(fn)}</span><div></div></div>`;
+    html += list.map(({ task: t, stages: ss }) => `
+      <div class="job-card">
+        <div class="job-header">
+          <span>🏗️</span>
+          <div style="flex:1"><div style="font-weight:800;font-size:.88rem">${esc(t.title)}</div>${t.firm_name ? `<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2)">🏢 ${esc(t.firm_name)}</div>` : ''}</div>
+          <span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${ss.length} açık aşama</span>
+        </div>
+        ${ss.map(s => `
+          <div class="stage-row">
+            <div class="stage-dot dot-open"></div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:.85rem">${esc(s.stage_name)}</div>
+              <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Atanmamış</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="takeStage(${s.id})">⚡ Üstlen</button>
+          </div>`).join('')}
+      </div>`).join('');
+  });
+  el.innerHTML = html;
+}
+
+async function takeStage(stageId) {
+  if (!confirm('Bu aşamayı üstlenmek istiyor musunuz?')) return;
+  await api('/api/task-stages/' + stageId + '/take', 'POST');
+  await loadTasks(); 
+  renderMyTasks(); 
+  renderOpenTasks(); 
+  renderTasks();
+  toast('Aşama üstlenildi ✓', 'success');
+}
+
+function openTransferModal(stageId, stageName) {
+  document.getElementById('transferStageId').value = stageId;
+  document.getElementById('transferModalTitle').textContent = 'Devret: ' + stageName;
+  const targetUsers = users.filter(u => u.id !== me?.id);
+  document.getElementById('transferTo').innerHTML = '<option value="">— Kullanıcı Seçin —</option>' + targetUsers.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)} (${u.role === 'admin' ? 'Yönetici' : u.role === 'purchase' ? 'Satın Alma' : u.role === 'after_sales' ? 'Satış Sonrası' : 'Personel'})</option>`).join('');
+  document.getElementById('transferMsg').value = '';
+  openModal('transferModal');
+}
+
+async function doTransfer() {
+  await withButtonLock('transferDoBtn', 'Devrediliyor...', async () => {
+    const stage_id = document.getElementById('transferStageId').value;
+    const to_user_id = document.getElementById('transferTo').value;
+    const message = document.getElementById('transferMsg').value.trim();
+    if (!to_user_id) { toast('Kullanıcı seçin', 'error'); return; }
+    await api('/api/task-stages/' + stage_id + '/transfer', 'POST', { to_user_id, message });
+    closeModal('transferModal'); 
+    await loadTasks(); 
+    renderMyTasks(); 
+    renderTasks();
+    toast('Devir işlemi gerçekleştirildi ✓', 'success');
+  });
+}
+
+async function respondTransfer(transferId, accept) {
+  await api('/api/task-transfers/' + transferId + '/respond', 'POST', { accept });
+  await loadTasks(); 
+  renderMyTasks(); 
+  renderTasks();
+  toast(accept ? 'Aşama kabul edildi ✓' : 'Devir reddedildi', 'success');
+}
+
+// ── TAKE & RETURN & BULK TAKE (Admin) ──────────────────────────────────────
+function buildDD(prefix) {
+  const q = (document.getElementById(prefix + 'ProductSearch')?.value || '').toLowerCase();
+  const dd = document.getElementById(prefix + 'DD');
+  if (!q) { dd.style.display = 'none'; return; }
+  const matches = products.filter(p => columns.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))).slice(0, 10);
+  const firstCol = columns[0];
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(p => {
+    const name = firstCol ? (p.values?.[firstCol.id] || `#${p.id}`) : `#${p.id}`;
+    const numCol = columns.find(c => c.data_type === 'number');
+    const qty = numCol ? (p.values?.[numCol.id] || 0) : '?';
+    return `<div style="padding:.5rem .85rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.83rem;display:flex;justify-content:space-between" onmousedown="selectProd('${prefix}',${p.id},'${esc(name).replace(/'/g, "\\'")}')">${esc(name)}<span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${qty}</span></div>`;
+  }).join('');
+  dd.style.display = 'block';
+}
+
+function selectProd(prefix, pid, name) {
+  document.getElementById(prefix + 'ProductSearch').value = name;
+  document.getElementById(prefix + 'ProductId').value = pid;
+  document.getElementById(prefix + 'DD').style.display = 'none';
+  if (prefix === 'take') updateProductInfo();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#takeProductSearch')) { const dd = document.getElementById('takeDD'); if (dd) dd.style.display = 'none'; }
+  if (!e.target.closest('#retProductSearch')) { const dd = document.getElementById('retDD'); if (dd) dd.style.display = 'none'; }
+});
+
+function updateProductInfo() {
+  const pid = document.getElementById('takeProductId').value;
+  const box = document.getElementById('productInfoBox');
+  if (!pid) { box.style.display = 'none'; return; }
+  const prod = products.find(p => p.id == pid);
+  if (!prod) { box.style.display = 'none'; return; }
+  box.innerHTML = columns.map(c => {
+    const val = prod.values?.[c.id] || '—';
+    const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
+    return `<div style="display:flex;justify-content:space-between;padding:.18rem 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${esc(c.name)}</span><span ${isLow ? 'style="color:var(--danger)"' : ''}>${esc(val)}${isLow ? ' ⚠️' : ''}</span></div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+async function submitTake() {
+  await withButtonLock('takeSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('takeProductId').value;
+    const company = document.getElementById('takeCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('takeQty').value);
+    const notes = document.getElementById('takeNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes });
+    if (!r) return;
+    document.getElementById('takeProductSearch').value = '';
+    document.getElementById('takeProductId').value = '';
+    document.getElementById('takeCompany').value = '';
+    document.getElementById('takeQty').value = '';
+    document.getElementById('takeNote').value = '';
+    document.getElementById('productInfoBox').style.display = 'none';
+    await loadProducts(); renderProducts(); toast(`${quantity} adet çıkış kaydedildi ✓`, 'success');
+  });
+}
+
+function filterBulkMachines() {
+  const fid = document.getElementById('bulkFirmFilter').value;
+  const sel = document.getElementById('bulkMachine');
+  document.getElementById('machinePreview').style.display = 'none';
+  document.getElementById('bulkSubmitBtn').disabled = true;
+  if (!fid) { sel.innerHTML = '<option value="">— Vinç seçin —</option>'; sel.disabled = true; return; }
+  sel.innerHTML = '<option value="">— Vinç seçin —</option>' + (machines.filter(m => String(m.firm_id) === fid)).map(m => `<option value="${m.id}">🏗️ ${esc(m.machine_name)} ${m.capacity ? `[${esc(m.capacity)}]` : ''}</option>`).join('');
+  sel.disabled = false;
+}
+
+async function loadMachinePreview() {
+  const mid = document.getElementById('bulkMachine').value;
+  const preview = document.getElementById('machinePreview');
+  const btn = document.getElementById('bulkSubmitBtn');
+  if (!mid) { preview.style.display = 'none'; btn.disabled = true; return; }
+  const m = machines.find(x => x.id == mid);
+  if (!m) { preview.style.display = 'none'; btn.disabled = true; return; }
+
+  const numCol = columns.find(c => c.data_type === 'number');
+  const textCols = columns.filter(c => c.data_type !== 'number');
+
+  try {
+    const takenMap = await api('/api/machines/' + mid + '/taken') || {};
+    const results = await Promise.all((m.items || []).map(it => api('/api/products/' + it.product_id + '/lots').then(lots => ({ pid: Number(it.product_id), lots: lots || [] }))));
+    const lotMap = {};
+    results.forEach(r => { lotMap[r.pid] = r.lots; });
+    renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap);
+  } catch (e) { console.error(e); }
+}
+
+function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
+  takenMap = takenMap || {};
+  let allCompleted = true;
+  const cards = (m.items || []).map((it, idx) => {
+    const prod = products.find(p => p.id === Number(it.product_id));
+    const stock = prod && numCol ? parseFloat(prod.values?.[numCol.id] || 0) : null;
+    const reqQty = parseFloat(it.quantity || 0);
+    const cat = it.category_name || '';
+    const key = cat ? it.product_id + '::' + cat : String(it.product_id);
+    const takenQty = parseFloat(takenMap[key] || takenMap[it.product_id] || 0);
+    const remQty = Math.max(0, reqQty - takenQty);
+
+    if (remQty > 0) allCompleted = false;
+
+    const enough = stock !== null ? stock >= remQty : true;
+    const stockBadge = stock !== null ? (enough ? `<span class="badge badge-ok">Depo: ${stock}</span>` : `<span class="badge badge-low">Depo Yetersiz: ${stock}</span>`) : '—';
+
+    const colTags = textCols.map(col => {
+      const v = prod?.values?.[col.id];
+      if (!v) return '';
+      return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:.1rem .4rem;color:var(--text2);white-space:nowrap"><span style="color:var(--muted)">${esc(col.name)}: </span>${esc(v)}</span>`;
+    }).filter(Boolean).join('');
+
+    const activeLots = (lotMap[Number(it.product_id)] || []).filter(l => parseFloat(l.quantity) > 0);
+    const machineYear = it.machine_year;
+    const lotHtml = activeLots.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-left:1.5rem">` + activeLots.map((l, i) => {
+          const isTarget = machineYear && l.production_year == machineYear;
+          const isFirst = i === 0;
+          return `<span style="font-family:var(--mono);font-size:.62rem;padding:.12rem .45rem;border-radius:4px;background:${isTarget ? 'rgba(75,232,160,.15)' : isFirst ? 'rgba(232,184,75,.15)' : 'var(--surface)'};border:1px solid ${isTarget ? 'rgba(75,232,160,.4)' : isFirst ? 'rgba(232,184,75,.3)' : 'var(--border2)'};color:${isTarget ? 'var(--success)' : isFirst ? 'var(--accent)' : 'var(--text2)'};white-space:nowrap">${isTarget ? '🎯 ' : isFirst ? '⚡ ' : ''}${l.production_year}: ${parseFloat(l.quantity)} adet</span>`;
+        }).join('') + `</div>` : '';
+
+    const yearNote = machineYear ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--success);margin-left:1.5rem">🎯 İstenen model yılı: <strong>${machineYear}</strong></div>` : '';
+    const categoryHtml = it.category_name ? `<span class="badge" style="background:rgba(26,107,86,0.15);color:var(--success);font-size:.7rem;font-weight:700;padding:.1rem .35rem;border-radius:4px">${esc(it.category_name)}</span>` : '';
+
+    let rowContent = '';
+    if (remQty <= 0) {
+      rowContent = `
+        <label style="display:flex;align-items:center;gap:.5rem;opacity:0.6;flex-wrap:wrap">
+          <input type="checkbox" checked disabled style="width:18px;height:18px;">
+          <span style="font-weight:700;font-size:.88rem;flex:1;text-decoration:line-through">${esc(it.product_name || '—')}</span>
+          ${categoryHtml}
+          <span class="badge badge-ok">✅ Alındı (${reqQty}/${reqQty})</span>
+        </label>
+        ${colTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-left:1.5rem">${colTags}</div>` : ''}
+      `;
+    } else {
+      rowContent = `
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;flex-wrap:wrap">
+          <input type="checkbox" class="bulk-item-check" data-idx="${idx}" data-pid="${it.product_id}" data-pname="${esc(it.product_name || '—')}" style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer">
+          <span style="font-weight:700;font-size:.88rem;flex:1">${esc(it.product_name || '—')}</span>
+          ${categoryHtml}
+          ${stockBadge}
+        </label>
+        ${colTags ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-left:1.5rem">${colTags}</div>` : ''}
+        ${yearNote}
+        ${lotHtml}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-left:1.5rem;font-family:var(--mono);font-size:.75rem;flex-wrap:gap:.4rem">
+          <div>Reçete: <strong>${reqQty}</strong> | Alınan: <strong>${takenQty}</strong> | Kalan: <strong style="color:var(--accent)">${remQty}</strong></div>
+          <div style="display:flex;align-items:center;gap:.4rem">
+            <span>Alınacak:</span>
+            <input type="number" class="bulk-item-qty" data-idx="${idx}" value="${remQty}" min="0.01" max="${remQty}" step="any" style="width:70px;padding:.2rem;border:1px solid var(--border2);border-radius:4px;background:var(--surface)">
+          </div>
+        </div>
+      `;
+    }
+    return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.3rem">${rowContent}</div>`;
+  }).join('');
+
+  if (allCompleted && m.items && m.items.length > 0) {
+    preview.innerHTML = `<div style="background:rgba(75,232,160,.12);border:1px solid rgba(75,232,160,.3);border-radius:8px;padding:.85rem;margin-bottom:.5rem;text-align:center;font-weight:700;color:var(--success)">🎉 Bu vincin tüm malzemeleri eksiksiz teslim alınmıştır!</div><div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
+    btn.disabled = true;
+  } else {
+    btn.disabled = false;
+    preview.innerHTML = `<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">${cards}</div>`;
+  }
+  preview.style.display = 'block';
+}
+
+async function submitBulkTake() {
+  const machine_id = document.getElementById('bulkMachine').value;
+  const notes = document.getElementById('bulkNote').value.trim();
+  if (!machine_id) { toast('Vinç seçin', 'error'); return; }
+  const m = machines.find(x => x.id == machine_id);
+  const company = m.firm_name || 'Bilinmeyen Firma';
+  
+  const checks = document.querySelectorAll('.bulk-item-check');
+  const items_to_take = [];
+  checks.forEach(chk => {
+    if (chk.checked) {
+      const idx = parseInt(chk.getAttribute('data-idx'));
+      const it = m.items[idx];
+      const pid = chk.getAttribute('data-pid');
+      const pname = chk.getAttribute('data-pname');
+      const qtyInput = document.querySelector(`.bulk-item-qty[data-idx="${idx}"]`);
+      const qty = parseFloat(qtyInput ? qtyInput.value : 0);
+      if (qty > 0) {
+        items_to_take.push({ product_id: pid, product_name: pname, quantity: qty, bom_category: it ? it.category_name : null });
+      }
+    }
+  });
+  
+  if (!items_to_take.length) { toast('Lütfen alınacak en az bir ürünü işaretleyin', 'error'); return; }
+  if (!confirm(`"${m?.machine_name}" için seçilen ${items_to_take.length} ürünü teslim alıyorsunuz. Onaylıyor musunuz?`)) return;
+  
+  await withButtonLock('bulkSubmitBtn', 'Kaydediliyor...', async () => {
+    const r = await api('/api/transactions/bulk', 'POST', { machine_id, company, notes, items_to_take });
+    if (!r) return;
+    
+    document.getElementById('bulkNote').value = '';
+    await loadMachinePreview();
+    await loadProducts();
+    renderProducts();
+    toast(`${r.count} ürün başarıyla alındı ✓`, 'success');
+  });
+}
+
+async function submitReturn() {
+  await withButtonLock('retSubmitBtn', 'Kaydediliyor...', async () => {
+    const product_id = document.getElementById('retProductId').value;
+    const company = document.getElementById('retCompany').value.trim();
+    const quantity = parseFloat(document.getElementById('retQty').value);
+    const notes = document.getElementById('retNote').value.trim();
+    if (!product_id) { toast('Ürün seçin', 'error'); return; }
+    if (!company) { toast('Firma girin', 'error'); return; }
+    if (!quantity || quantity <= 0) { toast('Miktar girin', 'error'); return; }
+    const r = await api('/api/transactions', 'POST', { product_id, company, quantity, notes, tx_type: 'return' });
+    if (!r) return;
+    document.getElementById('retProductSearch').value = '';
+    document.getElementById('retProductId').value = '';
+    document.getElementById('retCompany').value = '';
+    document.getElementById('retQty').value = '';
+    document.getElementById('retNote').value = '';
+    await loadProducts(); renderProducts(); toast(`${quantity} adet iade kaydedildi ✓`, 'success');
+  });
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────────
+function renderUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
+  let usrs = users;
+  if (q) usrs = usrs.filter(u => (u.display_name || '').toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
+  const tbody = document.getElementById('usersTbody');
+  if (!tbody) return;
+  if (!usrs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Kullanıcı bulunamadı</td></tr>'; return; }
+  const roleNames = { admin: 'Yönetici', purchase: 'Satın Alma', after_sales: 'Satış Sonrası', personnel: 'Personel' };
+  const roleBadges = { admin: 'badge-admin', purchase: 'badge-purchase', after_sales: 'badge-after_sales', personnel: 'badge-personnel' };
+  tbody.innerHTML = usrs.map(u => `<tr>
+    <td><strong>${esc(u.display_name || u.username)}</strong></td>
+    <td style="font-family:var(--mono);color:var(--text2)">${esc(u.username)}</td>
+    <td><span class="badge ${roleBadges[u.role] || 'badge-personnel'}">${roleNames[u.role] || esc(u.role)}</span></td>
+    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${fmtDate(u.created_at)}</td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Düzenle</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Sil</button>
+    </td>
+  </tr>`).join('');
+}
+
+function openUserModal() {
+  document.getElementById('editUserId').value = '';
+  document.getElementById('userDisplayName').value = '';
+  document.getElementById('userUsername').value = '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = 'personnel';
+  document.getElementById('userUsername').disabled = false;
+  document.getElementById('passOptional').style.display = 'none';
+  document.getElementById('userModalTitle').textContent = 'Yeni Kullanıcı';
+  openModal('userModal');
+}
+
+function editUser(id) {
+  const u = users.find(x => x.id == id);
+  if (!u) return;
+  document.getElementById('editUserId').value = id;
+  document.getElementById('userDisplayName').value = u.display_name || '';
+  document.getElementById('userUsername').value = u.username || '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = u.role || 'personnel';
+  document.getElementById('userUsername').disabled = true;
+  document.getElementById('passOptional').style.display = 'inline';
+  document.getElementById('userModalTitle').textContent = 'Kullanıcı Düzenle';
+  openModal('userModal');
+}
+
+async function saveUser() {
+  await withButtonLock('userSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editUserId').value;
+    const display_name = document.getElementById('userDisplayName').value.trim();
+    const username = document.getElementById('userUsername').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+    if (!display_name || (!id && !username) || (!id && !password)) { toast('Tüm alanları doldurun', 'error'); return; }
+    let r;
+    if (id) r = await api('/api/users/' + id, 'PUT', { display_name, role, password: password || undefined });
+    else r = await api('/api/users', 'POST', { username, password, role, display_name });
+    if (!r) return;
+    closeModal('userModal');
+    await loadUsers();
+    renderUsers();
+    toast('Kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteUser(id) {
+  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  await api('/api/users/' + id, 'DELETE');
+  await loadUsers();
+  renderUsers();
+  toast('Silindi ✓', 'success');
+}
+
+// ── AKTİVİTE GÜNLÜĞÜ (AUDIT TRAIL) ─────────────────────────────────────────
+function getEntityBadge(type) {
+  const map = {
+    auth: '<span class="act-badge act-auth">Giriş / Auth</span>',
+    product: '<span class="act-badge act-product">Ürün / Stok</span>',
+    product_lot: '<span class="act-badge act-product">Model Yılı</span>',
+    machine: '<span class="act-badge act-machine">Vinç / Reçete</span>',
+    transaction: '<span class="act-badge act-tx">Stok Hareketi</span>',
+    transaction_bulk: '<span class="act-badge act-tx">Toplu Alım</span>',
+    task: '<span class="act-badge act-task">İş Panosu</span>',
+    task_stage: '<span class="act-badge act-task">Aşama</span>',
+    purchase_request: '<span class="act-badge act-auth">Satın Alma</span>',
+    after_sales: '<span class="act-badge act-service">Satış Sonrası</span>',
+    user: '<span class="act-badge act-user">Kullanıcı</span>',
+    column: '<span class="act-badge act-user">Sütun Tanımı</span>',
+    bom_column: '<span class="act-badge act-user">BOM Sütun</span>',
+    bom_category: '<span class="act-badge act-user">BOM Kategori</span>',
+    vfd_device: '<span class="act-badge act-machine">Sürücü Cihazı</span>',
+    vfd_record: '<span class="act-badge act-product">Sürücü Parametre/Hata</span>'
+  };
+  return map[type] || `<span class="act-badge" style="background:var(--border2);color:var(--text)">${esc(type)}</span>`;
+}
+
+function renderActivityLogs() {
+  const uSel = document.getElementById('actUserFilter');
+  if (uSel && uSel.options.length <= 1) {
+    uSel.innerHTML = '<option value="">Tüm Kullanıcılar</option>' + users.map(u => `<option value="${u.id}">${esc(u.display_name || u.username)}</option>`).join('');
+  }
+  filterActivityLogs();
+}
+
+function filterActivityLogs() {
+  const sq = (document.getElementById('actSearch')?.value || '').toLowerCase();
+  const uid = document.getElementById('actUserFilter')?.value || '';
+  const etype = document.getElementById('actTypeFilter')?.value || '';
+
+  let filtered = activityLogs;
+  if (uid) filtered = filtered.filter(a => String(a.user_id) === uid);
+  if (etype) filtered = filtered.filter(a => a.entity_type === etype);
+  if (sq) {
+    filtered = filtered.filter(a => {
+      const uName = (a.display_name || a.username || '').toLowerCase();
+      const action = (a.action || '').toLowerCase();
+      const details = JSON.stringify(a.details || {}).toLowerCase();
+      const ip = (a.ip_address || '').toLowerCase();
+      return uName.includes(sq) || action.includes(sq) || details.includes(sq) || ip.includes(sq);
+    });
+  }
+
+  const tbody = document.getElementById('activityTbody');
+  if (!tbody) return;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="icon">🛡️</div>Aktivite kaydı bulunamadı</td></tr>'; return; }
+
+  tbody.innerHTML = filtered.map(a => {
+    const uName = a.display_name || a.username || 'Sistem';
+    const detailStr = JSON.stringify(a.details || {});
+    const shortDetail = detailStr.length > 50 ? detailStr.slice(0, 50) + '...' : detailStr;
+
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(a.created_at)}</td>
+      <td><strong>${esc(uName)}</strong> ${a.role === 'admin' ? '<span style="font-size:.65rem;color:var(--accent)">[Admin]</span>' : a.role === 'purchase' ? '<span style="font-size:.65rem;color:#1a6b56">[Satın Alma]</span>' : a.role === 'after_sales' ? '<span style="font-size:.65rem;color:#38bdf8">[Satış Sonrası]</span>' : ''}</td>
+      <td><strong style="color:var(--text)">${esc(a.action)}</strong></td>
+      <td>${getEntityBadge(a.entity_type)}</td>
+      <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${a.entity_id ? '#' + a.entity_id : '—'}</td>
+      <td style="font-family:var(--mono);font-size:.68rem;color:var(--text2);cursor:pointer" onclick="openActivityDetail(${a.id})" title="Detayları İncele"><span style="text-decoration:underline">${esc(shortDetail)}</span></td>
+      <td style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">${esc(a.ip_address || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openActivityDetail(id) {
+  const log = activityLogs.find(x => x.id == id);
+  if (!log) return;
+  document.getElementById('actDetailUser').textContent = (log.display_name || log.username || 'Sistem') + (log.role ? ` (${log.role})` : '');
+  document.getElementById('actDetailDate').textContent = fmtDate(log.created_at);
+  document.getElementById('actDetailAction').textContent = log.action;
+  document.getElementById('actDetailEntity').textContent = `${log.entity_type} ${log.entity_id ? '#' + log.entity_id : ''}`;
+  document.getElementById('actDetailIP').textContent = log.ip_address || '—';
+  document.getElementById('actDetailJson').textContent = JSON.stringify(log.details || {}, null, 2);
+  openModal('actDetailModal');
+}
+
+// ── PERFORMANCE ───────────────────────────────────────────────────────────
+function renderPerformance() {
+  const cont = document.getElementById('perfContent');
+  if (!cont) return;
+  if (!perf.length) { cont.innerHTML = '<div class="card empty"><div class="icon">🏆</div>Veri yok</div>'; return; }
+  const maxScore = Math.max(...perf.map(p => p.score), 1);
+  const medals = ['🥇', '🥈', '🥉'];
+  cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem">${perf.map((p, i) => `
+    <div class="card" style="padding:1rem 1.2rem;${i === 0 ? 'border-color:var(--accent)' : ''}">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+        <div style="font-size:1.4rem">${medals[i] || '👤'}</div>
+        <div style="flex:1"><div style="font-weight:800">${esc(p.display_name || p.username)}</div><div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">${p.score} puan</div></div>
+        <div style="font-size:1.35rem;font-weight:800;color:var(--accent)">${p.score}</div>
+      </div>
+      <div class="perf-bar"><div class="perf-bar-fill" style="width:${Math.round(p.score / maxScore * 100)}%"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:.75rem;font-family:var(--mono);font-size:.7rem;text-align:center">
+        <div><div style="color:var(--muted)">Aşama</div><div style="font-weight:700;color:var(--success)">${p.completed_stages}</div></div>
+        <div><div style="color:var(--muted)">Devam</div><div style="font-weight:700;color:var(--warning)">${p.in_progress}</div></div>
+        <div><div style="color:var(--muted)">Stok</div><div style="font-weight:700">${p.tx_count}</div></div>
+      </div>
+      ${p.avg_hours ? `<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);text-align:center;margin-top:.5rem">Ort: ${p.avg_hours} saat/aşama</div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+// ── TRANSACTIONS ─────────────────────────────────────────────────────────
+function renderTransactions() {
+  const q = (document.getElementById('txSearch')?.value || '').toLowerCase();
+  const typ = document.getElementById('txTypeFilter')?.value || '';
+  let txs = transactions;
+  if (q) txs = txs.filter(t => (t.product_name || '').toLowerCase().includes(q) || (t.company || '').toLowerCase().includes(q) || (t.user_name || '').toLowerCase().includes(q));
+  if (typ) txs = txs.filter(t => (t.tx_type || 'out') === typ);
+  const tbody = document.getElementById('txTbody');
+  if (!tbody) return;
+  tbody.innerHTML = txs.length ? txs.map(t => `<tr>
+    <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(t.created_at)}</td>
+    <td>${esc(t.user_name)}</td>
+    <td>${esc(t.product_name || '—')}</td>
+    <td>${esc(t.company)}</td>
+    <td style="font-family:var(--mono)">${t.quantity}</td>
+    <td><span class="badge ${t.tx_type === 'return' ? 'badge-ok' : 'badge-low'}">${t.tx_type === 'return' ? 'İade' : 'Çıkış'}</span></td>
+    <td style="font-size:.78rem;color:var(--text2)">${esc(t.notes || '')}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})">↩</button></td>
+  </tr>`).join('') : '<tr><td colspan="8" class="empty">—</td></tr>';
+}
+
+function filterTx() { renderTransactions(); }
+async function deleteTx(id) {
+  if (!confirm('Bu işlemi iptal edip stoku geri yüklemek istiyor musunuz?')) return;
+  await api('/api/transactions/' + id, 'DELETE');
+  await Promise.all([loadTransactions(), loadProducts()]);
+  renderTransactions();
+  toast('İptal edildi ✓', 'success');
+}
+
+// ── BİLDİRİMLER, YORUMLAR VE SATIN ALMA ──────────────────────────────────
+var _notifs = []; var _notifOpen = false;
+async function loadNotifs() { _notifs = await api('/api/notifications') || []; renderNotifBadge(); }
+function renderNotifBadge() {
+  var n = _notifs.filter(function(x) { return !x.is_read; }).length;
+  var b = document.getElementById('notifBadge');
+  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none'; }
+}
+
+function toggleNotifPanel() {
+  _notifOpen = !_notifOpen;
+  var p = document.getElementById('notifPanel');
+  if (p) p.style.display = _notifOpen ? 'block' : 'none';
+  if (_notifOpen) renderNotifPanel();
+}
+
+function renderNotifPanel() {
+  var list = document.getElementById('notifList'); if (!list) return;
+  var ic = { task: '⚡', transfer: '🔄', comment: '💬', purchase: '📦', warning: '⚠️', info: 'ℹ️' };
+  list.innerHTML = _notifs.length ? _notifs.slice(0, 20).map(function(n) {
+    return '<div onclick="markRead(' + n.id + ')" style="display:flex;gap:.6rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);cursor:pointer;background:' + (n.is_read ? 'transparent' : 'rgba(232,184,75,.05)') + '">' +
+      '<span style="font-size:1rem;flex-shrink:0">' + (ic[n.type] || 'ℹ️') + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:.83rem;font-weight:' + (n.is_read ? 400 : 700) + '">' + esc(n.title) + '</div>' +
+      (n.body ? '<div style="font-family:var(--mono);font-size:.65rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.body) + '</div>' : '') +
+      '<div style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">' + fmtDate(n.created_at) + '</div></div>' +
+      (!n.is_read ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:.35rem"></span>' : '') +
+      '</div>';
+  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:1.5rem">Bildirim yok</div>';
+}
+
+async function markRead(id) {
+  await api('/api/notifications/' + id + '/read', 'POST');
+  _notifs = _notifs.map(function(n) { return n.id === id ? Object.assign({}, n, { is_read: true }) : n; });
+  renderNotifBadge(); renderNotifPanel();
+}
+
+async function markAllRead() {
+  await api('/api/notifications/read-all', 'POST');
+  _notifs = _notifs.map(function(n) { return Object.assign({}, n, { is_read: true }); });
+  renderNotifBadge(); renderNotifPanel();
+}
+
+var _commentSid = null;
+async function openComments(sid, sname) {
+  _commentSid = sid;
+  document.getElementById('commentTitle').textContent = sname + ' — Notlar';
+  document.getElementById('commentBody').value = '';
+  await loadComments(); openModal('commentModal');
+}
+
+async function loadComments() {
+  var c = await api('/api/task-stages/' + _commentSid + '/comments') || [];
+  var list = document.getElementById('commentList'); if (!list) return;
+  list.innerHTML = c.length ? c.map(function(x) {
+    return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.35rem">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
+      '<span style="font-weight:700;font-size:.83rem">' + esc(x.display_name || x.username) +
+      '<span style="font-family:var(--mono);font-size:.58rem;padding:.1rem .3rem;border-radius:3px;margin-left:.35rem;background:' + (x.role === 'admin' ? 'rgba(240,216,0,.15)' : 'rgba(26,107,86,.15)') + ';color:' + (x.role === 'admin' ? 'var(--accent)' : 'var(--success)') + '">' + x.role + '</span></span>' +
+      '<span style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">' + fmtDate(x.created_at) + '</span></div>' +
+      '<div style="font-size:.85rem;line-height:1.5">' + esc(x.body) + '</div></div>';
+  }).join('') : '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.75rem">Henüz not yok</div>';
+}
+
+async function saveComment() {
+  await withButtonLock('commentSaveBtn', 'Ekleniyor...', async () => {
+    var b = document.getElementById('commentBody').value;
+    if (!b || !b.trim()) { toast('Not boş olamaz', 'error'); return; }
+    var r = await api('/api/task-stages/' + _commentSid + '/comments', 'POST', { body: b.trim() });
+    if (!r) return;
+    document.getElementById('commentBody').value = '';
+    await loadComments(); toast('Not eklendi ✓', 'success');
+  });
+}
+
+// ── SATIN ALMA / TALEP YÖNETİMİ (Madde 3: Vurgulu Marka & Kod) ────────────
+var _purchases = [];
+async function loadPurchases() { _purchases = await api('/api/purchase-requests') || []; renderPurchaseBadge(); }
+function renderPurchaseBadge() {
+  var n = _purchases.filter(function(p) { return p.status === 'pending'; }).length;
+  var b = document.getElementById('purchaseBadge');
+  if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline' : 'none'; }
+}
+
+var PRST = {
+  pending: { l: '⏳ Onay Bekliyor', c: 'var(--warning)' },
+  approved: { l: '✅ Onaylandı (Sipariş Bekliyor)', c: 'var(--success)' },
+  rejected: { l: '❌ Talep Reddedildi', c: 'var(--danger)' },
+  ordered: { l: '🚚 Tedarikçiden Sipariş Edildi', c: 'var(--accent)' },
+  shipping: { l: '🚢 Sevkiyatta', c: '#4ba0e8' },
+  received: { l: '📦 Depoya Ulaştı (Teslim Alındı)', c: '#1a6b56' }
+};
+
+function renderPurchases() {
+  var sq = (document.getElementById('purchaseSearch')?.value || '').toLowerCase();
+  var f = (document.getElementById('prFilter') || {}).value || '';
+  var list = _purchases;
+  if (f) list = list.filter(function(p) { return p.status === f; });
+  if (sq) {
+    list = list.filter(function(p) {
+      const pVals = JSON.stringify(p.product_values || {}).toLowerCase();
+      return (p.product_name || '').toLowerCase().includes(sq) ||
+             (p.requester_name || '').toLowerCase().includes(sq) ||
+             (p.task_title || '').toLowerCase().includes(sq) ||
+             (p.reason || '').toLowerCase().includes(sq) ||
+             pVals.includes(sq);
+    });
+  }
+  var tbody = document.getElementById('purchaseTbody'); if (!tbody) return;
+  tbody.innerHTML = list.length ? list.map(function(p) {
+    var st = PRST[p.status] || { l: p.status, c: 'var(--text)' };
+    var pVals = p.product_values || {};
+    
+    // Marka ve Stok Kodu alanlarını tespit et ve vurgula
+    let brandVal = '';
+    let codeVal = '';
+    const otherTags = [];
+
+    Object.entries(pVals).forEach(([cid, val]) => {
+      if (!val) return;
+      const col = columns.find(c => String(c.id) === String(cid));
+      const colName = col ? col.name.toLowerCase() : '';
+      if (colName.includes('marka')) {
+        brandVal = val;
+      } else if (colName.includes('kod') || colName.includes('stok kodu')) {
+        codeVal = val;
+      } else {
+        const title = col ? col.name : 'Özellik';
+        otherTags.push(`<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(title)}:</strong> ${esc(val)}</span>`);
+      }
+    });
+
+    const highlightBlock = (brandVal || codeVal) ? `
+      <div style="display:flex;align-items:center;gap:.4rem;margin-top:.25rem;flex-wrap:wrap">
+        ${brandVal ? `<span class="badge" style="background:#e8f5f0;color:#1a6b56;font-weight:800;font-size:.72rem">🏷️ ${esc(brandVal)}</span>` : ''}
+        ${codeVal ? `<span style="font-family:var(--mono);font-weight:800;font-size:.76rem;color:var(--accent);background:rgba(232,184,75,.12);padding:.1rem .4rem;border-radius:4px;border:1px solid rgba(232,184,75,.3)">${esc(codeVal)}</span>` : ''}
+      </div>
+    ` : '';
+
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
+      <td><strong>${esc(p.requester_name || '?')}</strong></td>
+      <td>
+        <strong style="font-size:.88rem">${esc(p.product_name)}</strong>
+        ${highlightBlock}
+        ${otherTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.25rem">${otherTags.join('')}</div>` : ''}
+      </td>
+      <td style="font-family:var(--mono);font-weight:700">${p.quantity} ${esc(p.unit || '')}</td>
+      <td style="font-size:.8rem;color:var(--text2)">${esc(p.reason || '—')}</td>
+      <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
+      <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span>
+      ${p.admin_note ? `<div style="font-size:.63rem;color:var(--muted)">${esc(p.admin_note)}</div>` : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editPurchaseModal(${p.id})" title="Talebi Düzenle">✏</button>
+        ${p.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'approved')" title="Talebi Onayla">✓</button> <button class="btn btn-danger btn-sm" onclick="setPR(${p.id},'rejected')" title="Talebi Reddet">✗</button> ` : ''}
+        ${p.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'ordered')" title="Tedarikçiye Sipariş Ver">🚚</button> ` : ''}
+        ${p.status === 'ordered' ? `<button class="btn btn-ghost btn-sm" onclick="setPR(${p.id},'shipping')" title="Sevkiyata Ver">🚢</button> ` : ''}
+        ${p.status === 'shipping' ? `<button class="btn btn-success btn-sm" onclick="setPR(${p.id},'received')" title="Depoda Teslim Al">📦</button> ` : ''}
+        <button class="btn btn-danger btn-sm" onclick="delPR(${p.id})" title="Talebi Sil">×</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">Talep yok</td></tr>';
+}
+
+function openPurchaseModal() {
+  document.getElementById('editPurchaseId').value = '';
+  document.getElementById('prModalName').value = '';
+  document.getElementById('prModalQty').value = '';
+  document.getElementById('prModalUnit').value = 'adet';
+  document.getElementById('prModalReason').value = '';
+  document.getElementById('prModalStatus').value = 'approved';
+  document.getElementById('prModalAdminNote').value = '';
+  document.getElementById('purchaseModalTitle').textContent = '🛒 Yeni Malzeme Talebi Oluştur';
+
+  const tsel = document.getElementById('prModalTask');
+  tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.filter(t => t.status !== 'completed').map(t => `<option value="${t.id}">${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
+
+  renderPurchaseColFields({});
+  openModal('purchaseModal');
+}
+
+function editPurchaseModal(id) {
+  const p = _purchases.find(x => x.id == id);
+  if (!p) return;
+  document.getElementById('editPurchaseId').value = p.id;
+  document.getElementById('prModalName').value = p.product_name || '';
+  document.getElementById('prModalQty').value = p.quantity || '';
+  document.getElementById('prModalUnit').value = p.unit || 'adet';
+  document.getElementById('prModalReason').value = p.reason || '';
+  document.getElementById('prModalStatus').value = p.status || 'approved';
+  document.getElementById('prModalAdminNote').value = p.admin_note || '';
+  document.getElementById('purchaseModalTitle').textContent = '✏️ Malzeme Talebini Düzenle';
+
+  const tsel = document.getElementById('prModalTask');
+  tsel.innerHTML = '<option value="">— Genel Atölye İhtiyacı —</option>' + tasks.map(t => `<option value="${t.id}" ${t.id == p.task_id ? 'selected' : ''}>${esc(t.title)} ${t.firm_name ? `(${esc(t.firm_name)})` : ''}</option>`).join('');
+
+  renderPurchaseColFields(p.product_values || {});
+  openModal('purchaseModal');
+}
+
+function renderPurchaseColFields(existingVals) {
+  const cont = document.getElementById('prModalColFields');
+  if (!cont) return;
+  existingVals = existingVals || {};
+
+  const relevantCols = columns.filter(c => (c.name || '').toLowerCase() !== 'ürün adı' && (c.name || '').toLowerCase() !== 'kategori' && c.data_type !== 'number');
+  if (!relevantCols.length) { cont.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Tanımlı ek özellik sütunu yok.</span>'; return; }
+
+  cont.innerHTML = relevantCols.map(c => `
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:.5rem;align-items:center">
+      <span style="font-size:.72rem;color:var(--text2);font-weight:700">${esc(c.name)}:</span>
+      <input type="text" class="pr-col-input" data-cid="${c.id}" value="${esc(existingVals[c.id] || '')}" placeholder="${esc(c.name)} giriniz..." style="padding:.35rem .6rem;font-size:.8rem">
+    </div>
+  `).join('');
+}
+
+async function savePurchaseRequest() {
+  await withButtonLock('prModalSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editPurchaseId').value;
+    const product_name = document.getElementById('prModalName').value.trim();
+    const quantity = parseFloat(document.getElementById('prModalQty').value);
+    const unit = document.getElementById('prModalUnit').value.trim() || 'adet';
+    const task_id = document.getElementById('prModalTask').value || null;
+    const reason = document.getElementById('prModalReason').value.trim();
+    const status = document.getElementById('prModalStatus').value;
+    const admin_note = document.getElementById('prModalAdminNote').value.trim();
+
+    if (!product_name) { toast('Ürün / Malzeme adı gerekli', 'error'); return; }
+    if (isNaN(quantity) || quantity <= 0) { toast('Geçerli bir miktar giriniz', 'error'); return; }
+
+    const product_values = {};
+    document.querySelectorAll('#prModalColFields .pr-col-input').forEach(inp => {
+      const cid = inp.getAttribute('data-cid');
+      if (cid && inp.value.trim()) product_values[cid] = inp.value.trim();
+    });
+
+    const payload = { product_name, quantity, unit, task_id, reason, status, admin_note, product_values };
+    let r;
+    if (id) r = await api('/api/purchase-requests/' + id, 'PUT', payload);
+    else r = await api('/api/purchase-requests', 'POST', payload);
+
+    if (!r) return;
+    closeModal('purchaseModal');
+    await loadPurchases();
+    renderPurchases();
+    toast(id ? 'Talep güncellendi ✓' : 'Yeni talep oluşturuldu ✓', 'success');
+  });
+}
+
+async function setPR(id, status) {
+  var note = (status === 'rejected' || status === 'ordered' || status === 'shipping') ? (prompt((status === 'rejected' ? 'Talep Reddetme' : status === 'shipping' ? 'Sevkiyat / Kargo Takip' : 'Tedarikçi / Sipariş') + ' notu:') || '') : '';
+  await api('/api/purchase-requests/' + id, 'PUT', { status: status, admin_note: note });
+  await loadPurchases(); renderPurchases(); toast('Güncellendi ✓', 'success');
+}
+
+async function delPR(id) {
+  if (!confirm('Talebi silmek istediğinizden emin misiniz?')) return;
+  await api('/api/purchase-requests/' + id, 'DELETE');
+  await loadPurchases(); renderPurchases(); toast('Silindi ✓', 'success');
+}
+
+// ── UTILS (Otomatik Odaklanma & Modal Yönetimi) ──────────────────────────
+function openModal(id) { 
+  const el = document.getElementById(id); 
+  if (el) {
+    el.classList.add('open');
+    setTimeout(() => {
+      const firstInput = el.querySelector('input:not([type="hidden"]), select, textarea');
+      if (firstInput) firstInput.focus();
+    }, 150);
+  }
+}
+
+function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+async function logout() {
+  localStorage.removeItem('stok_token');
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/';
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+
+var _sortState = {};
+function makeSortable(tblId) {
+  var tbl = document.getElementById(tblId);
+  if (!tbl || tbl.dataset.sortable) return;
+  tbl.dataset.sortable = '1';
+  var ths = tbl.querySelectorAll('thead th');
+  ths.forEach(function(th, i) {
+    if (th.textContent.includes('İşlem') || th.textContent.includes('Sıralama')) return;
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    var sp = document.createElement('span');
+    sp.className = 'si';
+    sp.style.cssText = 'margin-left:4px;opacity:.35;font-size:.7em';
+    sp.textContent = '⇅';
+    th.appendChild(sp);
+    th.addEventListener('click', function() {
+      var st = _sortState[tblId] || { col: -1, dir: 1 };
+      var nd = st.col === i ? -st.dir : 1;
+      _sortState[tblId] = { col: i, dir: nd };
+      ths.forEach(function(t, j) {
+        var s = t.querySelector('.si');
+        if (s) { s.textContent = j === i ? (nd === 1 ? '▲' : '▼') : '⇅'; s.style.opacity = j === i ? '1' : '0.35'; }
+      });
+      var tb = tbl.querySelector('tbody');
+      if (!tb) return;
+      var rows = Array.from(tb.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var ac = a.querySelectorAll('td')[i], bc = b.querySelectorAll('td')[i];
+        if (!ac || !bc) return 0;
+        var av = ac.textContent.trim(), bv = bc.textContent.trim();
+        var an = parseFloat(av.replace(/[^\d.-]/g, '')), bn = parseFloat(bv.replace(/[^\d.-]/g, ''));
+        return !isNaN(an) && !isNaN(bn) ? (an - bn) * nd : av.localeCompare(bv, 'tr') * nd;
+      });
+      rows.forEach(function(r) { tb.appendChild(r); });
+    });
+  });
+}
+
+function autoSort() {
+  ['productTbody', 'txTbody', 'firmsTbody', 'usersTbody', 'purchaseTbody', 'bomColsTbody', 'bomCatsTbody', 'columnsTbody', 'activityTbody', 'vfdRecordsTbody', 'vfdDevicesTbody'].forEach(function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    var t = el.closest('table'); if (!t) return;
+    if (!t.id) t.id = id + 'T';
+    makeSortable(t.id);
+  });
+}
+
+async function refresh() {
+  const fns = {
+    dashboard: async () => { await loadAll(); renderDashboard(); },
+    products: async () => { await loadProducts(); await loadBomCategories(); renderProducts(); },
+    columns: async () => { await loadColumns(); await loadProducts(); renderColumns(); },
+    firms: async () => { await loadFirms(); await loadMachines(); renderFirms(); },
+    machines: async () => { await loadMachines(); renderMachines(); },
+    after_sales: async () => { await loadAdminAfterSales(); renderAdminAfterSales(); },
+    vfd: async () => { await loadVfdAll(); renderVfdRecords(); },
+    tasks: async () => { await loadTasks(); renderTasks(); },
+    mytasks: async () => { await loadTasks(); renderMyTasks(); },
+    opentasks: async () => { await loadTasks(); renderOpenTasks(); },
+    take: loadAll,
+    bulktake: loadAll,
+    return: loadAll,
+    transactions: async () => { await loadTransactions(); renderTransactions(); },
+    users: async () => { await loadUsers(); renderUsers(); },
+    activity: async () => { await loadActivityLogs(); renderActivityLogs(); },
+    performance: loadPerformance,
+    purchases: async () => { await loadPurchases(); renderPurchases(); }
+  };
+  const fn = fns[currentPage];
+  if (fn) { await fn(); toast('Güncellendi ✓', 'success'); }
+}
+
+async function lotOpen(pid, name) {
+  document.getElementById('lotPid').value = String(pid);
+  document.getElementById('lotTitle').textContent = String(name);
+  document.getElementById('lotYear').value = '';
+  document.getElementById('lotQty').value = '';
+  document.getElementById('lotNotes').value = '';
+  document.getElementById('lotMsg').textContent = '';
+  await lotLoad(pid);
+  openModal('lotModal');
+}
+
+async function lotLoad(pid) {
+  const lots = await api('/api/products/' + pid + '/lots') || [];
+  const total = lots.reduce((s, l) => s + parseFloat(l.quantity || 0), 0);
+  document.getElementById('lotTotal').textContent = total;
+  const div = document.getElementById('lotRows');
+  if (!div) return;
+  if (!lots.length) { div.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Kayıt yok</div>'; return; }
+  var html = '';
+  lots.forEach(function(l, i) {
+    html += '<div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;' +
+      'background:' + (i === 0 ? 'rgba(232,184,75,.1)' : 'var(--surface2)') + ';' +
+      'border:1px solid ' + (i === 0 ? 'rgba(232,184,75,.3)' : 'var(--border2)') + ';' +
+      'border-radius:8px;margin-bottom:.3rem">' +
+      '<span>' + (i === 0 ? '⚡' : '📦') + '</span>' +
+      '<div style="flex:1">' +
+        '<span style="font-weight:800">' + l.production_year + '</span>' +
+        '<span style="font-family:var(--mono);font-size:.68rem;color:var(--text2)"> model yılı</span>' +
+        (l.notes ? '<div style="font-size:.63rem;color:var(--muted)">' + esc(l.notes) + '</div>' : '') +
+      '</div>' +
+      '<span style="font-family:var(--mono);font-weight:800;color:' + (i === 0 ? 'var(--accent)' : 'var(--text)') + '">' + parseFloat(l.quantity) + '</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="lotEdit(' + l.production_year + ',' + parseFloat(l.quantity) + ')">✏️</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="lotDel(' + l.id + ',' + pid + ')">×</button>' +
+    '</div>';
+  });
+  div.innerHTML = html;
+}
+
+function lotEdit(yr, qty) {
+  document.getElementById('lotYear').value = yr;
+  document.getElementById('lotQty').value = qty;
+  document.getElementById('lotYear').focus();
+}
+
+async function lotSave() {
+  await withButtonLock('lotSaveBtn', 'Kaydediliyor...', async () => {
+    const msg = document.getElementById('lotMsg');
+    const pid = document.getElementById('lotPid').value;
+    const yr = parseInt(document.getElementById('lotYear').value);
+    const qty = parseFloat(document.getElementById('lotQty').value);
+    const notes = document.getElementById('lotNotes').value.trim();
+    if (!pid) { msg.style.color = 'var(--danger)'; msg.textContent = 'Ürün ID yok'; return; }
+    if (!yr || yr < 1980 || yr > 2099) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli yıl girin (1980-2099)'; return; }
+    if (isNaN(qty) || qty < 0) { msg.style.color = 'var(--danger)'; msg.textContent = 'Geçerli adet girin'; return; }
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Kaydediliyor...';
+    const r = await api('/api/products/' + pid + '/lots', 'POST', { production_year: yr, quantity: qty, notes: notes });
+    if (!r) { msg.style.color = 'var(--danger)'; msg.textContent = 'Kaydedilemedi'; return; }
+    document.getElementById('lotYear').value = '';
+    document.getElementById('lotQty').value = '';
+    document.getElementById('lotNotes').value = '';
+    msg.style.color = 'var(--success)'; msg.textContent = '✓ Kaydedildi';
+    await lotLoad(pid);
+    await loadProducts();
+    renderProducts();
+  });
+}
+
+async function lotDel(lotId, pid) {
+  if (!confirm('Bu lotu silmek istediğinizden emin misiniz?')) return;
+  const r = await api('/api/lots/' + lotId, 'DELETE');
+  if (r) { await lotLoad(pid); await loadProducts(); renderProducts(); toast('Lot silindi ✓', 'success'); }
+}
+
+// ── BOM KATEGORİLERİ ──────────────────────────────────────────────────────
+function renderBomCategories() {
+  const tbody = document.getElementById('bomCatsTbody');
+  if (!tbody) return;
+  tbody.innerHTML = bomCategories.length ? bomCategories.map(c => `<tr>
+    <td style="font-family:var(--mono);font-size:.82rem">${c.display_order}</td>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td>
+      <div class="order-btn-wrap">
+        <button class="btn btn-ghost" onclick="moveEntityOrder('bom_categories', ${c.id}, -1)">▲</button>
+        <button class="btn btn-ghost" onclick="moveEntityOrder('bom_categories', ${c.id}, 1)">▼</button>
+      </div>
+    </td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editBomCat(${c.id})">Düzenle</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteBomCat(${c.id})">Sil</button>
+    </td>
+  </tr>`).join('') : '<tr><td colspan="4" class="empty">Kategori yok</td></tr>';
+}
+
+function openBomCatModal() {
+  document.getElementById('editBomCatId').value = '';
+  document.getElementById('bomCatName').value = '';
+  document.getElementById('bomCatModalTitle').textContent = 'Yeni Kategori';
+  openModal('bomCatModal');
+}
+
+function editBomCat(id) {
+  const c = bomCategories.find(x => x.id == id);
+  if (!c) return;
+  document.getElementById('editBomCatId').value = id;
+  document.getElementById('bomCatName').value = c.name || '';
+  document.getElementById('bomCatModalTitle').textContent = 'Kategori Düzenle';
+  openModal('bomCatModal');
+}
+
+async function saveBomCat() {
+  await withButtonLock('bomCatSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editBomCatId').value;
+    const name = document.getElementById('bomCatName').value.trim();
+    if (!name) { toast('Kategori adı gerekli', 'error'); return; }
+    if (id) await api('/api/bom-categories/' + id, 'PUT', { name, display_order: bomCategories.find(c => c.id == id)?.display_order || 0 });
+    else await api('/api/bom-categories', 'POST', { name });
+    closeModal('bomCatModal');
+    await loadBomCategories();
+    renderBomCategories();
+    if (currentPage === 'products') renderProducts();
+    toast('Kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteBomCat(id) {
+  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
+  await api('/api/bom-categories/' + id, 'DELETE');
+  await loadBomCategories();
+  renderBomCategories();
+  if (currentPage === 'products') renderProducts();
+  toast('Silindi ✓', 'success');
+}
+
+// ── BOM SÜTUNLARI & EŞLEŞTİRME ─────────────────────────────────────────────
+function buildBomFieldOptions(selectedVal) {
+  let opts = `
+    <option value="" ${!selectedVal ? 'selected' : ''}>— Otomatik Eşleştirme —</option>
+    <option value="name" ${selectedVal === 'name' ? 'selected' : ''}>Ürün Adı</option>
+    <option value="qty" ${selectedVal === 'qty' ? 'selected' : ''}>Miktar</option>
+    <option value="unit" ${selectedVal === 'unit' ? 'selected' : ''}>Birim</option>
+    <option value="machine_year" ${selectedVal === 'machine_year' ? 'selected' : ''}>Model Yılı (Lot)</option>
+    <option value="category" ${selectedVal === 'category' ? 'selected' : ''}>BOM Kategorisi</option>
+    <option value="notes" ${selectedVal === 'notes' ? 'selected' : ''}>Açıklama / Not</option>
+    <optgroup label="Ürün Sütunları">
+  `;
+  columns.forEach(c => {
+    const val = 'col_' + c.id;
+    opts += `<option value="${val}" ${selectedVal === val ? 'selected' : ''}>${esc(c.name)}</option>`;
+  });
+  opts += `</optgroup>`;
+  return opts;
+}
+
+function getMappedFieldLabel(mf) {
+  if (!mf) return '<span style="color:var(--muted)">Otomatik</span>';
+  if (mf === 'name') return 'Ürün Adı';
+  if (mf === 'qty') return 'Miktar';
+  if (mf === 'unit') return 'Birim';
+  if (mf === 'machine_year') return 'Model Yılı (Lot)';
+  if (mf === 'category') return 'BOM Kategorisi';
+  if (mf === 'notes') return 'Açıklama / Not';
+  if (mf.startsWith('col_')) {
+    const cid = mf.replace('col_', '');
+    const col = columns.find(c => String(c.id) === String(cid));
+    return col ? `<span style="color:var(--accent)">📦 ${esc(col.name)}</span>` : 'Sütun #' + cid;
+  }
+  return mf;
+}
+
+function renderBomColumns() {
+  const tbody = document.getElementById('bomColsTbody');
+  if (!tbody) return;
+  tbody.innerHTML = bomColumns.map(c => `<tr>
+    <td style="font-family:var(--mono);color:var(--muted)">${c.display_order}</td>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td>${getMappedFieldLabel(c.mapped_field)}</td>
+    <td><span class="badge ${c.is_default ? 'badge-ok' : 'badge-low'}">${c.is_default ? 'Varsayılan' : 'Özel'}</span></td>
+    <td>
+      <div class="order-btn-wrap">
+        <button class="btn btn-ghost" onclick="moveEntityOrder('bom_columns', ${c.id}, -1)">▲</button>
+        <button class="btn btn-ghost" onclick="moveEntityOrder('bom_columns', ${c.id}, 1)">▼</button>
+      </div>
+    </td>
+    <td style="display:flex;gap:.4rem">
+      <button class="btn btn-ghost btn-sm" onclick="editBomCol(${c.id})">Düzenle</button>
+      ${c.is_default ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteBomCol(${c.id})">Sil</button>`}
+    </td>
+  </tr>`).join('') || '<tr><td colspan="6" class="empty">BOM Sütunu yok</td></tr>';
+}
+
+function openBomColModal() {
+  document.getElementById('editBomColId').value = '';
+  document.getElementById('bomColName').value = '';
+  document.getElementById('bomColMappedField').innerHTML = buildBomFieldOptions('');
+  document.getElementById('bomColModalTitle').textContent = 'Yeni BOM Sütunu';
+  openModal('bomColModal');
+}
+
+function editBomCol(id) {
+  const c = bomColumns.find(x => x.id == id);
+  if (!c) return;
+  document.getElementById('editBomColId').value = id;
+  document.getElementById('bomColName').value = c.name || '';
+  document.getElementById('bomColMappedField').innerHTML = buildBomFieldOptions(c.mapped_field || '');
+  document.getElementById('bomColModalTitle').textContent = 'BOM Sütununu Düzenle';
+  openModal('bomColModal');
+}
+
+async function saveBomCol() {
+  await withButtonLock('bomColSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('editBomColId').value;
+    const name = document.getElementById('bomColName').value.trim();
+    const mapped_field = document.getElementById('bomColMappedField').value || null;
+    if (!name) { toast('Sütun adı gerekli', 'error'); return; }
+    if (id) {
+      const col = bomColumns.find(c => c.id == id);
+      await api('/api/bom-columns/' + id, 'PUT', { name, display_order: col?.display_order || 0, mapped_field });
+    } else {
+      await api('/api/bom-columns', 'POST', { name, mapped_field });
+    }
+    closeModal('bomColModal');
+    await loadBomColumns();
+    renderBomColumns();
+    toast('Kaydedildi ✓', 'success');
+  });
+}
+
+async function deleteBomCol(id) {
+  if (!confirm('Bu BOM sütununu silmek istediğinizden emin misiniz?')) return;
+  await api('/api/bom-columns/' + id, 'DELETE');
+  await loadBomColumns();
+  renderBomColumns();
+  toast('Silindi ✓', 'success');
+}
+
+function openBOM(machineId) {
+  const token = localStorage.getItem('stok_token');
+  window.open(`/bom/${machineId}?token=${encodeURIComponent(token)}`, '_blank');
+}
+
+// ── INIT EXTRAS ───────────────────────────────────────────────────────────
+async function initExtras() {
+  var tb = document.querySelector('.topbar');
+  if (tb && !document.getElementById('notifBtn')) {
+    var w = document.createElement('div');
+    w.style.cssText = 'position:relative;display:inline-block;margin-left:.5rem';
+    w.innerHTML = '<button type="button" id="notifBtn" class="btn btn-ghost btn-sm" style="padding:.4rem .55rem" title="Bildirimler">' +
+      '🔔<span id="notifBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;border-radius:10px;padding:0 5px;font-size:.58rem;font-family:var(--mono);min-width:16px;line-height:16px;text-align:center"></span>' +
+      '</button>' +
+      '<div id="notifPanel" style="display:none;position:absolute;right:0;top:calc(100% + 6px);width:340px;max-height:420px;overflow-y:auto;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.45);z-index:500">' +
+      '<div style="padding:.6rem .85rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface)">' +
+      '<span style="font-weight:700;font-size:.85rem">🔔 Bildirimler</span>' +
+      '<button class="btn btn-ghost btn-sm" id="markAllBtn" style="font-size:.7rem">Tümünü Oku</button>' +
+      '</div><div id="notifList"></div></div>';
+    tb.appendChild(w);
+    document.getElementById('notifBtn').onclick = toggleNotifPanel;
+    document.getElementById('markAllBtn').onclick = markAllRead;
+    document.addEventListener('click', function(e) { if (!w.contains(e.target) && _notifOpen) { _notifOpen = false; var p = document.getElementById('notifPanel'); if (p) p.style.display = 'none'; } });
+  }
+  await loadNotifs();
+  await loadPurchases();
+  await loadAdminAfterSales();
+  setTimeout(autoSort, 400);
+  setInterval(autoSort, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initExtras();
+  init();
+});
+</script>
+</body>
+</html>
