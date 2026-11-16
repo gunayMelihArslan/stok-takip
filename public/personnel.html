@@ -10,6 +10,19 @@
 <!-- HTML5 QR / Barcode Scanner CDN -->
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
+/* ── GLOBAL LOADER (YÜKLENİYOR EKRANI) ── */
+#globalLoader {
+  position: fixed; inset: 0; background: var(--bg); z-index: 99999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.25s ease;
+}
+.spinner {
+  width: 44px; height: 44px; border: 4px solid var(--border2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .job-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.6rem;}
 .job-header{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
 .stage-row{display:flex;align-items:center;padding:.65rem 1rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap;}
@@ -60,6 +73,12 @@
 </style>
 </head>
 <body>
+<!-- YÜKLENİYOR OVERLAY -->
+<div id="globalLoader">
+  <div class="spinner"></div>
+  <div style="margin-top:1rem;font-family:var(--mono);font-size:0.75rem;color:var(--muted);font-weight:700;letter-spacing:0.1em;text-transform:uppercase">Veriler Yükleniyor...</div>
+</div>
+
 <div class="mobile-bar"><div class="brand"><div class="icon">🏭</div><span>Stok Takip</span></div><button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button></div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <nav class="sidebar" id="sidebar">
@@ -419,7 +438,7 @@ let me = null;
 let html5QrCode = null;
 let activeScannerPrefix = 'take';
 let pBomFirmCollapsed = {};
-let currentBulkPlacement = 'pano'; // Madde 3: Varsayılan pano sekmesi
+let currentBulkPlacement = 'pano';
 let currentPage = 'mytasks';
 
 function toggleNavGroup(groupId) {
@@ -428,6 +447,9 @@ function toggleNavGroup(groupId) {
 }
 
 async function init() {
+  const loader = document.getElementById('globalLoader');
+  if(loader) loader.style.display = 'flex';
+
   const u = await api('/api/me');
   if (!u) return window.location.href = '/';
   if (u.role === 'admin') return window.location.href = '/admin.html';
@@ -436,18 +458,18 @@ async function init() {
   document.getElementById('avatarInit').textContent = (u.display_name || u.username)[0].toUpperCase();
   updateTime(); 
   setInterval(updateTime, 1000); 
+  
   await loadAll();
   
-  // ── QR Kod ile doğrudan vince yönlendirme kontrolü (URL veya LocalStorage) ──
   const urlParams = new URLSearchParams(window.location.search);
   const targetMachineId = urlParams.get('machine_id') || urlParams.get('redirect_machine') || localStorage.getItem('qr_target_machine');
   
   if (targetMachineId) {
-    localStorage.removeItem('qr_target_machine'); // Tekrar tekrar açılmasın diye temizle
+    localStorage.removeItem('qr_target_machine');
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, '/personnel.html');
     }
-    showPage('bulktake', true); // true = tekrar loadAll() çağırıp seçimi sıfırlama!
+    await showPage('bulktake', true);
     const targetMach = machines.find(m => String(m.id) === String(targetMachineId));
     if (targetMach) {
       const firmSel = document.getElementById('bulkFirmFilter');
@@ -456,7 +478,6 @@ async function init() {
         firmSel.value = String(targetMach.firm_id);
         filterBulkMachines();
       } else if (machSel) {
-        // Firması yoksa bile tüm vinçleri doldurup seçtir
         machSel.innerHTML = '<option value="">— Vinç seçin —</option>' + machines.map(m => `<option value="${m.id}">🏗️ ${esc(m.machine_name)} ${m.capacity ? `[${esc(m.capacity)}]` : ''}</option>`).join('');
         machSel.disabled = false;
       }
@@ -467,7 +488,7 @@ async function init() {
       }
     }
   } else {
-    showPage('mytasks', true);
+    await showPage('mytasks', true);
   }
 
   connectSSE();
@@ -627,7 +648,14 @@ const pageTitles = {
   purchase: 'Malzeme Taleplerim' 
 };
 
-function showPage(name, skipLoad = false) {
+// ── SEKME GEÇİŞİ VE LOADER ASENKRON YAPISI ──
+async function showPage(name, skipLoad = false) {
+  const loader = document.getElementById('globalLoader');
+  if (loader && !skipLoad) {
+    loader.style.opacity = '1';
+    loader.style.display = 'flex';
+  }
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const targetPage = document.getElementById('page-' + name);
@@ -643,13 +671,31 @@ function showPage(name, skipLoad = false) {
 
   document.getElementById('pageTitle').textContent = pageTitles[name] || name;
   currentPage = name;
+
+  if (!skipLoad) {
+    try {
+      if (name === 'history') await loadMyHistory();
+      else if (name === 'purchase') await loadMyPurchases();
+      else if (['stock', 'take', 'bulktake', 'return', 'bom_lists', 'mytasks', 'opentasks'].includes(name)) {
+        await loadAll();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   if (name === 'mytasks') renderMyTasks();
   if (name === 'opentasks') renderOpenTasks();
-  if (name === 'history') loadMyHistory();
-  if (!skipLoad && ['stock', 'take', 'bulktake', 'return', 'bom_lists'].includes(name)) loadAll();
+  if (name === 'history') renderHistory();
   if (name === 'vfd') renderPVfdRecords();
   if (name === 'bom_lists') renderBomLists();
-  if (name === 'purchase') { loadMyPurchases().then(function() { renderMyPurchases(); }); }
+  if (name === 'purchase') renderMyPurchases();
+  if (name === 'stock') renderStock();
+
+  if (loader) {
+    loader.style.opacity = '0';
+    setTimeout(() => { loader.style.display = 'none'; }, 250);
+  }
 }
 
 function switchPVfdTab(tab) {
@@ -1164,7 +1210,6 @@ function filterBulkMachines() {
   sel.disabled = false;
 }
 
-// Madde 3: Pano ve Kedi sekmeleri arası geçiş fonksiyonu
 function switchBulkPlacement(placement) {
   currentBulkPlacement = placement;
   document.getElementById('tabPlacementPano').classList.toggle('active', placement === 'pano');
@@ -1198,7 +1243,6 @@ function renderBulkCards(m, numCol, textCols, preview, btn, lotMap, takenMap) {
   takenMap = takenMap || {};
   let allCompleted = true;
   
-  // Madde 3: Seçilen sekmeye göre malzemeleri filtrele
   const filteredItems = (m.items || []).map((it, idx) => ({ it, idx })).filter(({ it }) => {
     const place = it.placement || 'pano';
     return place === currentBulkPlacement;
@@ -1395,6 +1439,9 @@ function closeSidebar() { document.getElementById('sidebar').classList.remove('o
 document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); }));
 
 async function refresh() {
+  const loader = document.getElementById('globalLoader');
+  if (loader) { loader.style.opacity = '1'; loader.style.display = 'flex'; }
+  
   const fns = {
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
     opentasks: async () => { await loadTasks(); renderOpenTasks(); },
@@ -1409,6 +1456,11 @@ async function refresh() {
   };
   const fn = fns[currentPage];
   if (fn) { await fn(); toast('Güncellendi ✓', 'success'); }
+  
+  if (loader) {
+    loader.style.opacity = '0';
+    setTimeout(() => { loader.style.display = 'none'; }, 250);
+  }
 }
 
 var _pSort = {};
