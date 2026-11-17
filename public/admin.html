@@ -119,6 +119,7 @@
     <div class="nav-section-label">İş Takibi & Servis</div>
     <div class="nav-item" onclick="showPage('tasks')"><span class="nav-icon">📋</span>İş Panosu <span id="taskBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">!</span></div>
     <div class="nav-item" onclick="showPage('after_sales')"><span class="nav-icon">🛠️</span>Satış Sonrası Talepleri <span id="asAdminBadge" style="display:none;background:#38bdf8;color:#0a0c0f;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span></div>
+    <div class="nav-item" onclick="showPage('service_tickets')"><span class="nav-icon">🚨</span>Saha Arıza Kayıtları <span id="ticketBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto;font-weight:700">0</span></div>
 
     <div class="nav-section-label">Atölye & Operasyon</div>
     <div class="nav-item" onclick="showPage('mytasks')"><span class="nav-icon">⚡</span>İşlerim <span id="alertBadge" style="display:none;background:var(--accent);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto"></span></div>
@@ -266,6 +267,27 @@
         <button class="btn btn-ghost" onclick="loadAdminAfterSales();renderAdminAfterSales()">↺ Yenile</button>
       </div>
       <div id="asAdminList"></div>
+    </div>
+
+    <!-- SAHA ARIZA & SERVİS YÖNETİMİ (DİJİTAL PASAPORT TALEPLERİ) -->
+    <div class="page" id="page-service_tickets">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="ticketSearch" placeholder="🔍 Müşteri, telefon, vinç veya hata kodu ara..." oninput="handleSearchInput(this, renderServiceTickets)">
+            <button class="search-clear-btn" onclick="clearSearchInput('ticketSearch', renderServiceTickets)">✕</button>
+          </div>
+          <select id="ticketStatusFilter" style="max-width:200px" onchange="renderServiceTickets()">
+            <option value="">Tüm Durumlar</option>
+            <option value="open">⏳ Açık / İnceleniyor</option>
+            <option value="in_progress">🔧 Müdahale Ediliyor</option>
+            <option value="resolved">✅ Çözüldü / Kapatıldı</option>
+            <option value="closed">❌ İptal Edildi</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" onclick="loadServiceTickets();renderServiceTickets()">↺ Yenile</button>
+      </div>
+      <div id="serviceTicketsList"></div>
     </div>
 
     <!-- TASKS -->
@@ -865,6 +887,91 @@
   </div>
 </div>
 
+<!-- ── DİJİTAL VİNÇ PASAPORTU & ONEDRIVE AYARLARI MODALI ── -->
+<div class="modal-overlay" id="passportConfigModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>🪪 Dijital Vinç Pasaportu & OneDrive Ayarları</h3>
+      <button class="modal-close" onclick="closeModal('passportConfigModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="pcMachineId">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="form-group">
+          <label>Pasaport Kodu (QR Kimliği) *</label>
+          <input type="text" id="pcCode" placeholder="SKZ-2026-0001">
+        </div>
+        <div class="form-group">
+          <label>Erişim PIN (Opsiyonel)</label>
+          <input type="text" id="pcPin" placeholder="Boş = Şifresiz">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>📐 OneDrive EPLAN Elektrik Projesi Linki (PDF)</label>
+        <input type="url" id="pcEplan" placeholder="https://1drv.ms/b/s!...">
+        <small style="color:var(--muted);font-size:.68rem">Müşterinin veya saha ekibinin QR okuttuğunda tek tıkla açacağı EPLAN PDF paylaşım linki.</small>
+      </div>
+      <div class="form-group">
+        <label>📁 OneDrive Teknik Dosya Klasörü Linki</label>
+        <input type="url" id="pcFolder" placeholder="https://1drv.ms/f/s!...">
+        <small style="color:var(--muted);font-size:.68rem">Kullanım kılavuzu, test raporları ve saha fotoğraflarının bulunduğu OneDrive klasör linki.</small>
+      </div>
+      <div class="form-group">
+        <label>⚡ Sürücü (VFD) Parametre & Pano Özeti</label>
+        <textarea id="pcVfd" rows="3" placeholder="Örn: Köprü: Schneider ATV320 2.2kW (ACC: 3s, DEC: 3s) | Kedi: ATV320 0.75kW | Kanca: 7.5kW..."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group" style="margin:0">
+          <label>Devreye Alma Tarihi</label>
+          <input type="date" id="pcCommDate">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Garanti Bitiş Tarihi</label>
+          <input type="date" id="pcWarrantyDate">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('passportConfigModal')">İptal</button>
+      <button class="btn btn-primary" id="pcSaveBtn" onclick="savePassportConfig()">💾 Pasaport Bilgilerini Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SAHA ARIZA / SERVİS KAYDI GÜNCELLEME MODALI ── -->
+<div class="modal-overlay" id="ticketActionModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3>🚨 Saha Servis Kaydı Yönetimi</h3>
+      <button class="modal-close" onclick="closeModal('ticketActionModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tamTicketId">
+      <div class="form-group">
+        <label>Servis / Müdahale Durumu</label>
+        <select id="tamStatus" style="width:100%">
+          <option value="open">⏳ Açık / İnceleniyor</option>
+          <option value="in_progress">🔧 Müdahale Ediliyor</option>
+          <option value="resolved">✅ Çözüldü / Tamamlandı</option>
+          <option value="closed">❌ Kapatıldı / İptal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>OneDrive Görsel / Video / Servis Formu Linki (Opsiyonel)</label>
+        <input type="url" id="tamMedia" placeholder="https://1drv.ms/...">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Atölye / Teknik Servis Çözüm Notu</label>
+        <textarea id="tamNote" rows="4" placeholder="Yapılan müdahale, değiştirilen parça veya müşteriye iletilecek çözüm açıklaması..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('ticketActionModal')">İptal</button>
+      <button class="btn btn-primary" id="tamSaveBtn" onclick="saveTicketAction()">💾 Kaydı Güncelle</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script>
 const _f = window.fetch.bind(window);
@@ -879,7 +986,7 @@ window.fetch = function(url, opts) {
 };
 
 let columns = [], products = [], transactions = [], users = [], machines = [], firms = [], tasks = [], perf = [], bomColumns = [], bomCategories = [];
-let pendingTransfers = [], activityLogs = [], adminAfterSales = [], me = null;
+let pendingTransfers = [], activityLogs = [], adminAfterSales = [], serviceTickets = [], me = null;
 let vfdDevices = [], vfdRecords = [], currentVfdTab = 'parameter';
 let editingCell = null, currentPage = 'dashboard', newTxCount = 0;
 let firmCollapsed = {};
@@ -909,6 +1016,10 @@ function connectSSE() {
   es.addEventListener('after_sales_update', async () => {
     await loadAdminAfterSales();
     if (currentPage === 'after_sales') renderAdminAfterSales();
+  });
+  es.addEventListener('ticket_new', async () => {
+    await loadServiceTickets();
+    if (currentPage === 'service_tickets') renderServiceTickets();
   });
   es.addEventListener('tx_new', async () => {
     await loadTransactions();
@@ -987,7 +1098,7 @@ function connectSSE() {
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll(), loadAdminAfterSales()]);
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll(), loadAdminAfterSales(), loadServiceTickets()]);
   renderFirmLists();
 }
 async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
@@ -1100,6 +1211,7 @@ const pageTitles = {
   firms: 'Firma Yönetimi', 
   machines: 'Vinç Yönetimi', 
   after_sales: 'Satış Sonrası Revizyon Talepleri',
+  service_tickets: 'Saha Arıza & Servis Kayıtları',
   bom: 'BOM Sütunları', 
   bom_categories: 'BOM Kategorileri', 
   vfd: 'Sürücü & Parametre Kütüphanesi',
@@ -1134,6 +1246,7 @@ function showPage(name) {
     firms: renderFirms, 
     machines: renderMachines, 
     after_sales: renderAdminAfterSales,
+    service_tickets: renderServiceTickets,
     bom: renderBomColumns, 
     bom_categories: renderBomCategories, 
     vfd: renderVfdRecords,
@@ -2051,6 +2164,8 @@ function renderMachines() {
                 ${m.lifting_height ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↕ ${esc(m.lifting_height)}m</span>` : ''}
                 ${m.span ? `<span class="badge" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.65rem">↔ ${esc(m.span)}m</span>` : ''}
                 <span class="badge" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">${(m.items || []).length} Kalem Malzeme</span>
+                ${m.passport_code ? `<span class="badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);font-size:.65rem">🪪 ${esc(m.passport_code)}</span>` : ''}
+                ${m.onedrive_eplan_url ? `<span class="badge" style="background:rgba(60,212,160,0.15);color:var(--success);font-size:.62rem">📐 EPLAN Bağlı</span>` : ''}
               </div>
               ${m.notes ? `<div style="font-family:var(--mono);font-size:.68rem;color:var(--text2);margin-top:.15rem">${esc(m.notes)}</div>` : ''}
               ${m.editor_name ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.1rem">Son Düzenleyen: ${esc(m.editor_name)}</div>` : ''}
@@ -2060,6 +2175,8 @@ function renderMachines() {
                 <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, -1)">▲</button>
                 <button class="btn btn-ghost" onclick="moveEntityOrder('machines', ${m.id}, 1)">▼</button>
               </div>
+              <button class="btn btn-ghost btn-sm" style="border-color:#38bdf8;color:#38bdf8" onclick="openPassportModal(${m.id})" title="Dijital Vinç Pasaportu & OneDrive Linkleri">🪪 Pasaport & OneDrive</button>
+              <button class="btn btn-ghost btn-sm" onclick="printQrLabel(${m.id})" title="Pano İçi QR Etiketi Yazdır">🖨️ Pano QR</button>
               <button class="btn btn-ghost btn-sm" onclick="openCloneMachineModal(${m.id})" title="Bu vinci kopyala">📋 Kopyala</button>
               <button class="btn btn-ghost btn-sm" onclick="openBOM(${m.id})" title="BOM İndir">📄 BOM</button>
               <button class="btn btn-ghost btn-sm" onclick="openBomPricingAdmin(${m.id})" title="Satış Sonrası Fiyatlı BOM">💰 Fiyatlı BOM</button>
@@ -3385,6 +3502,7 @@ async function refresh() {
     firms: async () => { await loadFirms(); await loadMachines(); renderFirms(); },
     machines: async () => { await loadMachines(); renderMachines(); },
     after_sales: async () => { await loadAdminAfterSales(); renderAdminAfterSales(); },
+    service_tickets: async () => { await loadServiceTickets(); renderServiceTickets(); },
     vfd: async () => { await loadVfdAll(); renderVfdRecords(); },
     tasks: async () => { await loadTasks(); renderTasks(); },
     mytasks: async () => { await loadTasks(); renderMyTasks(); },
@@ -3642,6 +3760,219 @@ function openBOM(machineId) {
   window.open(`/bom/${machineId}?token=${encodeURIComponent(token)}`, '_blank');
 }
 
+// ── DİJİTAL VİNÇ PASAPORTU (ONEDRIVE) & SAHA SERVİS YÖNETİMİ ─────────────
+function openPassportModal(machineId) {
+  const m = machines.find(x => x.id == machineId);
+  if (!m) return;
+  document.getElementById('pcMachineId').value = m.id;
+  document.getElementById('pcCode').value = m.passport_code || ('SKZ-' + new Date().getFullYear() + '-' + String(m.id).padStart(4, '0'));
+  document.getElementById('pcPin').value = m.passport_pin || '';
+  document.getElementById('pcEplan').value = m.onedrive_eplan_url || '';
+  document.getElementById('pcFolder').value = m.onedrive_folder_url || '';
+  document.getElementById('pcVfd').value = m.vfd_summary || '';
+  document.getElementById('pcCommDate').value = m.commissioning_date ? String(m.commissioning_date).slice(0, 10) : '';
+  document.getElementById('pcWarrantyDate').value = m.warranty_end_date ? String(m.warranty_end_date).slice(0, 10) : '';
+  openModal('passportConfigModal');
+}
+
+async function savePassportConfig() {
+  await withButtonLock('pcSaveBtn', 'Kaydediliyor...', async () => {
+    const id = document.getElementById('pcMachineId').value;
+    const passport_code = document.getElementById('pcCode').value.trim();
+    const passport_pin = document.getElementById('pcPin').value.trim();
+    const onedrive_eplan_url = document.getElementById('pcEplan').value.trim();
+    const onedrive_folder_url = document.getElementById('pcFolder').value.trim();
+    const vfd_summary = document.getElementById('pcVfd').value.trim();
+    const commissioning_date = document.getElementById('pcCommDate').value || null;
+    const warranty_end_date = document.getElementById('pcWarrantyDate').value || null;
+
+    if (!passport_code) {
+      toast('Pasaport kodu zorunludur', 'error');
+      return;
+    }
+
+    const r = await api('/api/machines/' + id + '/passport', 'PUT', {
+      passport_code,
+      passport_pin,
+      onedrive_eplan_url,
+      onedrive_folder_url,
+      vfd_summary,
+      commissioning_date,
+      warranty_end_date
+    });
+    if (!r) return;
+    closeModal('passportConfigModal');
+    await loadMachines();
+    renderMachines();
+    toast('Dijital Vinç Pasaportu ve OneDrive bağlantıları güncellendi ✓', 'success');
+  });
+}
+
+function printQrLabel(machineId) {
+  const m = machines.find(x => x.id == machineId);
+  if (!m) return;
+  const pCode = m.passport_code || ('SKZ-' + new Date().getFullYear() + '-' + String(m.id).padStart(4, '0'));
+  const targetUrl = window.location.origin + '/p/' + encodeURIComponent(pCode);
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(targetUrl);
+
+  const w = window.open('', '_blank', 'width=520,height=640');
+  w.document.write(`<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><title>Pano QR Etiketi — ${esc(m.machine_name)}</title>
+<style>
+  @page { size: 100mm 130mm; margin: 4mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; padding: 14px; background: #fff; color: #000; }
+  .tag-box { border: 3.5px solid #000; border-radius: 12px; padding: 16px; max-width: 380px; margin: 0 auto; }
+  .brand { font-size: 16px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+  .sub { font-size: 10px; font-weight: 800; color: #1a6b56; margin: 3px 0 12px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; }
+  .firm { font-size: 12px; font-weight: 800; color: #333; margin-bottom: 2px; }
+  .title { font-size: 15px; font-weight: 900; margin-bottom: 8px; color: #000; }
+  .specs { display: flex; justify-content: center; gap: 8px; font-size: 10px; font-weight: 700; margin-bottom: 10px; flex-wrap: wrap; }
+  .specs span { border: 1.5px solid #000; padding: 2px 6px; border-radius: 4px; }
+  .qr { margin: 8px auto; padding: 8px; border: 2px solid #000; border-radius: 8px; display: inline-block; background: #fff; }
+  .qr img { width: 175px; height: 175px; display: block; }
+  .code { font-family: monospace; font-size: 14px; font-weight: 900; background: #000; color: #fff; padding: 5px 12px; border-radius: 6px; display: inline-block; margin-top: 8px; letter-spacing: .08em; }
+  .desc { font-size: 9.5px; font-weight: 600; color: #222; margin-top: 10px; line-height: 1.35; }
+  .footer { font-size: 8.5px; font-weight: 700; color: #444; margin-top: 10px; border-top: 1px solid #aaa; padding-top: 6px; }
+  .actions { margin-top: 16px; display: flex; gap: 8px; justify-content: center; }
+  .actions button { padding: 9px 16px; font-weight: 800; border: 2px solid #000; border-radius: 6px; cursor: pointer; background: #1a6b56; color: #fff; }
+  .actions button.sec { background: #fff; color: #000; }
+  @media print { .actions { display: none !important; } body { padding: 0; } }
+</style></head><body>
+<div class="tag-box">
+  <div class="brand">SEKİZLİ MAKİNA &amp; VİNÇ A.Ş.</div>
+  <div class="sub">⚡ DİJİTAL VİNÇ PASAPORTU (DIGITAL TWIN)</div>
+  ${m.firm_name ? `<div class="firm">${esc(m.firm_name)}</div>` : ''}
+  <div class="title">${esc(m.machine_name)}</div>
+  <div class="specs">
+    ${m.capacity ? `<span>Kapasite: ${esc(m.capacity)}</span>` : ''}
+    ${m.span ? `<span>KTM: ${esc(m.span)}m</span>` : ''}
+    ${m.lifting_height ? `<span>H: ${esc(m.lifting_height)}m</span>` : ''}
+  </div>
+  <div class="qr"><img src="${qrUrl}" alt="Pasaport QR"></div>
+  <div><span class="code">${esc(pCode)}</span></div>
+  <div class="desc">EPLAN Elektrik Projesine, Sürücü Parametrelerine, Pano Yedek Parça Listesine ulaşmak veya Arıza Kaydı açmak için QR kodu okutun.</div>
+  <div class="footer">DİJİTAL ELEKTRİKHANE OTOMASYON SİSTEMİ</div>
+</div>
+<div class="actions">
+  <button onclick="window.print()">🖨️ Etiketi Yazdır</button>
+  <button class="sec" onclick="window.open('${targetUrl}', '_blank')">🔗 Pasaport Sayfasını Test Et</button>
+</div>
+</body></html>`);
+  w.document.close();
+}
+
+async function loadServiceTickets() {
+  serviceTickets = await api('/api/service-tickets') || [];
+  const openCnt = serviceTickets.filter(t => t.status === 'open' || t.status === 'in_progress').length;
+  const badge = document.getElementById('ticketBadge');
+  if (badge) {
+    badge.textContent = openCnt;
+    badge.style.display = openCnt > 0 ? 'inline' : 'none';
+  }
+}
+
+function renderServiceTickets() {
+  const q = (document.getElementById('ticketSearch')?.value || '').toLowerCase();
+  const f = document.getElementById('ticketStatusFilter')?.value || '';
+  let list = serviceTickets;
+  if (f) list = list.filter(t => t.status === f);
+  if (q) {
+    list = list.filter(t =>
+      (t.customer_name || '').toLowerCase().includes(q) ||
+      (t.customer_phone || '').toLowerCase().includes(q) ||
+      (t.fault_description || '').toLowerCase().includes(q) ||
+      (t.fault_code || '').toLowerCase().includes(q) ||
+      (t.machine_name || '').toLowerCase().includes(q) ||
+      (t.firm_name || '').toLowerCase().includes(q) ||
+      (t.passport_code || '').toLowerCase().includes(q)
+    );
+  }
+
+  const cont = document.getElementById('serviceTicketsList');
+  if (!cont) return;
+  if (!list.length) {
+    cont.innerHTML = '<div class="card empty"><div class="icon">🚨</div>Saha arıza veya servis kaydı bulunmuyor</div>';
+    return;
+  }
+
+  const stMap = {
+    open: { l: '⏳ Açık / İnceleniyor', c: 'var(--danger)' },
+    in_progress: { l: '🔧 Müdahale Ediliyor', c: 'var(--warning)' },
+    resolved: { l: '✅ Çözüldü', c: 'var(--success)' },
+    closed: { l: '❌ Kapatıldı', c: 'var(--muted)' }
+  };
+
+  cont.innerHTML = list.map(t => {
+    const st = stMap[t.status] || stMap.open;
+    return `
+      <div class="as-request-card" style="border-left:4px solid ${st.c}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+          <div>
+            <span class="badge" style="background:rgba(232,75,75,0.15);color:var(--danger);font-weight:700">🚨 Arıza Kaydı #${t.id}</span>
+            <strong style="font-size:1rem;color:#fff;margin-left:.4rem">${esc(t.firm_name || 'Firma Belirtilmedi')} — ${esc(t.machine_name)}</strong>
+            ${t.passport_code ? `<span class="as-spec-chip" style="margin-left:.4rem;color:#38bdf8">🪪 ${esc(t.passport_code)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            <span style="font-family:var(--mono);font-size:.74rem;font-weight:800;color:${st.c}">${st.l}</span>
+            <button class="btn btn-primary btn-sm" onclick="openTicketActionModal(${t.id})">✏️ Durum / Çözüm Yaz</button>
+          </div>
+        </div>
+        <div style="margin-bottom:.5rem">
+          <span class="as-spec-chip">👤 Bildiren: <strong>${esc(t.customer_name)}</strong></span>
+          <span class="as-spec-chip">📞 Tel: <strong><a href="tel:${esc(t.customer_phone)}" style="color:var(--accent);text-decoration:none">${esc(t.customer_phone)}</a></strong></span>
+          <span class="as-spec-chip">📂 Kategori: <strong>${esc(t.fault_category || 'genel')}</strong></span>
+          ${t.fault_code ? `<span class="as-spec-chip" style="border-color:var(--danger);color:var(--danger)">⚡ Hata Kodu: <strong>${esc(t.fault_code)}</strong></span>` : ''}
+          ${t.onedrive_media_url ? `<a href="${esc(t.onedrive_media_url)}" target="_blank" class="as-spec-chip" style="color:#38bdf8;text-decoration:none">📷 OneDrive Görsel/Video Aç ↗</a>` : ''}
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.65rem .8rem;font-size:.84rem;color:var(--text);margin-bottom:.45rem">
+          <strong style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:.2rem">ARIZA AÇIKLAMASI:</strong>
+          ${esc(t.fault_description)}
+        </div>
+        ${t.admin_resolution_note ? `
+          <div style="background:rgba(60,212,160,0.08);border:1px solid rgba(60,212,160,0.3);border-radius:6px;padding:.6rem .8rem;font-size:.82rem;color:var(--success);margin-bottom:.45rem">
+            <strong>✅ Teknik Servis Çözüm Notu:</strong> ${esc(t.admin_resolution_note)}
+          </div>
+        ` : ''}
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);display:flex;justify-content:space-between">
+          <span>Açılış: ${fmtDate(t.created_at)}</span>
+          ${t.resolved_at ? `<span>Çözüm Tarihi: ${fmtDate(t.resolved_at)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openTicketActionModal(ticketId) {
+  const t = serviceTickets.find(x => x.id == ticketId);
+  if (!t) return;
+  document.getElementById('tamTicketId').value = t.id;
+  document.getElementById('tamStatus').value = t.status || 'open';
+  document.getElementById('tamMedia').value = t.onedrive_media_url || '';
+  document.getElementById('tamNote').value = t.admin_resolution_note || '';
+  openModal('ticketActionModal');
+}
+
+async function saveTicketAction() {
+  await withButtonLock('tamSaveBtn', 'Güncelleniyor...', async () => {
+    const id = document.getElementById('tamTicketId').value;
+    const status = document.getElementById('tamStatus').value;
+    const onedrive_media_url = document.getElementById('tamMedia').value.trim();
+    const admin_resolution_note = document.getElementById('tamNote').value.trim();
+
+    const r = await api('/api/service-tickets/' + id, 'PUT', {
+      status,
+      onedrive_media_url,
+      admin_resolution_note
+    });
+    if (!r) return;
+    closeModal('ticketActionModal');
+    await loadServiceTickets();
+    renderServiceTickets();
+    toast('Saha arıza kaydı güncellendi ✓', 'success');
+  });
+}
+
 // ── INIT EXTRAS ───────────────────────────────────────────────────────────
 async function initExtras() {
   var tb = document.querySelector('.topbar');
@@ -3664,6 +3995,7 @@ async function initExtras() {
   await loadNotifs();
   await loadPurchases();
   await loadAdminAfterSales();
+  await loadServiceTickets();
   setTimeout(autoSort, 400);
   setInterval(autoSort, 3000);
 }
