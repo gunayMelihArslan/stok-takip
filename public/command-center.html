@@ -13,7 +13,6 @@
       --surface: #111620;
       --surface2: #1a2230;
       --border: #222d42;
-      --border-glow: rgba(56, 189, 248, 0.4);
       --text: #f1f5f9;
       --text2: #94a3b8;
       --muted: #64748b;
@@ -44,11 +43,12 @@
     .pulse-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: ping 2s infinite; }
     @keyframes ping { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.4; } 100% { transform: scale(0.9); opacity: 1; } }
 
-    /* ANA GRID YERLEŞİMİ */
-    .main-grid { flex: 1; display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem; padding: 1rem; overflow: hidden; }
-    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+    /* ANA GRID YERLEŞİMİ (DİNAMİK SAYFA GEÇİŞLİ) */
+    .main-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; overflow: hidden; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.4); transition: all 0.5s ease; }
     .panel-header { background: var(--surface2); padding: 0.8rem 1.2rem; font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; color: var(--text2); }
-    .panel-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; animation: fadeInView 0.5s ease-out; }
+    @keyframes fadeInView { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
     .panel-body::-webkit-scrollbar { width: 6px; }
     .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -61,8 +61,9 @@
     .badge { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; text-transform: uppercase; }
     .badge-progress { background: rgba(56, 189, 248, 0.15); color: var(--primary); border: 1px solid rgba(56, 189, 248, 0.3); }
     .badge-alert { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-stock { background: rgba(232, 184, 75, 0.15); color: var(--accent); border: 1px solid rgba(232, 184, 75, 0.3); }
 
-    /* ── DEV BİLDİRİM POP-UP (ÖNCE BÜYÜK, SONRA KÜÇÜLEREK KENARA AKIŞ) ── */
+    /* DEV BİLDİRİM POP-UP */
     #megaAlertOverlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
       display: none; justify-content: center; align-items: center; z-index: 9999;
@@ -81,7 +82,7 @@
     .mega-desc { font-family: var(--mono); font-size: 0.95rem; color: var(--text2); line-height: 1.5; }
 
     /* ALT KPI BANT */
-    .kpi-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.8rem 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; }
+    .kpi-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.8rem 1.5rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; }
     .kpi-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem; }
     .kpi-val { font-family: var(--mono); font-size: 1.3rem; font-weight: 900; color: var(--accent); }
     .kpi-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 0.1rem; }
@@ -98,33 +99,28 @@
       </div>
     </div>
     <div class="clock-ticker">
-      <div class="live-status"><span class="pulse-dot"></span> Canlı SSE Akışı</div>
+      <div id="modeIndicator" style="font-family:var(--mono); font-size:0.75rem; color:var(--primary); background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); padding:0.3rem 0.7rem; border-radius:20px;">🔄 Mod: Aktif Akış</div>
+      <div class="live-status"><span class="pulse-dot"></span> Canlı</div>
       <div class="live-clock" id="liveClock">00:00:00</div>
     </div>
   </header>
 
-  <!-- ANA EKRAN İÇERİK GRIDİ -->
+  <!-- ANA EKRAN İÇERİK GRIDİ (DÖNGÜSEL AKIŞ) -->
   <div class="main-grid">
     
-    <!-- SOL: ATÖLYE CANLI AKIŞ (KİM NE YAPIYOR?) -->
+    <!-- SOL PANEL: DEĞİŞKEN GRUP 1 -->
     <div class="panel">
-      <div class="panel-header">
-        <span>⚡ Atölye Canlı İş & Aşama Akışı</span>
-        <span id="activeTaskCount" style="font-family:var(--mono);color:var(--accent)">0 Aktif</span>
-      </div>
-      <div class="panel-body" id="liveTaskFeed">
-        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Atölye akışı dinleniyor...</div>
+      <div class="panel-header" id="leftPanelTitle">⚡ Atölye Canlı İş Akışı</div>
+      <div class="panel-body" id="leftPanelBody">
+        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Yükleniyor...</div>
       </div>
     </div>
 
-    <!-- SAĞ: SAHA ARIZA VE BİLDİRİM AKIŞI -->
+    <!-- SAĞ PANEL: DEĞİŞKEN GRUP 2 -->
     <div class="panel">
-      <div class="panel-header">
-        <span>🚨 Saha Arıza & Bildirim Sinyalleri</span>
-        <span id="activeTicketCount" style="font-family:var(--mono);color:var(--danger)">0 Sinyal</span>
-      </div>
-      <div class="panel-body" id="liveTicketFeed">
-        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Saha bildirimleri bekleniyor...</div>
+      <div class="panel-header" id="rightPanelTitle">🚨 Saha Arıza & Sinyaller</div>
+      <div class="panel-body" id="rightPanelBody">
+        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Yükleniyor...</div>
       </div>
     </div>
 
@@ -134,15 +130,19 @@
   <footer class="kpi-footer">
     <div class="kpi-box">
       <div class="kpi-val" id="kpiTasks">0</div>
-      <div class="kpi-lbl">Toplam Aktif Aşama</div>
+      <div class="kpi-lbl">Aktif Aşama</div>
     </div>
     <div class="kpi-box">
       <div class="kpi-val" id="kpiTickets">0</div>
-      <div class="kpi-lbl">Açık Saha Arıza Kaydı</div>
+      <div class="kpi-lbl">Açık Arıza</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-val" id="kpiClients">Aktif</div>
-      <div class="kpi-lbl">Sistem Durumu</div>
+      <div class="kpi-val" id="kpiProducts">0</div>
+      <div class="kpi-lbl">Toplam Ürün / Çeşit</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-val" id="kpiLowStock">0</div>
+      <div class="kpi-lbl">Kritik Stok Kalemi</div>
     </div>
   </footer>
 
@@ -151,68 +151,119 @@
     <div class="mega-alert-box">
       <div class="mega-icon" id="megaIcon">🚨</div>
       <div class="mega-title" id="megaTitle">YENİ BİLDİRİM</div>
-      <div class="mega-desc" id="megaDesc">Sisteme yeni bir operasyonel sinyal düştü...</div>
+      <div class="mega-desc" id="megaDesc">Sisteme yeni bir sinyal düştü...</div>
     </div>
   </div>
 
 <script>
+  let globalData = { tasks: [], tickets: [], products: [], columns: [], transactions: [] };
+  let currentViewMode = 0; // 0: İşler & Arızalar, 1: Ürün Listesi & Son Hareketler, 2: Düşük Stok & Firmalar
+
   // Saat Güncelleyici
   function updateClock() {
-    const now = new Date();
-    document.getElementById('liveClock').textContent = now.toLocaleTimeString('tr-TR');
+    document.getElementById('liveClock').textContent = new Date().toLocaleTimeString('tr-TR');
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Büyük Pop-up Tetikleyici (Önce büyük görünür, 3.5 saniye sonra kapanır ve akışa eklenir)
+  // Büyük Pop-up Tetikleyici
   function triggerMegaAlert(icon, title, desc) {
     const overlay = document.getElementById('megaAlertOverlay');
     document.getElementById('megaIcon').textContent = icon;
     document.getElementById('megaTitle').textContent = title;
     document.getElementById('megaDesc').textContent = desc;
-
     overlay.style.display = 'flex';
-    
-    // 3.5 saniye sonra otomatik kapat ve sağ taraftaki akışa düşür
-    setTimeout(() => {
-      overlay.style.display = 'none';
-    }, 3500);
+    setTimeout(() => { overlay.style.display = 'none'; }, 3500);
   }
 
-  // İlk Verileri Çek ve SSE Bağlantısını Kur
-  async function loadInitialData() {
+  // Verileri Periyodik Çek
+  async function fetchAllData() {
     try {
-      // Görevleri ve Arızaları Çek
-      const tasksRes = await fetch('/api/tasks');
-      const tasks = await tasksRes.json();
-      renderTasks(tasks);
+      const [tRes, tkRes, pRes, cRes, txRes] = await Promise.all([
+        fetch('/api/tasks').then(r => r.json()).catch(() => []),
+        fetch('/api/service-tickets').then(r => r.json()).catch(() => []),
+        fetch('/api/products').then(r => r.json()).catch(() => []),
+        fetch('/api/columns').then(r => r.json()).catch(() => []),
+        fetch('/api/transactions?limit=20').then(r => r.json()).catch(() => [])
+      ]);
 
-      const ticketRes = await fetch('/api/service-tickets');
-      const tickets = await ticketRes.json();
-      renderTickets(tickets);
+      globalData = { tasks: tRes || [], tickets: tkRes || [], products: pRes || [], columns: cRes || [], transactions: txRes || [] };
+      updateKPIs();
+      renderCurrentView();
     } catch(e) {
-      console.error('Veri çekme hatası:', e);
+      console.error('Veri senkronizasyon hatası:', e);
     }
   }
 
-  function renderTasks(tasks) {
-    const feed = document.getElementById('liveTaskFeed');
+  function updateKPIs() {
+    let activeTasksCount = 0;
+    globalData.tasks.forEach(t => {
+      activeTasksCount += (t.stages || []).filter(s => s.status === 'in_progress').length;
+    });
+    const openTickets = globalData.tasks.length ? globalData.tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length : 0;
+    const numCol = globalData.columns.find(c => c.data_type === 'number');
+    const minS = numCol?.min_stock || 5;
+    const lowStock = numCol ? globalData.products.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS).length : 0;
+
+    document.getElementById('kpiTasks').textContent = activeTasksCount;
+    document.getElementById('kpiTickets').textContent = openTickets;
+    document.getElementById('kpiProducts').textContent = globalData.products.length;
+    document.getElementById('kpiLowStock').textContent = lowStock;
+  }
+
+  // EKRANLARI DÖNGÜSEL OLARAK DEĞİŞTİR (DİNAMİK DEĞİŞKEN GRUPLARI)
+  function rotateViews() {
+    currentViewMode = (currentViewMode + 1) % 3;
+    renderCurrentView();
+  }
+  // Her 12 saniyede bir ekran gruplarını animasyonlu şekilde değiştirir
+  setInterval(rotateViews, 12000);
+
+  function renderCurrentView() {
+    const leftTitle = document.getElementById('leftPanelTitle');
+    const leftBody = document.getElementById('leftPanelBody');
+    const rightTitle = document.getElementById('rightPanelTitle');
+    const rightBody = document.getElementById('rightPanelBody');
+    const modeInd = document.getElementById('modeIndicator');
+
+    leftBody.style.animation = 'none';
+    rightBody.style.animation = 'none';
+    void leftBody.offsetWidth; // Reflow for animation reset
+    void rightBody.offsetWidth;
+
+    if (currentViewMode === 0) {
+      modeInd.textContent = '🔄 Mod: Atölye & Saha Sinyalleri';
+      leftTitle.textContent = '⚡ Aktif Atölye İşleri & Aşamaları';
+      rightTitle.textContent = '🚨 Saha Arıza Bildirimleri';
+      renderActiveTasks(leftBody);
+      renderTickets(rightBody);
+    } else if (currentViewMode === 1) {
+      modeInd.textContent = '🔄 Mod: Ürün Kataloğu & Son Hareketler';
+      leftTitle.textContent = '📦 Kayıtlı Ürünler & Stoklar';
+      rightTitle.textContent = '📑 Son Depo Çıkış / İade Hareketleri';
+      renderProductsList(leftBody);
+      renderTransactionsList(rightBody);
+    } else if (currentViewMode === 2) {
+      modeInd.textContent = '🔄 Mod: Kritik Stoklar & Uyarılar';
+      leftTitle.textContent = '⚠️ Kritik Düşük Stok Uyarıları';
+      rightTitle.textContent = '🏢 Kayıtlı Firmalar & Projeler';
+      renderLowStockList(leftBody);
+      renderFirmsSummary(rightBody);
+    }
+  }
+
+  function renderActiveTasks(container) {
     let activeList = [];
-    tasks.forEach(t => {
+    globalData.tasks.forEach(t => {
       (t.stages || []).filter(s => s.status === 'in_progress').forEach(s => {
         activeList.push({ taskTitle: t.title, firmName: t.firm_name, stageName: s.stage_name, assignee: s.assignee_name });
       });
     });
-
-    document.getElementById('activeTaskCount').textContent = activeList.length + ' Aktif';
-    document.getElementById('kpiTasks').textContent = activeList.length;
-
     if (!activeList.length) {
-      feed.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Şu an aktif çalışan aşama yok.</div>';
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Aktif çalışan aşama bulunmuyor.</div>';
       return;
     }
-
-    feed.innerHTML = activeList.map(item => `
+    container.innerHTML = activeList.map(item => `
       <div class="live-card">
         <div class="card-info">
           <h4>${item.taskTitle} (${item.firmName || 'Genel'})</h4>
@@ -223,55 +274,132 @@
     `).join('');
   }
 
-  function renderTickets(tickets) {
-    const feed = document.getElementById('liveTicketFeed');
-    const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
-
-    document.getElementById('activeTicketCount').textContent = openTickets.length + ' Sinyal';
-    document.getElementById('kpiTickets').textContent = openTickets.length;
-
+  function renderTickets(container) {
+    const openTickets = globalData.tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
     if (!openTickets.length) {
-      feed.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Bekleyen saha arızası yok. Temiz!</div>';
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Bekleyen saha arızası yok. Sistem temiz!</div>';
       return;
     }
-
-    feed.innerHTML = openTickets.map(t => `
+    container.innerHTML = openTickets.map(t => `
       <div class="live-card" style="border-left: 4px solid var(--danger);">
         <div class="card-info">
           <h4>🚨 ${t.firm_name || 'Müşteri'} — ${t.machine_name}</h4>
-          <p>Arıza: ${t.fault_description} ${t.fault_code ? '· Kod: ' + t.fault_code : ''}</p>
+          <p>${t.fault_description} ${t.fault_code ? '· Kod: ' + t.fault_code : ''}</p>
         </div>
         <span class="badge badge-alert">İnceleniyor</span>
       </div>
     `).join('');
   }
 
-  // SSE Canlı Bağlantı (Sunucudan anlık sinyal dinleme)
+  function renderProductsList(container) {
+    const firstCol = globalData.columns[0];
+    const numCol = globalData.columns.find(c => c.data_type === 'number');
+    const prods = globalData.products.slice(0, 15);
+    if (!prods.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Ürün bulunamadı.</div>';
+      return;
+    }
+    container.innerHTML = prods.map(p => {
+      const name = firstCol && p.values ? (p.values[firstCol.id] || 'Ürün #' + p.id) : 'Ürün #' + p.id;
+      const qty = numCol && p.values ? (p.values[numCol.id] || '0') : '?';
+      return `
+        <div class="live-card">
+          <div class="card-info">
+            <h4>📦 ${name}</h4>
+            <p>ID: #${p.id}</p>
+          </div>
+          <span class="badge badge-stock">${qty} Adet</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderTransactionsList(container) {
+    const txs = globalData.transactions.slice(0, 12);
+    if (!txs.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Son işlem hareketi yok.</div>';
+      return;
+    }
+    container.innerHTML = txs.map(t => `
+      <div class="live-card">
+        <div class="card-info">
+          <h4>📑 ${t.product_name || 'Ürün'} (${t.company || 'Firma'})</h4>
+          <p>Personel: ${t.user_name || '?'} · ${new Date(t.created_at).toLocaleTimeString('tr-TR')}</p>
+        </div>
+        <span class="badge ${t.tx_type === 'return' ? 'badge-progress' : 'badge-alert'}">${t.tx_type === 'return' ? '+' + t.quantity + ' İade' : '-' + t.quantity + ' Çıkış'}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderLowStockList(container) {
+    const numCol = globalData.columns.find(c => c.data_type === 'number');
+    const minS = numCol?.min_stock || 5;
+    const firstCol = globalData.columns[0];
+    const lowP = numCol ? globalData.products.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS) : [];
+    if (!lowP.length) {
+      container.innerHTML = '<div style="color:var(--success);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">✅ Kritik stokta ürün bulunmuyor. Her şey yolunda!</div>';
+      return;
+    }
+    container.innerHTML = lowP.map(p => {
+      const name = firstCol && p.values ? (p.values[firstCol.id] || 'Ürün #' + p.id) : 'Ürün #' + p.id;
+      const qty = numCol ? (p.values?.[numCol.id] || 0) : 0;
+      return `
+        <div class="live-card" style="border-left: 4px solid var(--danger);">
+          <div class="card-info">
+            <h4>⚠️ ${name}</h4>
+            <p>Minimum sınırın altında!</p>
+          </div>
+          <span class="badge badge-alert">Stok: ${qty}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function renderFirmsSummary(container) {
+    try {
+      const firms = await fetch('/api/firms').then(r => r.json()).catch(() => []);
+      if (!firms.length) {
+        container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Kayıtlı firma yok.</div>';
+        return;
+      }
+      container.innerHTML = firms.slice(0, 12).map(f => `
+        <div class="live-card">
+          <div class="card-info">
+            <h4>🏢 ${f.name}</h4>
+            <p>${f.notes || 'Aktif İş Ortağı / Müşteri'}</p>
+          </div>
+          <span class="badge badge-progress">Kayıtlı</span>
+        </div>
+      `).join('');
+    } catch {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;">Firma verisi alınamadı</div>';
+    }
+  }
+
+  // SSE Canlı Bağlantı
   function connectLiveStream() {
     const token = localStorage.getItem('stok_token') || '';
     const es = new EventSource('/api/events?token=' + encodeURIComponent(token));
 
     es.addEventListener('ticket_new', e => {
       triggerMegaAlert('🚨', 'YENİ SAHA ARIZA BİLDİRİMİ!', 'Müşteri panodan veya QR koddan acil arıza sinyali gönderdi!');
-      loadInitialData();
+      fetchAllData();
     });
 
-    es.addEventListener('task_update', e => {
-      loadInitialData();
-    });
-
+    es.addEventListener('task_update', e => { fetchAllData(); });
     es.addEventListener('tx_new', e => {
       triggerMegaAlert('📦', 'YENİ STOK HAREKETİ', 'Atölyede depodan malzeme çıkışı veya iadesi gerçekleştirildi.');
-      loadInitialData();
+      fetchAllData();
     });
+    es.addEventListener('stock_update', e => { fetchAllData(); });
 
-    es.onerror = () => {
-      setTimeout(connectLiveStream, 4000);
-    };
+    es.onerror = () => { setTimeout(connectLiveStream, 4000); };
   }
 
-  loadInitialData();
+  fetchAllData();
   connectLiveStream();
+  // Her 30 saniyede bir verileri tazeçe çek
+  setInterval(fetchAllData, 30000);
 </script>
 </body>
 </html>
