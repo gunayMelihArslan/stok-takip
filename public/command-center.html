@@ -188,7 +188,7 @@
       border-color: var(--sekizli-glow);
     }
 
-    /* ── 2. ALT KPI ŞERİDİ (CANLI SAYIÇLAR & ALTIN KURU) ── */
+    /* ── 2. ALT KPI ŞERİDİ ── */
     .kpi-ribbon {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
@@ -235,7 +235,7 @@
       opacity: 0.85;
     }
 
-    /* ── 3. ANA 4:3 SAHNE: SOL BÜYÜK DÖNGÜSEL SAHNE + SAĞ CANLI BİLDİRİM DUVARI ── */
+    /* ── 3. ANA 4:3 ÇALIŞMA ALANI ── */
     .workspace {
       flex: 1;
       display: grid;
@@ -294,7 +294,6 @@
       transform: translateY(-1px);
     }
 
-    /* İlerleme Çubuğu (Sahne Değişim Süresi) */
     .stage-progress-track {
       height: 3px;
       width: 100%;
@@ -317,7 +316,6 @@
       flex-direction: column;
     }
 
-    /* KART IZGARALARI VE STAGGER ANİMASYONU */
     .stage-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -416,7 +414,7 @@
     }
     @keyframes pulseBar { from { opacity: 0.6; } to { opacity: 1; } }
 
-    /* SAĞ CANLI BİLDİRİM VE OLAY DUVARI (SPOTLIGHT KÜÇÜLÜP BURAYA DÜŞER) */
+    /* SAĞ CANLI BİLDİRİM VE OLAY DUVARI */
     .feed-panel {
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
@@ -464,10 +462,6 @@
       animation: feedSlideDown 0.5s cubic-bezier(0.22, 1, 0.36, 1);
       position: relative;
     }
-    .feed-item.new- arrival {
-      box-shadow: 0 0 20px rgba(232, 184, 75, 0.4);
-      border-color: var(--accent);
-    }
     @keyframes feedSlideDown {
       from { opacity: 0; transform: translateY(-20px) scale(0.95); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -503,7 +497,7 @@
       line-height: 1.3;
     }
 
-    /* ── 4. EN ALT KAYAN HABER / DUYURU BANDI (TICKER) ── */
+    /* ── 4. ALT KAYAN HABER / DUYURU BANDI ── */
     .bottom-ticker {
       height: 36px;
       background: #080d14;
@@ -546,7 +540,7 @@
       100% { transform: translate3d(-100%, 0, 0); }
     }
 
-    /* ── 5. UÇARAK KÜÇÜLEN BÜYÜK BİLDİRİM KARTI (SPOTLIGHT -> DOCK ANIMATION) ── */
+    /* ── 5. UÇARAK KÜÇÜLEN BÜYÜK BİLDİRİM KARTI (SPOTLIGHT) ── */
     .flying-notif {
       position: fixed;
       top: 50%;
@@ -569,7 +563,7 @@
       transform: translate(-50%, -50%) scale(1);
     }
 
-    /* ── 6. PERİYODİK TAM EKRAN SEKİZLİ LOGO ŞOVU (35 SANİYEDE BİR 3 SANİYE) ── */
+    /* ── 6. PERİYODİK TAM EKRAN SEKİZLİ LOGO ŞOVU (4 DAKİKADA BİR, 6 SANİYE) ── */
     #logoShowOverlay {
       position: fixed;
       inset: 0;
@@ -626,7 +620,6 @@
       text-transform: uppercase;
     }
 
-    /* GİRİŞ / TOKEN GEREKTİĞİNDE AÇILACAK MİNİ KİLİT EKRANI */
     #authOverlay {
       position: fixed;
       inset: 0;
@@ -766,9 +759,7 @@
       <div class="stage-progress-track">
         <div class="stage-progress-bar" id="stageProgressBar"></div>
       </div>
-      <div class="stage-viewport" id="stageViewport">
-        <!-- Kartlar JS ile animasyonlu basılır -->
-      </div>
+      <div class="stage-viewport" id="stageViewport"></div>
     </section>
 
     <!-- SAĞ: CANLI ORTAK BİLDİRİM & SİNYAL KULESİ -->
@@ -780,9 +771,7 @@
         </div>
         <span style="font-family:var(--mono);font-size:0.68rem;color:var(--accent)" id="feedTotalBadge">0 Sinyal</span>
       </div>
-      <div class="feed-list" id="liveFeedList">
-        <!-- Küçülen bildirimler buraya sırayla dizilir -->
-      </div>
+      <div class="feed-list" id="liveFeedList"></div>
     </aside>
 
   </main>
@@ -822,7 +811,6 @@
   </div>
 
 <script>
-  // ── VERİ HAVUZU ──
   const state = {
     columns: [],
     products: [],
@@ -841,13 +829,11 @@
 
   let currentStage = 0;
   const STAGE_COUNT = 6;
-  const STAGE_DURATION_MS = 10000; // Her sahne 10 saniye kalır
+  const STAGE_DURATION_MS = 15000; // Geçiş süresi 15 saniyeye uzatıldı
   let stageElapsed = 0;
-  let productPageOffset = 0;
   let notifQueue = [];
   let isNotifAnimating = false;
 
-  // ── 1. CANLI SAAT ──
   function updateClock() {
     const now = new Date();
     document.getElementById('clockTime').textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
@@ -862,7 +848,6 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── 2. GÜVENLİ API ÇAĞRISI (TOKEN KONTROLLÜ) ──
   async function apiGet(url) {
     const token = localStorage.getItem('stok_token') || new URLSearchParams(window.location.search).get('token');
     if (token && !localStorage.getItem('stok_token')) {
@@ -905,7 +890,6 @@
     }
   }
 
-  // ── 3. TÜM VERİLERİ ÇEK VE YENİLE ──
   async function loadAllData(initial = false) {
     try {
       const results = await Promise.allSettled([
@@ -914,13 +898,13 @@
         apiGet('/api/machines'),
         apiGet('/api/firms'),
         apiGet('/api/tasks'),
-        apiGet('/api/transactions?limit=30'),
+        apiGet('/api/transactions?limit=50'),
         apiGet('/api/purchase-requests'),
         apiGet('/api/after-sales-requests'),
         apiGet('/api/service-tickets'),
         apiGet('/api/performance'),
         apiGet('/api/notifications'),
-        apiGet('/api/activity-logs?limit=25'),
+        apiGet('/api/activity-logs?limit=50'),
         apiGet('/api/gold')
       ]);
 
@@ -1012,7 +996,7 @@
     document.getElementById('bottomTickerText').textContent = parts.join('   •   ');
   }
 
-  // ── 4. SOL SAHNE DÖNGÜSÜ (6 FARKLI DEĞİŞKEN GRUBU ANİMASYONLU GEÇİŞ) ──
+  // ── 4. SOL SAHNE DÖNGÜSÜ (EN YENİDEN ESKİYE + ÇEŞİTLİLİK) ──
   function selectStage(idx) {
     currentStage = idx % STAGE_COUNT;
     stageElapsed = 0;
@@ -1046,9 +1030,9 @@
     else if (stageIdx === 5) renderStagePerfAndTx(vp);
   }
 
-  // SAHNE 1: ATÖLYE İŞ PANOSU VE AŞAMALAR
+  // SAHNE 1: ATÖLYE İŞLERİ (EN YENİ ID'YE GÖRE TERS ÇEVRİLMİŞ)
   function renderStageTasks(vp) {
-    const list = state.tasks.slice(0, 8);
+    const list = [...state.tasks].reverse().slice(0, 8);
     if (!list.length) {
       vp.innerHTML = `<div style="margin:auto;text-align:center;color:var(--text-dim)">Kayıtlı iş bulunmuyor.</div>`;
       return;
@@ -1056,7 +1040,6 @@
 
     vp.innerHTML = `<div class="stage-grid">${list.map((t, i) => {
       const stages = t.stages || [];
-      const activeSt = stages.find(s => s.status === 'in_progress') || stages.find(s => s.status === 'open') || stages[stages.length - 1];
       const doneCount = stages.filter(s => s.status === 'completed').length;
       const statusBadge = t.status === 'completed'
         ? `<span class="dc-badge">✅ Tamamlandı</span>`
@@ -1090,7 +1073,7 @@
     }).join('')}</div>`;
   }
 
-  // SAHNE 2: ÜRÜN & STOK VİTRİNİ (HER TURDA SONRAKİ ÜRÜNLERİ GÖSTERİR)
+  // SAHNE 2: ÜRÜN & STOK VİTRİNİ (KARIŞIK & FARKLI DİLİMLER)
   function renderStageProducts(vp) {
     if (!state.products.length) {
       vp.innerHTML = `<div style="margin:auto;text-align:center;color:var(--text-dim)">Stokta ürün bulunmuyor.</div>`;
@@ -1098,10 +1081,10 @@
     }
 
     const pageSize = 9;
-    const total = state.products.length;
-    if (productPageOffset >= total) productPageOffset = 0;
-    const slice = state.products.slice(productPageOffset, productPageOffset + pageSize);
-    productPageOffset = (productPageOffset + pageSize) % Math.max(1, total);
+    // Her turda farklı bir rastgele dilim veya en yenilerden başlayarak farklı çeşitler göster
+    const reversed = [...state.products].reverse();
+    const startIndex = (currentStage * 3) % Math.max(1, reversed.length - pageSize + 1);
+    const slice = reversed.slice(startIndex, startIndex + pageSize);
 
     const numCol = state.columns.find(c => c.data_type === 'number');
     const minS = numCol?.min_stock || 5;
@@ -1129,11 +1112,11 @@
     }).join('')}</div>`;
   }
 
-  // SAHNE 3: KRİTİK DÜŞÜK STOK UYARILARI
+  // SAHNE 3: KRİTİK DÜŞÜK STOKLAR (EN ÇOK AZALANDAN BAŞLAYARAK)
   function renderStageLowStock(vp) {
     const numCol = state.columns.find(c => c.data_type === 'number');
     const minS = numCol?.min_stock || 5;
-    const lowList = state.products.filter(p => getProdQty(p) < minS).slice(0, 9);
+    const lowList = state.products.filter(p => getProdQty(p) < minS).sort((a,b) => getProdQty(a) - getProdQty(b)).slice(0, 9);
 
     if (!lowList.length) {
       vp.innerHTML = `<div style="margin:auto;text-align:center;color:var(--sekizli-glow);font-size:1.1rem;font-weight:800">✅ Tüm stok kalemleri kritik seviyenin üzerinde!</div>`;
@@ -1161,9 +1144,9 @@
     }).join('')}</div>`;
   }
 
-  // SAHNE 4: VİNÇ REÇETELERİ (BOM) VE PASAPORTLAR
+  // SAHNE 4: EN YENİ VİNÇ REÇETELERİ (BOM)
   function renderStageMachines(vp) {
-    const list = state.machines.slice(0, 8);
+    const list = [...state.machines].reverse().slice(0, 8);
     if (!list.length) {
       vp.innerHTML = `<div style="margin:auto;text-align:center;color:var(--text-dim)">Kayıtlı vinç reçetesi bulunmuyor.</div>`;
       return;
@@ -1191,12 +1174,11 @@
     }).join('')}</div>`;
   }
 
-  // SAHNE 5: SATIN ALMA TALEPLERİ & SAHA SERVİS BİLDİRİMLERİ
+  // SAHNE 5: EN YENİ SATIN ALMA VE SAHA SERVİSLERİ
   function renderStagePurchasesAndService(vp) {
     const combined = [];
-    state.tickets.slice(0, 4).forEach(tk => {
+    [...state.tickets].reverse().forEach(tk => {
       combined.push({
-        type: 'ticket',
         title: `🚨 Saha Arıza: ${tk.firm_name || ''} - ${tk.machine_name || ''}`,
         badge: tk.status === 'resolved' ? 'Çözüldü' : 'Açık Arıza',
         cls: tk.status === 'resolved' ? '' : 'danger',
@@ -1205,9 +1187,8 @@
       });
     });
 
-    state.afterSales.slice(0, 4).forEach(as => {
+    [...state.afterSales].reverse().forEach(as => {
       combined.push({
-        type: 'after_sales',
         title: `🛠️ Pano Revizyon: ${as.customer_firm}`,
         badge: as.status === 'pending' ? 'BOM Bekliyor' : 'BOM Hazır',
         cls: as.status === 'pending' ? 'warn' : 'info',
@@ -1216,9 +1197,8 @@
       });
     });
 
-    state.purchases.slice(0, 6).forEach(pr => {
+    [...state.purchases].reverse().forEach(pr => {
       combined.push({
-        type: 'purchase',
         title: `🛒 Tedarik: ${pr.product_name}`,
         badge: `${pr.quantity} ${pr.unit || 'adet'}`,
         cls: pr.status === 'pending' ? 'warn' : 'info',
@@ -1245,7 +1225,7 @@
     `).join('')}</div>`;
   }
 
-  // SAHNE 6: PERSONEL PERFORMANS & SON DEPO HAREKETLERİ
+  // SAHNE 6: EN YENİ DEPO HAREKETLERİ VE PERFORMANS
   function renderStagePerfAndTx(vp) {
     const cards = [];
     state.perf.slice(0, 4).forEach((u, idx) => {
@@ -1265,7 +1245,7 @@
       `);
     });
 
-    state.transactions.slice(0, 4).forEach((tx, idx) => {
+    [...state.transactions].slice(0, 4).forEach((tx, idx) => {
       const isRet = tx.tx_type === 'return';
       cards.push(`
         <div class="data-card ${isRet ? 'info' : ''}" style="animation-delay:${(idx + 4) * 70}ms">
@@ -1284,7 +1264,6 @@
     vp.innerHTML = `<div class="stage-grid">${cards.join('')}</div>`;
   }
 
-  // ── 5. ÖNCE ORTADA DEV AÇILIP SONRA KÜÇÜLEREK SAĞ KULEYE YERLEŞEN BİLDİRİM SİSTEMİ ──
   function seedInitialFeed() {
     const feedList = document.getElementById('liveFeedList');
     feedList.innerHTML = '';
@@ -1340,7 +1319,6 @@
     isNotifAnimating = true;
     const item = notifQueue.shift();
 
-    // 1. Ortada dev kart oluştur
     const fl = document.createElement('div');
     fl.className = 'flying-notif';
     fl.style.borderColor = item.color || 'var(--accent)';
@@ -1358,12 +1336,10 @@
     `;
     document.body.appendChild(fl);
 
-    // 2. Animasyonla merkezde büyüt
     requestAnimationFrame(() => {
       fl.classList.add('show-center');
     });
 
-    // 3. 3.2 saniye merkezde sergile, ardından sağdaki bildirim kulesinin en üstüne küçülerek uçur
     setTimeout(() => {
       const targetList = document.getElementById('liveFeedList');
       const rect = targetList.getBoundingClientRect();
@@ -1420,16 +1396,14 @@
     queueSpotlightNotification(pick);
   }
 
-  // ── 6. PERİYODİK SEKİZLİ LOGO ANİMASYON ŞOVU ──
   function playLogoShow() {
     const ov = document.getElementById('logoShowOverlay');
     ov.classList.add('active');
     setTimeout(() => {
       ov.classList.remove('active');
-    }, 6000); // 6 saniye ekranda kalsın
+    }, 6000);
   }
-  // Her 45 saniyede bir otomatik Sekizli Logo Şovu
-  setInterval(playLogoShow, 240000); // 4 dakikada bir
+  setInterval(playLogoShow, 240000); // 4 dakikada bir ihtişamlı şov
 
   function toggleFullScreen() {
     if (!document.fullscreenElement) {
@@ -1439,7 +1413,6 @@
     }
   }
 
-  // ── 7. SSE CANLI BAĞLANTI (SUNUCUDAN GELEN TÜM OLAYLARI YAKALAR) ──
   function connectSSE() {
     const token = localStorage.getItem('stok_token') || '';
     if (!token) {
@@ -1454,7 +1427,7 @@
       document.getElementById('connDot').style.background = 'var(--sekizli-glow)';
     });
 
-    es.addEventListener('tx_new', async (e) => {
+    es.addEventListener('tx_new', async () => {
       await loadAllData(false);
       const lastTx = state.transactions[0];
       queueSpotlightNotification({
@@ -1467,7 +1440,7 @@
       renderStage(currentStage);
     });
 
-    es.addEventListener('task_update', async (e) => {
+    es.addEventListener('task_update', async () => {
       await loadAllData(false);
       queueSpotlightNotification({
         icon: '⚡',
@@ -1549,14 +1522,13 @@
     });
 
     es.onerror = () => {
-      document.getElementById('connText').textContent = 'BAĞLANTI YENİLENİYOR...';
+      document.getElementById('connText').textContent = 'BAĞLANTI Yenileniyor...';
       document.getElementById('connDot').style.background = 'var(--danger)';
       es.close();
       setTimeout(connectSSE, 4000);
     };
   }
 
-  // Başlat
   document.addEventListener('DOMContentLoaded', async () => {
     await loadAllData(true);
     connectSSE();
