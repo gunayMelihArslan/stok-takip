@@ -4,15 +4,16 @@
   <meta charset="UTF-8">
   <meta name="robots" content="noindex,nofollow">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Elektrikhane — Canlı Komuta Merkezi</title>
+  <title>Elektrikhane — Canlı Komuta Merkezi (4:3 Şov Modu)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #07090e;
-      --surface: #111620;
-      --surface2: #1a2230;
-      --border: #222d42;
+      --bg: #05070a;
+      --surface: #0d121c;
+      --surface2: #151d2d;
+      --border: #1e293b;
+      --border-glow: rgba(56, 189, 248, 0.4);
       --text: #f1f5f9;
       --text2: #94a3b8;
       --muted: #64748b;
@@ -27,65 +28,73 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
-    /* ÜST BANT & SAAT & LOGO */
-    header { background: var(--surface); border-bottom: 2px solid var(--border); padding: 0.8rem 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.6); z-index: 10; }
-    .brand-area { display: flex; align-items: center; gap: 1rem; }
-    .logo-img { height: 32px; width: auto; filter: drop-shadow(0 0 8px rgba(26, 107, 86, 0.6)); animation: logoPulse 4s infinite ease-in-out; }
-    @keyframes logoPulse {
-      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(26, 107, 86, 0.4)); }
-      50% { transform: scale(1.04); filter: drop-shadow(0 0 14px rgba(232, 184, 75, 0.7)); }
+    /* ÜST BANT (4:3 UYUMLU) */
+    header { background: var(--surface); border-bottom: 2px solid var(--border); padding: 0.6rem 1rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.8); z-index: 10; }
+    .brand-area { display: flex; align-items: center; gap: 0.8rem; }
+    
+    /* Logo Animasyon Şov */
+    .logo-container { position: relative; display: flex; align-items: center; justify-content: center; }
+    .logo-img { height: 34px; width: auto; filter: drop-shadow(0 0 10px rgba(26, 107, 86, 0.8)); animation: logoGlow 3s infinite alternate ease-in-out; }
+    @keyframes logoGlow {
+      0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(26, 107, 86, 0.5)); }
+      100% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(232, 184, 75, 0.9)); }
     }
-    .brand-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
-    
-    .clock-ticker { display: flex; align-items: center; gap: 2rem; }
-    .live-clock { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; text-shadow: 0 0 10px rgba(232,184,75,0.3); }
-    .live-status { display: flex; align-items: center; gap: 0.5rem; font-family: var(--mono); font-size: 0.75rem; color: var(--success); background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.3rem 0.7rem; border-radius: 20px; }
-    .pulse-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: ping 2s infinite; }
-    @keyframes ping { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.4; } 100% { transform: scale(0.9); opacity: 1; } }
 
-    /* ANA GRID YERLEŞİMİ (DİNAMİK SAYFA GEÇİŞLİ) */
-    .main-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; overflow: hidden; }
-    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.4); transition: all 0.5s ease; }
-    .panel-header { background: var(--surface2); padding: 0.8rem 1.2rem; font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; color: var(--text2); }
-    .panel-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; animation: fadeInView 0.5s ease-out; }
-    @keyframes fadeInView { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
-    .panel-body::-webkit-scrollbar { width: 6px; }
-    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* KART STİLLERİ */
-    .live-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; display: flex; justify-content: space-between; align-items: center; animation: slideIn 0.4s ease-out; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+    .brand-title { font-size: 1rem; font-weight: 900; letter-spacing: -0.02em; color: #fff; text-transform: uppercase; background: linear-gradient(90deg, #fff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     
-    .card-info h4 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
-    .card-info p { font-family: var(--mono); font-size: 0.72rem; color: var(--text2); }
-    .badge { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; text-transform: uppercase; }
+    .clock-ticker { display: flex; align-items: center; gap: 1rem; }
+    .live-clock { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; text-shadow: 0 0 10px rgba(232,184,75,0.4); }
+    .live-status { display: flex; align-items: center; gap: 0.4rem; font-family: var(--mono); font-size: 0.7rem; color: var(--success); background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.25rem 0.6rem; border-radius: 20px; }
+    .pulse-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; animation: ping 1.5s infinite; }
+    @keyframes ping { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.3; } 100% { transform: scale(0.9); opacity: 1; } }
+
+    /* 4:3 EKRAN İÇİN 2X2 GRID VEYA AKIŞKAN YERLEŞİM */
+    .main-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.8rem; padding: 0.8rem; overflow: hidden; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); position: relative; }
+    .panel::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.6; }
+    
+    .panel-header { background: var(--surface2); padding: 0.6rem 1rem; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; color: var(--text2); }
+    .panel-body { flex: 1; overflow: hidden; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+
+    /* KANALLAR ARASI AKIŞKAN KAYMA ANİMASYONU */
+    .ticker-track { display: flex; flex-direction: column; gap: 0.5rem; position: absolute; width: calc(100% - 1.6rem); animation: scrollVertical 20s linear infinite; }
+    .panel:hover .ticker-track { animation-play-state: paused; } /* Üzerine gelince durdurma */
+
+    /* KART STİLLERİ (ŞİLLİ ŞUKULLU HAFİF NEONLU) */
+    .live-card { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 8px; padding: 0.7rem 0.9rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s; }
+    .live-card:hover { transform: translateX(4px); border-color: var(--primary); }
+    
+    .card-info h4 { font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem; }
+    .card-info p { font-family: var(--mono); font-size: 0.68rem; color: var(--text2); }
+    .badge { font-family: var(--mono); font-size: 0.62rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase; }
     .badge-progress { background: rgba(56, 189, 248, 0.15); color: var(--primary); border: 1px solid rgba(56, 189, 248, 0.3); }
-    .badge-alert { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-alert { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.4); animation: warningPulse 1.5s infinite; }
+    @keyframes warningPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .badge-stock { background: rgba(232, 184, 75, 0.15); color: var(--accent); border: 1px solid rgba(232, 184, 75, 0.3); }
 
-    /* DEV BİLDİRİM POP-UP */
+    /* DEV BİLDİRİM PATLAMA EKRANI (POP-UP) */
     #megaAlertOverlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
       display: none; justify-content: center; align-items: center; z-index: 9999;
-      animation: fadeIn 0.3s ease;
     }
     .mega-alert-box {
-      background: linear-gradient(135deg, #1a2230, #111620);
-      border: 3px solid var(--accent);
-      box-shadow: 0 0 50px rgba(232, 184, 75, 0.4);
-      border-radius: 20px; padding: 2.5rem 3rem; text-align: center; max-width: 600px; width: 90%;
-      transform: scale(0.8); animation: popScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      background: linear-gradient(135deg, #1a2230, #0d121c);
+      border: 4px solid var(--accent);
+      box-shadow: 0 0 60px rgba(232, 184, 75, 0.6);
+      border-radius: 20px; padding: 2rem 2.5rem; text-align: center; max-width: 500px; width: 90%;
+      transform: scale(0.7); animation: popScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
     @keyframes popScale { to { transform: scale(1); } }
-    .mega-icon { font-size: 3rem; margin-bottom: 0.5rem; }
-    .mega-title { font-size: 1.4rem; font-weight: 900; color: #fff; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .mega-desc { font-family: var(--mono); font-size: 0.95rem; color: var(--text2); line-height: 1.5; }
+    .mega-icon { font-size: 3.5rem; margin-bottom: 0.4rem; animation: bounceIcon 1s infinite alternate; }
+    @keyframes bounceIcon { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+    .mega-title { font-size: 1.3rem; font-weight: 900; color: #fff; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .mega-desc { font-family: var(--mono); font-size: 0.85rem; color: var(--text2); line-height: 1.4; }
 
-    /* ALT KPI BANT */
-    .kpi-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.8rem 1.5rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; }
-    .kpi-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem; }
-    .kpi-val { font-family: var(--mono); font-size: 1.3rem; font-weight: 900; color: var(--accent); }
-    .kpi-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 0.1rem; }
+    /* ALT KPI BANT (4:3 UYUMLU) */
+    .kpi-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.6rem 1rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; text-align: center; }
+    .kpi-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem; box-shadow: inset 0 0 8px rgba(0,0,0,0.4); }
+    .kpi-val { font-family: var(--mono); font-size: 1.1rem; font-weight: 900; color: var(--accent); text-shadow: 0 0 8px rgba(232,184,75,0.3); }
+    .kpi-lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-top: 0.1rem; }
   </style>
 </head>
 <body>
@@ -93,40 +102,75 @@
   <!-- ÜST BANT -->
   <header>
     <div class="brand-area">
-      <img src="/logo.png" class="logo-img" alt="Sekizli Logo" onerror="this.style.display='none'">
-      <div class="brand-title">
-        <span>⚡ SEKİZLİ KOMUTA MERKEZİ</span>
+      <div class="logo-container">
+        <img src="/logo.png" class="logo-img" alt="Sekizli Logo" onerror="this.style.display='none'">
       </div>
+      <div class="brand-title">SEKİZLİ KOMUTA MERKEZİ</div>
     </div>
     <div class="clock-ticker">
-      <div id="modeIndicator" style="font-family:var(--mono); font-size:0.75rem; color:var(--primary); background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); padding:0.3rem 0.7rem; border-radius:20px;">🔄 Mod: Aktif Akış</div>
-      <div class="live-status"><span class="pulse-dot"></span> Canlı</div>
+      <div class="live-status"><span class="pulse-dot"></span> Canlı Akış</div>
       <div class="live-clock" id="liveClock">00:00:00</div>
     </div>
   </header>
 
-  <!-- ANA EKRAN İÇERİK GRIDİ (DÖNGÜSEL AKIŞ) -->
+  <!-- 4:3 EKRAN İÇİN 4'LÜ DİNAMİK PANELLER (2x2 GRID) -->
   <div class="main-grid">
     
-    <!-- SOL PANEL: DEĞİŞKEN GRUP 1 -->
+    <!-- PANEL 1: ATÖLYE İŞLERİ -->
     <div class="panel">
-      <div class="panel-header" id="leftPanelTitle">⚡ Atölye Canlı İş Akışı</div>
-      <div class="panel-body" id="leftPanelBody">
-        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Yükleniyor...</div>
+      <div class="panel-header">
+        <span>⚡ Aktif Atölye İşleri</span>
+        <span id="countTasks" style="color:var(--primary); font-family:var(--mono);">0</span>
+      </div>
+      <div class="panel-body">
+        <div id="feedTasks" style="position:relative; width:100%; height:100%; overflow:hidden;">
+          <div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Veriler yükleniyor...</div>
+        </div>
       </div>
     </div>
 
-    <!-- SAĞ PANEL: DEĞİŞKEN GRUP 2 -->
+    <!-- PANEL 2: SAHA ARIZALARI -->
     <div class="panel">
-      <div class="panel-header" id="rightPanelTitle">🚨 Saha Arıza & Sinyaller</div>
-      <div class="panel-body" id="rightPanelBody">
-        <div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Yükleniyor...</div>
+      <div class="panel-header">
+        <span>🚨 Saha Arıza Sinyalleri</span>
+        <span id="countTickets" style="color:var(--danger); font-family:var(--mono);">0</span>
+      </div>
+      <div class="panel-body">
+        <div id="feedTickets" style="position:relative; width:100%; height:100%; overflow:hidden;">
+          <div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Sinyaller dinleniyor...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: KRİTİK STOKLAR -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>⚠️ Kritik Stok Uyarıları</span>
+        <span id="countLowStock" style="color:var(--accent); font-family:var(--mono);">0</span>
+      </div>
+      <div class="panel-body">
+        <div id="feedLowStock" style="position:relative; width:100%; height:100%; overflow:hidden;">
+          <div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Stoklar taranıyor...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 4: SON HAREKETLER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>📦 Son Depo Çıkışları</span>
+        <span id="countTx" style="color:var(--success); font-family:var(--mono);">0</span>
+      </div>
+      <div class="panel-body">
+        <div id="feedTx" style="position:relative; width:100%; height:100%; overflow:hidden;">
+          <div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Hareketler bekleniyor...</div>
+        </div>
       </div>
     </div>
 
   </div>
 
-  <!-- ALT KPI ÖZETLERİ -->
+  <!-- ALT KPI BANT -->
   <footer class="kpi-footer">
     <div class="kpi-box">
       <div class="kpi-val" id="kpiTasks">0</div>
@@ -137,12 +181,12 @@
       <div class="kpi-lbl">Açık Arıza</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-val" id="kpiProducts">0</div>
-      <div class="kpi-lbl">Toplam Ürün / Çeşit</div>
+      <div class="kpi-val" id="kpiLowStock">0</div>
+      <div class="kpi-lbl">Kritik Stok</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-val" id="kpiLowStock">0</div>
-      <div class="kpi-lbl">Kritik Stok Kalemi</div>
+      <div class="kpi-val" id="kpiTx">0</div>
+      <div class="kpi-lbl">Son Hareket</div>
     </div>
   </footer>
 
@@ -157,26 +201,22 @@
 
 <script>
   let globalData = { tasks: [], tickets: [], products: [], columns: [], transactions: [] };
-  let currentViewMode = 0; // 0: İşler & Arızalar, 1: Ürün Listesi & Son Hareketler, 2: Düşük Stok & Firmalar
 
-  // Saat Güncelleyici
   function updateClock() {
     document.getElementById('liveClock').textContent = new Date().toLocaleTimeString('tr-TR');
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Büyük Pop-up Tetikleyici
   function triggerMegaAlert(icon, title, desc) {
     const overlay = document.getElementById('megaAlertOverlay');
     document.getElementById('megaIcon').textContent = icon;
     document.getElementById('megaTitle').textContent = title;
     document.getElementById('megaDesc').textContent = desc;
     overlay.style.display = 'flex';
-    setTimeout(() => { overlay.style.display = 'none'; }, 3500);
+    setTimeout(() => { overlay.style.display = 'none'; }, 4000);
   }
 
-  // Verileri Periyodik Çek
   async function fetchAllData() {
     try {
       const [tRes, tkRes, pRes, cRes, txRes] = await Promise.all([
@@ -184,196 +224,124 @@
         fetch('/api/service-tickets').then(r => r.json()).catch(() => []),
         fetch('/api/products').then(r => r.json()).catch(() => []),
         fetch('/api/columns').then(r => r.json()).catch(() => []),
-        fetch('/api/transactions?limit=20').then(r => r.json()).catch(() => [])
+        fetch('/api/transactions?limit=15').then(r => r.json()).catch(() => [])
       ]);
 
       globalData = { tasks: tRes || [], tickets: tkRes || [], products: pRes || [], columns: cRes || [], transactions: txRes || [] };
-      updateKPIs();
-      renderCurrentView();
+      renderAllFeeds();
     } catch(e) {
-      console.error('Veri senkronizasyon hatası:', e);
+      console.error('Veri çekme hatası:', e);
     }
   }
 
-  function updateKPIs() {
-    let activeTasksCount = 0;
-    globalData.tasks.forEach(t => {
-      activeTasksCount += (t.stages || []).filter(s => s.status === 'in_progress').length;
-    });
-    const openTickets = globalData.tasks.length ? globalData.tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length : 0;
-    const numCol = globalData.columns.find(c => c.data_type === 'number');
-    const minS = numCol?.min_stock || 5;
-    const lowStock = numCol ? globalData.products.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS).length : 0;
-
-    document.getElementById('kpiTasks').textContent = activeTasksCount;
-    document.getElementById('kpiTickets').textContent = openTickets;
-    document.getElementById('kpiProducts').textContent = globalData.products.length;
-    document.getElementById('kpiLowStock').textContent = lowStock;
+  function renderAllFeeds() {
+    renderTasksFeed();
+    renderTicketsFeed();
+    renderLowStockFeed();
+    renderTxFeed();
   }
 
-  // EKRANLARI DÖNGÜSEL OLARAK DEĞİŞTİR (DİNAMİK DEĞİŞKEN GRUPLARI)
-  function rotateViews() {
-    currentViewMode = (currentViewMode + 1) % 3;
-    renderCurrentView();
-  }
-  // Her 12 saniyede bir ekran gruplarını animasyonlu şekilde değiştirir
-  setInterval(rotateViews, 12000);
-
-  function renderCurrentView() {
-    const leftTitle = document.getElementById('leftPanelTitle');
-    const leftBody = document.getElementById('leftPanelBody');
-    const rightTitle = document.getElementById('rightPanelTitle');
-    const rightBody = document.getElementById('rightPanelBody');
-    const modeInd = document.getElementById('modeIndicator');
-
-    leftBody.style.animation = 'none';
-    rightBody.style.animation = 'none';
-    void leftBody.offsetWidth; // Reflow for animation reset
-    void rightBody.offsetWidth;
-
-    if (currentViewMode === 0) {
-      modeInd.textContent = '🔄 Mod: Atölye & Saha Sinyalleri';
-      leftTitle.textContent = '⚡ Aktif Atölye İşleri & Aşamaları';
-      rightTitle.textContent = '🚨 Saha Arıza Bildirimleri';
-      renderActiveTasks(leftBody);
-      renderTickets(rightBody);
-    } else if (currentViewMode === 1) {
-      modeInd.textContent = '🔄 Mod: Ürün Kataloğu & Son Hareketler';
-      leftTitle.textContent = '📦 Kayıtlı Ürünler & Stoklar';
-      rightTitle.textContent = '📑 Son Depo Çıkış / İade Hareketleri';
-      renderProductsList(leftBody);
-      renderTransactionsList(rightBody);
-    } else if (currentViewMode === 2) {
-      modeInd.textContent = '🔄 Mod: Kritik Stoklar & Uyarılar';
-      leftTitle.textContent = '⚠️ Kritik Düşük Stok Uyarıları';
-      rightTitle.textContent = '🏢 Kayıtlı Firmalar & Projeler';
-      renderLowStockList(leftBody);
-      renderFirmsSummary(rightBody);
-    }
-  }
-
-  function renderActiveTasks(container) {
+  function renderTasksFeed() {
     let activeList = [];
     globalData.tasks.forEach(t => {
       (t.stages || []).filter(s => s.status === 'in_progress').forEach(s => {
         activeList.push({ taskTitle: t.title, firmName: t.firm_name, stageName: s.stage_name, assignee: s.assignee_name });
       });
     });
+    document.getElementById('countTasks').textContent = activeList.length;
+    document.getElementById('kpiTasks').textContent = activeList.length;
+
+    const container = document.getElementById('feedTasks');
     if (!activeList.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Aktif çalışan aşama bulunmuyor.</div>';
+      container.innerHTML = '<div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Aktif aşama yok</div>';
       return;
     }
-    container.innerHTML = activeList.map(item => `
+    const cardsHtml = activeList.map(item => `
       <div class="live-card">
         <div class="card-info">
           <h4>${item.taskTitle} (${item.firmName || 'Genel'})</h4>
-          <p>📍 Aşama: <strong>${item.stageName}</strong> · Usta: <strong>${item.assignee || 'Atanmadı'}</strong></p>
+          <p>📍 ${item.stageName} · 👤 ${item.assignee || 'Atanmadı'}</p>
         </div>
-        <span class="badge badge-progress">Çalışılıyor</span>
+        <span class="badge badge-progress">Aktif</span>
       </div>
     `).join('');
+    
+    // Eğer veri sayısı çoksa aşağıdan yukarı akış animasyonu ekle
+    container.innerHTML = `<div class="ticker-track">${cardsHtml}${cardsHtml}</div>`;
   }
 
-  function renderTickets(container) {
+  function renderTicketsFeed() {
     const openTickets = globalData.tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
+    document.getElementById('countTickets').textContent = openTickets.length;
+    document.getElementById('kpiTickets').textContent = openTickets.length;
+
+    const container = document.getElementById('feedTickets');
     if (!openTickets.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Bekleyen saha arızası yok. Sistem temiz!</div>';
+      container.innerHTML = '<div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">Saha arızası yok</div>';
       return;
     }
-    container.innerHTML = openTickets.map(t => `
-      <div class="live-card" style="border-left: 4px solid var(--danger);">
+    const cardsHtml = openTickets.map(t => `
+      <div class="live-card" style="border-left-color: var(--danger);">
         <div class="card-info">
           <h4>🚨 ${t.firm_name || 'Müşteri'} — ${t.machine_name}</h4>
-          <p>${t.fault_description} ${t.fault_code ? '· Kod: ' + t.fault_code : ''}</p>
+          <p>${t.fault_description} ${t.fault_code ? '· ' + t.fault_code : ''}</p>
         </div>
         <span class="badge badge-alert">İnceleniyor</span>
       </div>
     `).join('');
+    container.innerHTML = `<div class="ticker-track">${cardsHtml}</div>`;
   }
 
-  function renderProductsList(container) {
-    const firstCol = globalData.columns[0];
-    const numCol = globalData.columns.find(c => c.data_type === 'number');
-    const prods = globalData.products.slice(0, 15);
-    if (!prods.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Ürün bulunamadı.</div>';
-      return;
-    }
-    container.innerHTML = prods.map(p => {
-      const name = firstCol && p.values ? (p.values[firstCol.id] || 'Ürün #' + p.id) : 'Ürün #' + p.id;
-      const qty = numCol && p.values ? (p.values[numCol.id] || '0') : '?';
-      return `
-        <div class="live-card">
-          <div class="card-info">
-            <h4>📦 ${name}</h4>
-            <p>ID: #${p.id}</p>
-          </div>
-          <span class="badge badge-stock">${qty} Adet</span>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function renderTransactionsList(container) {
-    const txs = globalData.transactions.slice(0, 12);
-    if (!txs.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Son işlem hareketi yok.</div>';
-      return;
-    }
-    container.innerHTML = txs.map(t => `
-      <div class="live-card">
-        <div class="card-info">
-          <h4>📑 ${t.product_name || 'Ürün'} (${t.company || 'Firma'})</h4>
-          <p>Personel: ${t.user_name || '?'} · ${new Date(t.created_at).toLocaleTimeString('tr-TR')}</p>
-        </div>
-        <span class="badge ${t.tx_type === 'return' ? 'badge-progress' : 'badge-alert'}">${t.tx_type === 'return' ? '+' + t.quantity + ' İade' : '-' + t.quantity + ' Çıkış'}</span>
-      </div>
-    `).join('');
-  }
-
-  function renderLowStockList(container) {
+  function renderLowStockFeed() {
     const numCol = globalData.columns.find(c => c.data_type === 'number');
     const minS = numCol?.min_stock || 5;
     const firstCol = globalData.columns[0];
     const lowP = numCol ? globalData.products.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS) : [];
+    
+    document.getElementById('countLowStock').textContent = lowP.length;
+    document.getElementById('kpiLowStock').textContent = lowP.length;
+
+    const container = document.getElementById('feedLowStock');
     if (!lowP.length) {
-      container.innerHTML = '<div style="color:var(--success);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">✅ Kritik stokta ürün bulunmuyor. Her şey yolunda!</div>';
+      container.innerHTML = '<div style="color:var(--success); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">✅ Kritik stok sorunu yok</div>';
       return;
     }
-    container.innerHTML = lowP.map(p => {
+    const cardsHtml = lowP.map(p => {
       const name = firstCol && p.values ? (p.values[firstCol.id] || 'Ürün #' + p.id) : 'Ürün #' + p.id;
       const qty = numCol ? (p.values?.[numCol.id] || 0) : 0;
       return `
-        <div class="live-card" style="border-left: 4px solid var(--danger);">
+        <div class="live-card" style="border-left-color: var(--accent);">
           <div class="card-info">
             <h4>⚠️ ${name}</h4>
-            <p>Minimum sınırın altında!</p>
+            <p>Sınır altında kaldı!</p>
           </div>
-          <span class="badge badge-alert">Stok: ${qty}</span>
+          <span class="badge badge-stock">Stok: ${qty}</span>
         </div>
       `;
     }).join('');
+    container.innerHTML = `<div class="ticker-track">${cardsHtml}${cardsHtml}</div>`;
   }
 
-  async function renderFirmsSummary(container) {
-    try {
-      const firms = await fetch('/api/firms').then(r => r.json()).catch(() => []);
-      if (!firms.length) {
-        container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem">Kayıtlı firma yok.</div>';
-        return;
-      }
-      container.innerHTML = firms.slice(0, 12).map(f => `
-        <div class="live-card">
-          <div class="card-info">
-            <h4>🏢 ${f.name}</h4>
-            <p>${f.notes || 'Aktif İş Ortağı / Müşteri'}</p>
-          </div>
-          <span class="badge badge-progress">Kayıtlı</span>
-        </div>
-      `).join('');
-    } catch {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem;">Firma verisi alınamadı</div>';
+  function renderTxFeed() {
+    const txs = globalData.transactions;
+    document.getElementById('countTx').textContent = txs.length;
+    document.getElementById('kpiTx').textContent = txs.length;
+
+    const container = document.getElementById('feedTx');
+    if (!txs.length) {
+      container.innerHTML = '<div style="color:var(--muted); text-align:center; padding:1.5rem; font-family:var(--mono); font-size:0.75rem;">İşlem hareketi yok</div>';
+      return;
     }
+    const cardsHtml = txs.map(t => `
+      <div class="live-card" style="border-left-color: var(--success);">
+        <div class="card-info">
+          <h4>📦 ${t.product_name || 'Ürün'} (${t.company || 'Firma'})</h4>
+          <p>${t.user_name || '?'} · ${new Date(t.created_at).toLocaleTimeString('tr-TR')}</p>
+        </div>
+        <span class="badge ${t.tx_type === 'return' ? 'badge-progress' : 'badge-stock'}">${t.tx_type === 'return' ? '+' + t.quantity : '-' + t.quantity}</span>
+      </div>
+    `).join('');
+    container.innerHTML = `<div class="ticker-track">${cardsHtml}</div>`;
   }
 
   // SSE Canlı Bağlantı
@@ -382,13 +350,13 @@
     const es = new EventSource('/api/events?token=' + encodeURIComponent(token));
 
     es.addEventListener('ticket_new', e => {
-      triggerMegaAlert('🚨', 'YENİ SAHA ARIZA BİLDİRİMİ!', 'Müşteri panodan veya QR koddan acil arıza sinyali gönderdi!');
+      triggerMegaAlert('🚨', 'YENİ SAHA ARIZA BİLDİRİMİ!', 'Müşteri QR kod üzerinden acil arıza sinyali gönderdi!');
       fetchAllData();
     });
 
     es.addEventListener('task_update', e => { fetchAllData(); });
     es.addEventListener('tx_new', e => {
-      triggerMegaAlert('📦', 'YENİ STOK HAREKETİ', 'Atölyede depodan malzeme çıkışı veya iadesi gerçekleştirildi.');
+      triggerMegaAlert('📦', 'YENİ DEPO HAREKETİ', 'Atölyede malzeme çıkışı veya iadesi yapıldı.');
       fetchAllData();
     });
     es.addEventListener('stock_update', e => { fetchAllData(); });
@@ -398,8 +366,7 @@
 
   fetchAllData();
   connectLiveStream();
-  // Her 30 saniyede bir verileri tazeçe çek
-  setInterval(fetchAllData, 30000);
+  setInterval(fetchAllData, 25000);
 </script>
 </body>
 </html>
