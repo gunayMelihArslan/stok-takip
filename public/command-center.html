@@ -464,6 +464,10 @@
       animation: feedSlideDown 0.5s cubic-bezier(0.22, 1, 0.36, 1);
       position: relative;
     }
+    .feed-item.new- arrival {
+      box-shadow: 0 0 20px rgba(232, 184, 75, 0.4);
+      border-color: var(--accent);
+    }
     @keyframes feedSlideDown {
       from { opacity: 0; transform: translateY(-20px) scale(0.95); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -565,19 +569,19 @@
       transform: translate(-50%, -50%) scale(1);
     }
 
-    /* ── 6. PERİYODİK TAM EKRAN SEKİZLİ LOGO ŞOVU ── */
+    /* ── 6. PERİYODİK TAM EKRAN SEKİZLİ LOGO ŞOVU (35 SANİYEDE BİR 3 SANİYE) ── */
     #logoShowOverlay {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at center, rgba(16, 48, 39, 0.96), rgba(4, 7, 11, 0.98));
-      backdrop-filter: blur(12px);
+      background: radial-gradient(circle at center, rgba(16, 48, 39, 0.98), rgba(2, 4, 8, 0.99));
+      backdrop-filter: blur(16px);
       z-index: 9500;
       display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       opacity: 0;
-      transition: opacity 0.6s ease;
+      transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1);
     }
     #logoShowOverlay.active {
       display: flex;
@@ -585,22 +589,24 @@
     }
     .ls-ring {
       position: relative;
-      padding: 2.2rem 3.5rem;
+      padding: 2.8rem 4.5rem;
       background: #ffffff;
-      border-radius: 24px;
-      box-shadow: 0 0 80px rgba(60, 212, 160, 0.7), 0 0 30px rgba(232, 184, 75, 0.5);
-      animation: lsPop 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      border-radius: 30px;
+      box-shadow: 0 0 120px rgba(60, 212, 160, 0.85), 0 0 50px rgba(232, 184, 75, 0.7), inset 0 0 20px rgba(0,0,0,0.15);
+      animation: lsPop 5.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      border: 3px solid rgba(232, 184, 75, 0.8);
     }
     .ls-ring img {
-      height: 95px;
+      height: 120px;
       width: auto;
       display: block;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
     }
     @keyframes lsPop {
-      0% { transform: scale(0.65) rotate(-2deg); opacity: 0; }
-      25% { transform: scale(1.05) rotate(0deg); opacity: 1; }
-      80% { transform: scale(1) rotate(0deg); opacity: 1; }
-      100% { transform: scale(1.15); opacity: 0; }
+      0% { transform: scale(0.5) rotate(-4deg); opacity: 0; filter: brightness(0.5); }
+      15% { transform: scale(1.08) rotate(1deg); opacity: 1; filter: brightness(1.05); }
+      85% { transform: scale(1.02) rotate(0deg); opacity: 1; filter: brightness(1); }
+      100% { transform: scale(1.12); opacity: 0; filter: brightness(1.2); }
     }
     .ls-title {
       margin-top: 1.6rem;
@@ -760,7 +766,9 @@
       <div class="stage-progress-track">
         <div class="stage-progress-bar" id="stageProgressBar"></div>
       </div>
-      <div class="stage-viewport" id="stageViewport"></div>
+      <div class="stage-viewport" id="stageViewport">
+        <!-- Kartlar JS ile animasyonlu basılır -->
+      </div>
     </section>
 
     <!-- SAĞ: CANLI ORTAK BİLDİRİM & SİNYAL KULESİ -->
@@ -772,7 +780,9 @@
         </div>
         <span style="font-family:var(--mono);font-size:0.68rem;color:var(--accent)" id="feedTotalBadge">0 Sinyal</span>
       </div>
-      <div class="feed-list" id="liveFeedList"></div>
+      <div class="feed-list" id="liveFeedList">
+        <!-- Küçülen bildirimler buraya sırayla dizilir -->
+      </div>
     </aside>
 
   </main>
@@ -812,6 +822,7 @@
   </div>
 
 <script>
+  // ── VERİ HAVUZU ──
   const state = {
     columns: [],
     products: [],
@@ -830,12 +841,13 @@
 
   let currentStage = 0;
   const STAGE_COUNT = 6;
-  const STAGE_DURATION_MS = 10000;
+  const STAGE_DURATION_MS = 10000; // Her sahne 10 saniye kalır
   let stageElapsed = 0;
   let productPageOffset = 0;
   let notifQueue = [];
   let isNotifAnimating = false;
 
+  // ── 1. CANLI SAAT ──
   function updateClock() {
     const now = new Date();
     document.getElementById('clockTime').textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
@@ -850,6 +862,7 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // ── 2. GÜVENLİ API ÇAĞRISI (TOKEN KONTROLLÜ) ──
   async function apiGet(url) {
     const token = localStorage.getItem('stok_token') || new URLSearchParams(window.location.search).get('token');
     if (token && !localStorage.getItem('stok_token')) {
@@ -892,6 +905,7 @@
     }
   }
 
+  // ── 3. TÜM VERİLERİ ÇEK VE YENİLE ──
   async function loadAllData(initial = false) {
     try {
       const results = await Promise.allSettled([
@@ -998,6 +1012,7 @@
     document.getElementById('bottomTickerText').textContent = parts.join('   •   ');
   }
 
+  // ── 4. SOL SAHNE DÖNGÜSÜ (6 FARKLI DEĞİŞKEN GRUBU ANİMASYONLU GEÇİŞ) ──
   function selectStage(idx) {
     currentStage = idx % STAGE_COUNT;
     stageElapsed = 0;
@@ -1031,6 +1046,7 @@
     else if (stageIdx === 5) renderStagePerfAndTx(vp);
   }
 
+  // SAHNE 1: ATÖLYE İŞ PANOSU VE AŞAMALAR
   function renderStageTasks(vp) {
     const list = state.tasks.slice(0, 8);
     if (!list.length) {
@@ -1040,6 +1056,7 @@
 
     vp.innerHTML = `<div class="stage-grid">${list.map((t, i) => {
       const stages = t.stages || [];
+      const activeSt = stages.find(s => s.status === 'in_progress') || stages.find(s => s.status === 'open') || stages[stages.length - 1];
       const doneCount = stages.filter(s => s.status === 'completed').length;
       const statusBadge = t.status === 'completed'
         ? `<span class="dc-badge">✅ Tamamlandı</span>`
@@ -1073,6 +1090,7 @@
     }).join('')}</div>`;
   }
 
+  // SAHNE 2: ÜRÜN & STOK VİTRİNİ (HER TURDA SONRAKİ ÜRÜNLERİ GÖSTERİR)
   function renderStageProducts(vp) {
     if (!state.products.length) {
       vp.innerHTML = `<div style="margin:auto;text-align:center;color:var(--text-dim)">Stokta ürün bulunmuyor.</div>`;
@@ -1111,6 +1129,7 @@
     }).join('')}</div>`;
   }
 
+  // SAHNE 3: KRİTİK DÜŞÜK STOK UYARILARI
   function renderStageLowStock(vp) {
     const numCol = state.columns.find(c => c.data_type === 'number');
     const minS = numCol?.min_stock || 5;
@@ -1142,6 +1161,7 @@
     }).join('')}</div>`;
   }
 
+  // SAHNE 4: VİNÇ REÇETELERİ (BOM) VE PASAPORTLAR
   function renderStageMachines(vp) {
     const list = state.machines.slice(0, 8);
     if (!list.length) {
@@ -1171,10 +1191,12 @@
     }).join('')}</div>`;
   }
 
+  // SAHNE 5: SATIN ALMA TALEPLERİ & SAHA SERVİS BİLDİRİMLERİ
   function renderStagePurchasesAndService(vp) {
     const combined = [];
     state.tickets.slice(0, 4).forEach(tk => {
       combined.push({
+        type: 'ticket',
         title: `🚨 Saha Arıza: ${tk.firm_name || ''} - ${tk.machine_name || ''}`,
         badge: tk.status === 'resolved' ? 'Çözüldü' : 'Açık Arıza',
         cls: tk.status === 'resolved' ? '' : 'danger',
@@ -1185,6 +1207,7 @@
 
     state.afterSales.slice(0, 4).forEach(as => {
       combined.push({
+        type: 'after_sales',
         title: `🛠️ Pano Revizyon: ${as.customer_firm}`,
         badge: as.status === 'pending' ? 'BOM Bekliyor' : 'BOM Hazır',
         cls: as.status === 'pending' ? 'warn' : 'info',
@@ -1195,6 +1218,7 @@
 
     state.purchases.slice(0, 6).forEach(pr => {
       combined.push({
+        type: 'purchase',
         title: `🛒 Tedarik: ${pr.product_name}`,
         badge: `${pr.quantity} ${pr.unit || 'adet'}`,
         cls: pr.status === 'pending' ? 'warn' : 'info',
@@ -1221,6 +1245,7 @@
     `).join('')}</div>`;
   }
 
+  // SAHNE 6: PERSONEL PERFORMANS & SON DEPO HAREKETLERİ
   function renderStagePerfAndTx(vp) {
     const cards = [];
     state.perf.slice(0, 4).forEach((u, idx) => {
@@ -1259,6 +1284,7 @@
     vp.innerHTML = `<div class="stage-grid">${cards.join('')}</div>`;
   }
 
+  // ── 5. ÖNCE ORTADA DEV AÇILIP SONRA KÜÇÜLEREK SAĞ KULEYE YERLEŞEN BİLDİRİM SİSTEMİ ──
   function seedInitialFeed() {
     const feedList = document.getElementById('liveFeedList');
     feedList.innerHTML = '';
@@ -1314,6 +1340,7 @@
     isNotifAnimating = true;
     const item = notifQueue.shift();
 
+    // 1. Ortada dev kart oluştur
     const fl = document.createElement('div');
     fl.className = 'flying-notif';
     fl.style.borderColor = item.color || 'var(--accent)';
@@ -1331,10 +1358,12 @@
     `;
     document.body.appendChild(fl);
 
+    // 2. Animasyonla merkezde büyüt
     requestAnimationFrame(() => {
       fl.classList.add('show-center');
     });
 
+    // 3. 3.2 saniye merkezde sergile, ardından sağdaki bildirim kulesinin en üstüne küçülerek uçur
     setTimeout(() => {
       const targetList = document.getElementById('liveFeedList');
       const rect = targetList.getBoundingClientRect();
@@ -1391,14 +1420,16 @@
     queueSpotlightNotification(pick);
   }
 
+  // ── 6. PERİYODİK SEKİZLİ LOGO ANİMASYON ŞOVU ──
   function playLogoShow() {
     const ov = document.getElementById('logoShowOverlay');
     ov.classList.add('active');
     setTimeout(() => {
       ov.classList.remove('active');
-    }, 2800);
+    }, 6000); // 6 saniye ekranda kalsın
   }
-  setInterval(playLogoShow, 45000);
+  // Her 45 saniyede bir otomatik Sekizli Logo Şovu
+  setInterval(playLogoShow, 240000); // 4 dakikada bir
 
   function toggleFullScreen() {
     if (!document.fullscreenElement) {
@@ -1408,6 +1439,7 @@
     }
   }
 
+  // ── 7. SSE CANLI BAĞLANTI (SUNUCUDAN GELEN TÜM OLAYLARI YAKALAR) ──
   function connectSSE() {
     const token = localStorage.getItem('stok_token') || '';
     if (!token) {
@@ -1422,7 +1454,7 @@
       document.getElementById('connDot').style.background = 'var(--sekizli-glow)';
     });
 
-    es.addEventListener('tx_new', async () => {
+    es.addEventListener('tx_new', async (e) => {
       await loadAllData(false);
       const lastTx = state.transactions[0];
       queueSpotlightNotification({
@@ -1435,7 +1467,7 @@
       renderStage(currentStage);
     });
 
-    es.addEventListener('task_update', async () => {
+    es.addEventListener('task_update', async (e) => {
       await loadAllData(false);
       queueSpotlightNotification({
         icon: '⚡',
@@ -1524,6 +1556,7 @@
     };
   }
 
+  // Başlat
   document.addEventListener('DOMContentLoaded', async () => {
     await loadAllData(true);
     connectSSE();
