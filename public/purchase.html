@@ -137,7 +137,7 @@
             <option value="ordered">🚚 Tedarikçiden Sipariş Edildi</option>
           </select>
         </div>
-        <button class="btn btn-primary" onclick="openNewOrderModal()">+ Yeni Sipariş Geç</button>
+        <button class="btn btn-primary" onclick="openPoModal()">+ Yeni Sipariş Geç</button>
         <button class="btn btn-ghost" onclick="downloadCSV('/api/export/purchases')">↓ CSV</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderOrders()">↺ Yenile</button>
       </div>
@@ -153,7 +153,7 @@
             <button class="search-clear-btn" onclick="clearSearchInput('shippingSearch', renderShipping)">✕</button>
           </div>
         </div>
-        <button class="btn btn-primary" onclick="openNewOrderModal()">+ Yeni Sipariş Geç</button>
+        <button class="btn btn-primary" onclick="openPoModal()">+ Yeni Sipariş Geç</button>
         <button class="btn btn-ghost" onclick="loadPurchases();renderShipping()">↺</button>
       </div>
       <div class="card"><div class="table-wrap"><table>
@@ -413,6 +413,23 @@ window.fetch = function(url, opts) {
 
 let purchases = [], columns = [], tasks = [], machines = [], suppliers = [], poOrders = [], rfqList = [], lastShortages = [], me = null;
 let currentPage = 'dashboard';
+let pendingPoReqIds = [];
+
+function convertReqToPo(reqId) {
+  const p = purchases.find(x => x.id == reqId);
+  if (!p) return;
+  pendingPoReqIds = [p.id];
+  const pid = p.product_values?.product_id || null;
+  const mid = p.product_values?.machine_id || '';
+  openPoModal([{
+    product_id: pid,
+    description: p.product_name,
+    ordered_qty: p.quantity,
+    unit: p.unit || 'adet',
+    unit_price: 0,
+    vat_rate: 20
+  }], mid);
+}
 
 function toggleNavGroup(groupId) { const el = document.getElementById(groupId); if (el) el.classList.toggle('collapsed'); }
 
@@ -548,7 +565,7 @@ function showPage(name) {
 function renderExtraTags(p) {
   const product_values = p.product_values || {};
   let html = Object.entries(product_values).map(([cid, val]) => {
-    if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note' || cid === 'product_id' || cid === 'machine_id') return '';
+    if (!val || cid === 'actual_qty' || cid === 'delivery_status' || cid === 'delivery_note' || cid === 'product_id' || cid === 'machine_id' || cid === 'po_id' || cid === 'po_no') return '';
     const col = columns.find(c => String(c.id) === String(cid));
     const colName = col ? col.name : 'Özellik';
     return `<span style="font-family:var(--mono);font-size:.62rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;margin-right:.25rem;color:var(--text2)"><strong style="color:var(--muted)">${esc(colName)}:</strong> ${esc(val)}</span>`;
@@ -578,7 +595,9 @@ function renderDashboard() {
       <td style="font-family:var(--mono)">${p.quantity} ${esc(p.unit || 'adet')}</td>
       <td style="font-size:.78rem;color:var(--text2)">${esc(p.task_title || '—')}</td>
       <td><span style="font-family:var(--mono);font-size:.7rem;color:${st.c};font-weight:700">${st.l}</span></td>
-      <td><button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Et</button></td>
+      <td>${p.status === 'approved'
+        ? `<button class="btn btn-primary btn-sm" onclick="convertReqToPo(${p.id})">📄 Resmi PO'ya Dönüştür</button>`
+        : `<span class="badge badge-ok">${esc(p.product_values?.po_no || 'PO Açıldı')}</span>`}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">İşlem bekleyen talep yok</td></tr>';
 }
@@ -609,7 +628,9 @@ function renderOrders() {
           </div>
           <div style="display:flex;gap:.4rem;align-items:center">
             <span style="font-family:var(--mono);font-size:.72rem;color:${st.c};font-weight:700">${st.l}</span>
-            <button class="btn btn-primary btn-sm" onclick="openProcessModal(${p.id})">⚡ Tedarik Bilgisi Gir</button>
+            ${p.status === 'approved'
+              ? `<button class="btn btn-primary btn-sm" onclick="convertReqToPo(${p.id})">📄 Resmi PO'ya Dönüştür</button>`
+              : `<span class="badge badge-ok">${esc(p.product_values?.po_no || 'PO Açıldı')}</span>`}
           </div>
         </div>
         <div class="purchase-body">
@@ -739,6 +760,7 @@ function renderPoOrders() {
 }
 
 function openPoModal(prefillItems = null, machineId = '') {
+  if (!prefillItems) pendingPoReqIds = [];
   document.getElementById('poSupplierId').innerHTML = (suppliers || []).map(s => `<option value="${s.id}">${esc(s.name)} (${esc(s.currency)})</option>`).join('') || '<option value="">Önce Tedarikçi Ekleyin</option>';
   document.getElementById('poMachineId').innerHTML = '<option value="">Genel Stok</option>' + (machines || []).map(m => `<option value="${m.id}" ${String(m.id) === String(machineId) ? 'selected' : ''}>${esc(m.machine_name)}</option>`).join('');
   document.getElementById('poExpectedDate').value = '';
@@ -798,11 +820,13 @@ async function savePoOrder() {
       currency: document.getElementById('poCurrency').value,
       expected_date: document.getElementById('poExpectedDate').value || null,
       notes: document.getElementById('poNotes').value.trim(),
-      items
+      items,
+      purchase_request_ids: pendingPoReqIds
     });
     if (!r) return;
+    pendingPoReqIds = [];
     closeModal('poModal');
-    await loadErpData();
+    await Promise.all([loadPurchases(), loadErpData()]);
     showPage('po_orders');
     toast(`Sipariş ${r.po_no} oluşturuldu ✓`, 'success');
   });
