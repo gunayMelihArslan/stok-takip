@@ -121,12 +121,29 @@ async function restoreStock(product_id, qty, numCol, client = null) {
 }
 
 async function enrichTx(rows) {
+  if (!rows.length) return [];
   const firstCol = await getFirstCol();
-  return Promise.all(rows.map(async t => {
-    const u = (await query('SELECT username,display_name FROM users WHERE id=$1', [t.user_id])).rows[0];
-    const p = (await query('SELECT "values" FROM products WHERE id=$1', [t.product_id])).rows[0];
-    return { ...t, user_name: u?.display_name || u?.username || '?', username: u?.username || '?', product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' };
-  }));
+  const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+  const prodIds = [...new Set(rows.map(r => r.product_id).filter(Boolean))];
+
+  const [uRes, pRes] = await Promise.all([
+    userIds.length ? query('SELECT id, username, display_name FROM users WHERE id = ANY($1)', [userIds]) : { rows: [] },
+    prodIds.length ? query('SELECT id, "values" FROM products WHERE id = ANY($1)', [prodIds]) : { rows: [] }
+  ]);
+
+  const uMap = Object.fromEntries(uRes.rows.map(u => [u.id, u]));
+  const pMap = Object.fromEntries(pRes.rows.map(p => [p.id, p]));
+
+  return rows.map(t => {
+    const u = uMap[t.user_id];
+    const p = pMap[t.product_id];
+    return {
+      ...t,
+      user_name: u?.display_name || u?.username || '?',
+      username: u?.username || '?',
+      product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—'
+    };
+  });
 }
 
 async function enrichTask(t) {
@@ -146,6 +163,70 @@ async function enrichTask(t) {
     await query('UPDATE tasks SET status=$1, updated_at=NOW() WHERE id=$2', [derivedStatus, t.id]);
   }
   return { ...t, status: derivedStatus, firm_name: firm?.name || null, machine_name: machine?.machine_name || null, creator_name: creator?.display_name || creator?.username || null, stages };
+}
+
+async function enrichTasksBatch(rows) {
+  if (!rows.length) return [];
+  const taskIds = rows.map(t => t.id);
+  const firmIds = [...new Set(rows.map(t => t.firm_id).filter(Boolean))];
+  const machIds = [...new Set(rows.map(t => t.machine_id).filter(Boolean))];
+
+  const [fRes, mRes, stRes] = await Promise.all([
+    firmIds.length ? query('SELECT id, name FROM firms WHERE id = ANY($1)', [firmIds]) : { rows: [] },
+    machIds.length ? query('SELECT id, machine_name FROM machines WHERE id = ANY($1)', [machIds]) : { rows: [] },
+    query('SELECT * FROM task_stages WHERE task_id = ANY($1) ORDER BY stage_order', [taskIds])
+  ]);
+
+  const stageIds = stRes.rows.map(s => s.id);
+  const userIds = [...new Set([
+    ...rows.map(t => t.created_by),
+    ...stRes.rows.map(s => s.assigned_to)
+  ].filter(Boolean))];
+
+  const [uRes, trRes] = await Promise.all([
+    userIds.length ? query('SELECT id, username, display_name FROM users WHERE id = ANY($1)', [userIds]) : { rows: [] },
+    stageIds.length ? query("SELECT tt.*, u.display_name AS from_name FROM task_transfers tt JOIN users u ON u.id = tt.from_user_id WHERE tt.stage_id = ANY($1) AND tt.status = 'pending'", [stageIds]) : { rows: [] }
+  ]);
+
+  const fMap = Object.fromEntries(fRes.rows.map(x => [x.id, x]));
+  const mMap = Object.fromEntries(mRes.rows.map(x => [x.id, x]));
+  const uMap = Object.fromEntries(uRes.rows.map(x => [x.id, x]));
+  const trMap = {};
+  trRes.rows.forEach(tr => { if (!trMap[tr.stage_id]) trMap[tr.stage_id] = tr; });
+
+  const stagesByTask = {};
+  stRes.rows.forEach(s => {
+    const assignee = uMap[s.assigned_to];
+    (stagesByTask[s.task_id] ||= []).push({
+      ...s,
+      assignee_name: assignee?.display_name || assignee?.username || null,
+      pending_transfer: trMap[s.id] || null
+    });
+  });
+
+  const statusUpdates = [];
+  const result = rows.map(t => {
+    const stages = stagesByTask[t.id] || [];
+    const allDone = stages.length > 0 && stages.every(s => s.status === 'completed');
+    const anyActive = stages.some(s => s.status === 'in_progress' || s.status === 'pending_transfer');
+    const derivedStatus = allDone ? 'completed' : anyActive ? 'in_progress' : 'open';
+    if (derivedStatus !== t.status) {
+      statusUpdates.push(query('UPDATE tasks SET status=$1, updated_at=NOW() WHERE id=$2', [derivedStatus, t.id]));
+    }
+    const creator = uMap[t.created_by];
+    return {
+      ...t,
+      status: derivedStatus,
+      firm_name: fMap[t.firm_id]?.name || null,
+      machine_name: mMap[t.machine_id]?.machine_name || null,
+      creator_name: creator?.display_name || creator?.username || null,
+      stages
+    };
+  });
+
+  // Sadece durumu değişen varsa arka planda güncelle, yanıtı bekletme
+  if (statusUpdates.length) Promise.all(statusUpdates).catch(() => {});
+  return result;
 }
 
 async function autoCreateTask(machine_id, firm_id, machine_name) {
@@ -457,24 +538,39 @@ app.delete('/api/firms/:id', auth, admin, async (req, res) => {
 
 // ── MACHINES & GEÇMİŞTEN ÖĞRENEN AKILLI BOM MOTORU ────────────────────────
 async function enrichMachines(rows) {
+  if (!rows.length) return [];
   const firstCol = await getFirstCol();
-  return Promise.all(rows.map(async m => {
-    const firm = m.firm_id ? (await query('SELECT * FROM firms WHERE id=$1', [m.firm_id])).rows[0] : null;
-    const editor = m.updated_by ? (await query('SELECT username, display_name FROM users WHERE id=$1', [m.updated_by])).rows[0] : null;
+  const firmIds = [...new Set(rows.map(m => m.firm_id).filter(Boolean))];
+  const userIds = [...new Set(rows.map(m => m.updated_by).filter(Boolean))];
+  const prodIds = [...new Set(rows.flatMap(m => (m.items || []).map(it => Number(it.product_id))).filter(Boolean))];
+
+  const [fRes, uRes, pRes] = await Promise.all([
+    firmIds.length ? query('SELECT id, name FROM firms WHERE id = ANY($1)', [firmIds]) : { rows: [] },
+    userIds.length ? query('SELECT id, username, display_name FROM users WHERE id = ANY($1)', [userIds]) : { rows: [] },
+    prodIds.length ? query('SELECT id, "values" FROM products WHERE id = ANY($1)', [prodIds]) : { rows: [] }
+  ]);
+
+  const fMap = Object.fromEntries(fRes.rows.map(f => [f.id, f]));
+  const uMap = Object.fromEntries(uRes.rows.map(u => [u.id, u]));
+  const pMap = Object.fromEntries(pRes.rows.map(p => [p.id, p]));
+
+  return rows.map(m => {
+    const firm = fMap[m.firm_id];
+    const editor = uMap[m.updated_by];
     return {
       ...m,
       firm_name: firm?.name || null,
       editor_name: editor?.display_name || editor?.username || null,
-      items: await Promise.all((m.items || []).map(async it => {
-        const p = (await query('SELECT "values" FROM products WHERE id=$1', [it.product_id])).rows[0];
-        return { 
-          ...it, 
+      items: (m.items || []).map(it => {
+        const p = pMap[Number(it.product_id)];
+        return {
+          ...it,
           placement: it.placement || 'pano',
-          product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—' 
+          product_name: firstCol ? (p?.values?.[firstCol.id] || '—') : '—'
         };
-      }))
+      })
     };
-  }));
+  });
 }
 app.get('/api/machines', auth, async (req, res) => {
   try {
@@ -984,7 +1080,7 @@ app.get('/api/tasks', auth, async (req, res) => {
     if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
     sql += ' ORDER BY created_at DESC';
     const rows = (await query(sql, params)).rows;
-    res.json(await Promise.all(rows.map(enrichTask)));
+    res.json(await enrichTasksBatch(rows));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
