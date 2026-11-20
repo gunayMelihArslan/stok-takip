@@ -7,6 +7,7 @@ const { query, withTransaction, init, pool } = require('./db');
 const { initAccountingDB, registerAccountingPhase1 } = require('./accounting');
 const { registerAccountingPhase2 } = require('./accounting-phase2');
 const { registerAccountingPhase3 } = require('./accounting-phase3');
+const { registerAccountingPhase4 } = require('./accounting-phase4');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -2268,6 +2269,7 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
 registerAccountingPhase1(app, { auth, logActivity, broadcast });
 registerAccountingPhase2(app, { auth, logActivity, broadcast });
 registerAccountingPhase3(app, { auth, logActivity, broadcast });
+registerAccountingPhase4(app, { auth, logActivity, broadcast });
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 async function start() {
