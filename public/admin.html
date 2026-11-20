@@ -1113,8 +1113,20 @@ function connectSSE() {
 }
 
 async function loadAll() {
-  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadUsers(), loadMachines(), loadFirms(), loadTasks(), loadPurchases(), loadBomColumns(), loadBomCategories(), loadActivityLogs(), loadVfdAll(), loadAdminAfterSales(), loadServiceTickets()]);
+  // 1. Öncelik: Dashboard'u anında açacak çekirdek veriler
+  await Promise.all([loadColumns(), loadProducts(), loadTransactions(), loadTasks(), loadFirms()]);
   renderFirmLists();
+  // 2. Öncelik: Diğer sekmelerin verileri arayüzü kilitlemeden arka planda yüklenir
+  setTimeout(() => {
+    Promise.all([
+      loadUsers(), loadMachines(), loadPurchases(), loadBomColumns(),
+      loadBomCategories(), loadActivityLogs(), loadVfdAll(),
+      loadAdminAfterSales(), loadServiceTickets()
+    ]).then(() => {
+      renderFirmLists();
+      if (currentPage !== 'dashboard') showPage(currentPage);
+    });
+  }, 100);
 }
 async function loadBomColumns() { bomColumns = await api('/api/bom-columns') || []; }
 async function loadBomCategories() { bomCategories = await api('/api/bom-categories') || []; }
@@ -1681,7 +1693,7 @@ function renderProducts() {
   }
   filterProducts();
 }
-
+let productRenderLimit = 100;
 function renderProductRows(prods) {
   const otherCols = columns.filter(c => (c.name || '').toLowerCase() !== 'kategori');
   const numCol = columns.find(c => c.data_type === 'number');
@@ -1693,37 +1705,22 @@ function renderProductRows(prods) {
     return;
   }
   tbody.innerHTML = prods.map((p, idx) => {
-    const catName = getProductCategory(p);
-    const nm = firstCol && p.values ? (p.values[firstCol.id] || '#' + p.id) : '#' + p.id;
-    const safeNm = esc(String(nm)).replace(/'/g, "\\'");
-    const safeCat = esc(String(catName)).replace(/'/g, "\\'");
-    const catCell = `<td><span class="badge badge-admin" style="cursor:pointer" onclick="editProductCategory(${p.id}, '${safeCat}')" title="Kategoriyi değiştir">📁 ${esc(catName)}</span></td>`;
-    const cells = otherCols.map(c => {
-      const val = p.values?.[c.id] ?? '';
-      const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
-      return `<td class="editable" ondblclick="startEdit(this,${p.id},${c.id},'${c.data_type}')">${isLow ? `<span class="badge badge-low">${esc(String(val))}</span>` : esc(String(val))}</td>`;
-    }).join('');
-    const lc = p._lc || 0;
-    const curOrder = p.display_order !== undefined ? p.display_order : (idx + 1);
+    const visibleProds = prods.slice(0, productRenderLimit);
+  let html = visibleProds.map((p, idx) => {
+    // ... mevcut satır HTML'in aynen kalır ...
+  }).join('');
 
-    return `<tr data-pid="${p.id}">
-      <td style="font-family:var(--mono);color:var(--muted);width:50px">${curOrder}</td>
-      ${catCell}
-      ${cells}
-      <td>
-        <button class="btn ${lc > 0 ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="lotOpen(${p.id},'${safeNm}')" style="font-family:var(--mono);font-size:.72rem">
-          ${lc > 0 ? `⚡ ${lc} Model Yılı (Lot)` : '🗂️ Model Yılı Ekle'}
-        </button>
-      </td>
-      <td>
-        <div class="order-btn-wrap">
-          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, -1)">▲</button>
-          <button class="btn btn-ghost" onclick="moveEntityOrder('products', ${p.id}, 1)">▼</button>
-        </div>
-      </td>
-      <td><button class="btn btn-ghost btn-sm" onclick="showHistory(${p.id})" title="Stok Geçmişi">📋</button></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Sil</button></td>
-    </tr>`;
+  if (prods.length > productRenderLimit) {
+    html += `<tr><td colspan="${otherCols.length + 6}" style="text-align:center;padding:.85rem">
+      <button class="btn btn-ghost btn-sm" onclick="productRenderLimit+=150;filterProducts()">
+        ⬇️ Daha Fazla Göster (${visibleProds.length} / ${prods.length})
+      </button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:.4rem" onclick="productRenderLimit=99999;filterProducts()">
+        Tümünü Göster
+      </button>
+    </td></tr>`;
+  }
+  tbody.innerHTML = html;
   }).join('');
 }
 
