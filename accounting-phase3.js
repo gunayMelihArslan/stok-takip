@@ -521,6 +521,14 @@ function registerAccountingPhase3(app, { auth, logActivity, broadcast }) {
           const rem = (await client.query('SELECT COUNT(*) as c FROM po_items WHERE po_id=$1 AND received_qty < ordered_qty', [po.id])).rows[0];
           const newPoStatus = parseInt(rem.c) === 0 ? 'completed' : 'partial';
           await client.query('UPDATE purchase_orders SET status=$1, updated_at=NOW() WHERE id=$2', [newPoStatus, po.id]);
+          // PO tamamlandıysa bağlı satınalma taleplerini otomatik 'received' yap
+          if (newPoStatus === 'completed') {
+            await client.query(`
+              UPDATE purchase_requests
+              SET status = 'received', updated_at = NOW()
+              WHERE product_values->>'po_id' = $1::text AND status != 'received'
+            `, [String(po.id)]);
+          }
         }
 
         await logActivity(req.user.id, `İrsaliye ile Mal Kabul Yapıldı (${waybill_no})`, 'waybill', wb.id, { po_id: po?.id || null, itemCount: items.length }, req, client);
