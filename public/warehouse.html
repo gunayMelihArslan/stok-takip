@@ -1,169 +1,336 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Depo & Mal Kabul — Sekizli ERP</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #04070b; --panel: #0d131e; --card: #151f30; --border: #1e2d42;
-      --green: #1a6b56; --glow: #3cd4a0; --accent: #e8b84b; --danger: #ff4d4d;
-      --text: #f8fafc; --dim: #94a3b8; --mono: 'JetBrains Mono', monospace;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    .topbar {
-      background: var(--panel); border-bottom: 2px solid var(--green); padding: 0.75rem 1.25rem;
-      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
-      position: sticky; top: 0; z-index: 40;
-    }
-    .brand { display: flex; align-items: center; gap: 0.7rem; }
-    .brand img { height: 26px; background: #fff; padding: 2px 6px; border-radius: 5px; }
-    .tabs { display: flex; gap: 0.4rem; padding: 0.7rem 1.25rem; background: #080d14; border-bottom: 1px solid var(--border); overflow-x: auto; }
-    .tab { background: var(--panel); border: 1px solid var(--border); color: var(--dim); padding: 0.5rem 0.9rem; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
-    .tab.active { background: var(--green); border-color: var(--glow); color: #fff; }
-    .wrap { max-width: 1280px; margin: 0 auto; padding: 1.1rem; }
-    .view { display: none; } .view.active { display: block; }
-    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.9rem; }
-    .po-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; margin-bottom: 0.7rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th { text-align: left; padding: 0.55rem 0.6rem; background: var(--card); color: var(--dim); font-size: 0.72rem; text-transform: uppercase; }
-    td { padding: 0.55rem 0.6rem; border-bottom: 1px solid rgba(30,45,66,0.5); }
-    .mono { font-family: var(--mono); }
-    .btn { background: var(--green); color: #fff; border: 1px solid var(--glow); padding: 0.45rem 0.85rem; border-radius: 7px; font-weight: 700; font-size: 0.78rem; cursor: pointer; }
-    .btn-sec { background: var(--card); border-color: var(--border); color: var(--text); }
-    .badge { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 5px; }
-    .b-warn { background: rgba(232,184,75,0.16); color: var(--accent); }
-    .b-green { background: rgba(60,212,160,0.15); color: var(--glow); }
-    input, textarea { background: #080d14; border: 1px solid var(--border); color: #fff; padding: 0.5rem 0.65rem; border-radius: 7px; width: 100%; font-size: 0.82rem; }
-    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 999; padding: 1rem; }
-    .modal-bg.open { display: flex; }
-    .modal { background: var(--panel); border: 1px solid var(--green); border-radius: 12px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 1.15rem; }
-    .toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--green); color: #fff; padding: 0.65rem 1rem; border-radius: 8px; font-weight: 700; display: none; z-index: 2000; }
-  </style>
+<meta charset="UTF-8"><meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Depo & Mal Kabul — Elektrikhane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.po-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:.75rem;}
+.po-card-head{padding:.75rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
+.rec-item-row{display:grid;grid-template-columns:1fr 110px;gap:.6rem;align-items:center;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.55rem .75rem;margin-bottom:.45rem;}
+.search-box-wrap{position:relative;display:inline-flex;align-items:center;width:100%;max-width:260px;}
+.search-box-wrap input{width:100%;padding-right:24px;}
+.search-clear-btn{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:12px;display:none;line-height:1;}
+.search-clear-btn:hover{color:var(--accent);}
+.free-line-row{display:grid;grid-template-columns:2fr 90px 80px 32px;gap:.4rem;align-items:center;margin-bottom:.4rem;}
+
+@media (max-width: 768px) {
+  .toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .toolbar-left { width: 100%; flex-direction: column; }
+  .search-box-wrap { max-width: 100%; width: 100%; }
+  .toolbar select, .toolbar button, .toolbar input { width: 100%; max-width: 100% !important; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .modal { width: 94% !important; max-height: 88vh !important; margin: 10px auto; padding: 1rem; }
+  .free-line-row { grid-template-columns: 1fr 1fr; }
+}
+</style>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <img src="/logo.png" alt="Sekizli" onerror="this.style.display='none'">
-    <div>
-      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--glow)">SEKİZLİ DEPO OPERASYON</div>
-      <div style="font-weight:800;font-size:1rem">Depo & İrsaliye Mal Kabul</div>
+
+<div class="mobile-bar">
+  <div class="brand"><div class="icon">📦</div><span>Depo & Mal Kabul</span></div>
+  <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand" style="padding:.75rem .85rem;flex-direction:column;align-items:flex-start;gap:.4rem">
+    <div style="background:#fff;border-radius:6px;padding:.3rem .6rem;display:inline-block"><img src="/logo.png" alt="Sekizli" style="height:22px;width:auto;display:block;"></div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <span style="background:#1a6b56;color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .55rem;border-radius:10px">⚡ Elektrikhane</span>
+      <span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase">Depo</span>
     </div>
   </div>
-  <div style="display:flex;gap:0.5rem;align-items:center">
-    <span id="userLabel" style="font-family:var(--mono);font-size:0.75rem;color:var(--dim)"></span>
-    <button class="btn btn-sec" onclick="logout()">Çıkış</button>
-  </div>
-</header>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Depo Operasyon</div>
+    <div class="nav-item active" onclick="showPage('pending')"><span class="nav-icon">📦</span>Bekleyen Siparişler <span id="poCountBadge" style="display:none;background:var(--warning);color:#000;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
+    <div class="nav-item" onclick="showPage('waybills')"><span class="nav-icon">🧾</span>İrsaliye Geçmişi</div>
+    <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📊</span>Canlı Depo Stokları <span id="lowStockBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;margin-left:auto">0</span></div>
 
-<nav class="tabs">
-  <button class="tab active" onclick="showView('pending', this)">📦 Bekleyen Siparişler (Mal Kabul)</button>
-  <button class="tab" onclick="showView('waybills', this)">🧾 İrsaliye Geçmişi</button>
-  <button class="tab" onclick="showView('stock', this)">📊 Canlı Depo Stokları</button>
+    <div class="nav-section-label" id="quickLinksLabel" style="display:none">Hızlı Geçiş</div>
+    <div class="nav-item" id="linkAdmin" style="display:none" onclick="window.location.href='/admin.html'"><span class="nav-icon">⚙️</span>Yönetici Paneli ↗</div>
+    <div class="nav-item" id="linkPurchase" style="display:none" onclick="window.location.href='/purchase.html'"><span class="nav-icon">🛒</span>Satınalma ERP ↗</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-chip"><div class="avatar" id="avatarInit">D</div><div class="info"><div class="name" id="userName">Depo</div><div class="role" id="userRoleLabel">Depo Sorumlusu</div></div></div>
+    <button class="logout-btn" onclick="logout()">↩ Çıkış Yap</button>
+  </div>
 </nav>
 
-<main class="wrap">
-  <section id="view-pending" class="view active">
-    <div id="pendingPoList">Yükleniyor...</div>
-  </section>
-
-  <section id="view-waybills" class="view">
-    <div class="card" style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Tarih</th><th>İrsaliye No</th><th>Bağlı PO</th><th>Tedarikçi</th><th>Teslim Alan</th><th>Kalite Notu</th></tr></thead>
-        <tbody id="wbTbody"></tbody>
-      </table>
+<div class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">Bekleyen Siparişler (Mal Kabul)</h2>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span id="liveInd" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);display:flex;align-items:center;gap:.35rem"><span style="width:7px;height:7px;border-radius:50%;background:var(--success);display:inline-block;animation:pulse 2s infinite"></span>canlı</span>
+      <span class="meta" id="pageTime"></span>
     </div>
-  </section>
+  </div>
 
-  <section id="view-stock" class="view">
-    <div class="card">
-      <input id="stockSearch" placeholder="🔍 Depoda ürün ara..." oninput="renderStock()" style="max-width:320px;margin-bottom:0.8rem">
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr id="stockHead"></tr></thead>
-          <tbody id="stockBody"></tbody>
-        </table>
+  <div class="content">
+    <!-- ÖZET KPI KARTLARI -->
+    <div class="stats-row" style="margin-bottom:1rem">
+      <div class="stat-card"><div class="label">Bekleyen Sipariş</div><div class="value" id="kpiPendingPo" style="color:var(--warning)">0</div><div class="sub">mal kabul bekleyen</div></div>
+      <div class="stat-card"><div class="label">Kısmi Teslim</div><div class="value" id="kpiPartialPo" style="color:var(--accent)">0</div><div class="sub">eksik kalan PO</div></div>
+      <div class="stat-card"><div class="label">Toplam İrsaliye</div><div class="value" id="kpiWaybillCount" style="color:var(--success)">0</div><div class="sub">kayıtlı giriş</div></div>
+      <div class="stat-card"><div class="label">Kritik Stok</div><div class="value" id="kpiLowStock" style="color:var(--danger)">0</div><div class="sub">min. stok altı</div></div>
+    </div>
+
+    <!-- 1. BEKLEYEN SİPARİŞLER (PO MAL KABUL) -->
+    <div class="page active" id="page-pending">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="poSearch" placeholder="🔍 PO No, tedarikçi veya malzeme ara..." oninput="handleSearchInput(this, renderPendingPos)">
+            <button class="search-clear-btn" onclick="clearSearchInput('poSearch', renderPendingPos)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="openFreeReceiveModal()">+ Serbest Mal Kabul (PO'suz)</button>
+        <button class="btn btn-ghost" onclick="loadAll().then(renderCurrent)">↺ Yenile</button>
       </div>
+      <div id="pendingPoList"></div>
     </div>
-  </section>
-</main>
 
-<!-- MAL KABUL MODALI -->
-<div class="modal-bg" id="receiveModal">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
-      <h3 id="recTitle">Mal Kabul</h3>
-      <button class="btn btn-sec" onclick="closeRec()">✕</button>
+    <!-- 2. İRSALİYE GEÇMİŞİ -->
+    <div class="page" id="page-waybills">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box-wrap">
+            <input type="text" id="wbSearch" placeholder="🔍 İrsaliye no, PO veya tedarikçi ara..." oninput="handleSearchInput(this, renderWaybills)">
+            <button class="search-clear-btn" onclick="clearSearchInput('wbSearch', renderWaybills)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="openFreeReceiveModal()">+ Serbest Mal Kabul</button>
+        <button class="btn btn-ghost" onclick="loadAll().then(renderCurrent)">↺ Yenile</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Tarih</th><th>İrsaliye No</th><th>Bağlı PO</th><th>Tedarikçi</th><th>Teslim Alan</th><th>Kalite Notu</th><th>Fatura</th></tr></thead>
+        <tbody id="wbTbody"></tbody>
+      </table></div></div>
     </div>
-    <input type="hidden" id="recPoId">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.8rem">
-      <div><label style="font-size:0.72rem;color:var(--dim)">İrsaliye No *</label><input id="recWbNo" placeholder="IRS2026..."></div>
-      <div><label style="font-size:0.72rem;color:var(--dim)">İrsaliye Fotoğraf / Link</label><input id="recAttach" placeholder="Opsiyonel link..."></div>
+
+    <!-- 3. CANLI DEPO STOKLARI -->
+    <div class="page" id="page-stock">
+      <div class="toolbar">
+        <div class="toolbar-left" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <div class="search-box-wrap">
+            <input type="text" id="stockSearch" placeholder="🔍 Ürün, kod veya marka ara..." oninput="handleSearchInput(this, renderStock)">
+            <button class="search-clear-btn" onclick="clearSearchInput('stockSearch', renderStock)">✕</button>
+          </div>
+          <label style="font-size:.78rem;display:flex;align-items:center;gap:.35rem;cursor:pointer;color:var(--text2)">
+            <input type="checkbox" id="onlyLowStock" onchange="renderStock()" style="width:auto"> Sadece Kritik Stoklar
+          </label>
+        </div>
+        <button class="btn btn-ghost" onclick="loadAll().then(renderCurrent)">↺ Yenile</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr id="stockHead"></tr></thead>
+        <tbody id="stockBody"></tbody>
+      </table></div></div>
     </div>
-    <div style="margin-bottom:0.8rem"><label style="font-size:0.72rem;color:var(--dim)">Kalite Kontrol Notu</label><input id="recNote" placeholder="Sağlam teslim alındı / hasar notu..."></div>
-    <div id="recItemsBox" style="margin-bottom:0.9rem"></div>
-    <button class="btn" style="width:100%;padding:0.65rem" onclick="submitReceive()">✅ Mal Kabulü Onayla ve Stoğa İşle</button>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- PO MAL KABUL MODALI -->
+<div class="modal-overlay" id="receiveModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="recTitle">📦 Mal Kabul (İrsaliye)</h3>
+      <button class="modal-close" onclick="closeModal('receiveModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:74vh;overflow-y:auto">
+      <input type="hidden" id="recPoId">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>İrsaliye No *</label><input type="text" id="recWbNo" placeholder="Örn: IRS20260042"></div>
+        <div class="form-group"><label>İrsaliye Fotoğraf / Belge Linki</label><input type="url" id="recAttach" placeholder="Opsiyonel OneDrive/link..."></div>
+      </div>
+      <div class="form-group"><label>Kalite Kontrol / Teslimat Notu</label><input type="text" id="recNote" placeholder="Sağlam teslim alındı / eksik veya hasar notu..."></div>
+      <label style="font-family:var(--mono);font-size:.7rem;color:var(--accent);font-weight:700;display:block;margin-bottom:.4rem">TESLİM ALINAN MİKTARLAR (Kısmi teslimat için adedi düşürebilirsiniz)</label>
+      <div id="recItemsBox"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('receiveModal')">İptal</button>
+      <button class="btn btn-primary" id="recSaveBtn" onclick="submitReceive()">✅ Mal Kabulü Onayla ve Stoğa İşle</button>
+    </div>
+  </div>
+</div>
+
+<!-- SERBEST MAL KABUL (PO'SUZ) MODALI -->
+<div class="modal-overlay" id="freeReceiveModal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h3>📦 Serbest Mal Kabul (Siparişe Bağlı Olmayan)</h3>
+      <button class="modal-close" onclick="closeModal('freeReceiveModal')">×</button>
+    </div>
+    <div class="modal-body" style="max-height:74vh;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="form-group"><label>İrsaliye No *</label><input type="text" id="freeWbNo" placeholder="Örn: IRS20260099"></div>
+        <div class="form-group"><label>Kalite / Teslimat Notu</label><input type="text" id="freeNote" placeholder="Acil sevkiyat / elden teslim..."></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+        <label style="font-family:var(--mono);font-size:.7rem;color:var(--accent);font-weight:700">GELEN ÜRÜNLER (Depo Ürünü / Miktar / Birim)</label>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addFreeLine()">+ Satır Ekle</button>
+      </div>
+      <div id="freeLinesBox"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('freeReceiveModal')">İptal</button>
+      <button class="btn btn-primary" id="freeSaveBtn" onclick="submitFreeReceive()">✅ Serbest Girişi Onayla</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
 
 <script>
-const token = localStorage.getItem('stok_token') || '';
-if (!token) window.location.href = '/';
+const _f = window.fetch.bind(window);
+window.fetch = function(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    var t = localStorage.getItem('stok_token');
+    if (t) opts.headers['Authorization'] = 'Bearer ' + t;
+  }
+  return _f(url, opts);
+};
 
-let pos = [], cols = [], prods = [];
+let me = null, pos = [], waybills = [], cols = [], prods = [];
+let currentPage = 'pending', currentRecItems = [];
 
-function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2600); }
-async function api(url, opts = {}) {
-  const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } });
-  if (res.status === 401) { window.location.href = '/'; return; }
-  const data = await res.json();
-  if (!res.ok) { alert(data.error || 'Hata'); throw new Error(data.error); }
-  return data;
+async function init() {
+  me = await api('/api/me');
+  if (!me) return window.location.href = '/';
+  document.getElementById('userName').textContent = me.display_name || me.username;
+  document.getElementById('avatarInit').textContent = (me.display_name || me.username)[0].toUpperCase();
+
+  if (me.role === 'admin' || me.role === 'purchase' || me.role === 'purchasing') {
+    document.getElementById('quickLinksLabel').style.display = 'block';
+    if (me.role === 'admin') document.getElementById('linkAdmin').style.display = 'flex';
+    document.getElementById('linkPurchase').style.display = 'flex';
+  }
+
+  updateTime(); setInterval(updateTime, 30000);
+  await loadAll();
+  showPage('pending');
+  connectSSE();
 }
-function logout() { localStorage.removeItem('stok_token'); window.location.href = '/'; }
 
-function showView(id, btn) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-' + id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'pending') loadPendingPos();
-  if (id === 'waybills') loadWaybills();
-  if (id === 'stock') loadStock();
+function updateTime() { document.getElementById('pageTime').textContent = new Date().toLocaleString('tr-TR'); }
+
+async function api(url, method = 'GET', body = null) {
+  try {
+    const token = localStorage.getItem('stok_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch {
+      if (res.status === 401) { localStorage.removeItem('stok_token'); window.location.href = '/'; return null; }
+      toast('Sunucu yanıt hatası (' + res.status + ')', 'error'); return null;
+    }
+    if (!res.ok) { toast(data.error || 'İşlem başarısız', 'error'); return null; }
+    return data;
+  } catch { toast('Bağlantı sorunu oluştu', 'error'); return null; }
 }
 
-async function loadPendingPos() {
-  const all = await api('/api/purchasing/orders');
-  pos = all.filter(p => p.status === 'approved' || p.status === 'partial');
+function connectSSE() {
+  const t = localStorage.getItem('stok_token') || '';
+  const es = new EventSource('/api/events?token=' + encodeURIComponent(t));
+  es.addEventListener('purchase_new', async () => { await loadAll(); renderCurrent(); });
+  es.addEventListener('stock_update', async () => { await loadAll(); renderCurrent(); });
+}
+
+async function loadAll() {
+  const [allPos, wbs, c, p] = await Promise.all([
+    api('/api/purchasing/orders'),
+    api('/api/warehouse/waybills'),
+    api('/api/columns'),
+    api('/api/products')
+  ]);
+  pos = (allPos || []).filter(x => x.status === 'approved' || x.status === 'partial');
+  waybills = wbs || [];
+  cols = c || [];
+  prods = p || [];
+  updateKpis();
+}
+
+function updateKpis() {
+  const numCol = cols.find(c => c.data_type === 'number');
+  const minS = numCol?.min_stock || 5;
+  const lowCnt = numCol ? prods.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS).length : 0;
+
+  document.getElementById('kpiPendingPo').textContent = pos.length;
+  document.getElementById('kpiPartialPo').textContent = pos.filter(p => p.status === 'partial').length;
+  document.getElementById('kpiWaybillCount').textContent = waybills.length;
+  document.getElementById('kpiLowStock').textContent = lowCnt;
+
+  const pb = document.getElementById('poCountBadge');
+  if (pb) { pb.textContent = pos.length; pb.style.display = pos.length > 0 ? 'inline' : 'none'; }
+  const lb = document.getElementById('lowStockBadge');
+  if (lb) { lb.textContent = lowCnt; lb.style.display = lowCnt > 0 ? 'inline' : 'none'; }
+}
+
+const pageTitles = { pending: 'Bekleyen Siparişler (Mal Kabul)', waybills: 'İrsaliye Geçmişi', stock: 'Canlı Depo Stokları' };
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes("'" + name + "'")) n.classList.add('active'); });
+  document.getElementById('pageTitle').textContent = pageTitles[name] || name;
+  currentPage = name;
+  renderCurrent();
+}
+function renderCurrent() {
+  if (currentPage === 'pending') renderPendingPos();
+  if (currentPage === 'waybills') renderWaybills();
+  if (currentPage === 'stock') renderStock();
+}
+
+// ── 1. BEKLEYEN SİPARİŞLER ────────────────────────────────────────────────
+function renderPendingPos() {
+  const q = (document.getElementById('poSearch')?.value || '').toLowerCase();
+  let list = pos;
+  if (q) {
+    list = list.filter(p =>
+      (p.po_no || '').toLowerCase().includes(q) ||
+      (p.supplier_name || '').toLowerCase().includes(q) ||
+      (p.machine_name || '').toLowerCase().includes(q) ||
+      (p.items || []).some(it => (it.description || '').toLowerCase().includes(q))
+    );
+  }
   const box = document.getElementById('pendingPoList');
-  if (!pos.length) { box.innerHTML = '<div class="card" style="color:var(--dim);text-align:center">Şu an mal kabul bekleyen açık sipariş yok.</div>'; return; }
-  box.innerHTML = pos.map(p => `
-    <div class="card">
-      <div class="po-head">
-        <div>
-          <span class="mono" style="font-weight:800;color:var(--glow)">${p.po_no}</span>
-          <strong style="margin-left:0.5rem">${p.supplier_name}</strong>
-          ${p.machine_name ? `<span class="badge b-warn" style="margin-left:0.4rem">🏗️ ${p.machine_name}</span>` : ''}
+  if (!list.length) {
+    box.innerHTML = '<div class="card empty"><div class="icon">📦</div>Şu an mal kabul bekleyen açık sipariş yok</div>';
+    return;
+  }
+  box.innerHTML = list.map(p => `
+    <div class="po-card">
+      <div class="po-card-head">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span style="font-family:var(--mono);font-weight:800;color:var(--accent)">${esc(p.po_no)}</span>
+          <strong>${esc(p.supplier_name)}</strong>
+          ${p.machine_name ? `<span class="badge badge-admin">🏗️ ${esc(p.machine_name)}</span>` : ''}
+          ${p.status === 'partial' ? '<span class="badge badge-low">Kısmi Teslim</span>' : '<span class="badge badge-ok">Açık Sipariş</span>'}
         </div>
-        <button class="btn" onclick="openRec(${p.id})">📦 Mal Kabul Yap</button>
+        <button class="btn btn-primary btn-sm" onclick="openRec(${p.id})">📦 Mal Kabul Yap</button>
       </div>
-      <table>
-        <thead><tr><th>Malzeme</th><th>Sipariş</th><th>Teslim Alınan</th><th>Kalan</th></tr></thead>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Malzeme / Açıklama</th><th>Sipariş</th><th>Teslim Alınan</th><th>Kalan</th></tr></thead>
         <tbody>${(p.items || []).map(it => {
           const rem = Math.max(0, parseFloat(it.ordered_qty) - parseFloat(it.received_qty || 0));
           return `<tr>
-            <td>${it.description}</td>
-            <td class="mono">${parseFloat(it.ordered_qty)}${it.unit}</td>
-            <td class="mono" style="color:var(--glow)">${parseFloat(it.received_qty || 0)}</td>
-            <td class="mono" style="color:${rem > 0 ? 'var(--accent)' : 'var(--dim)'}"><strong>${rem}</strong></td>
+            <td><strong>${esc(it.description)}</strong></td>
+            <td style="font-family:var(--mono)">${parseFloat(it.ordered_qty)} ${esc(it.unit || 'adet')}</td>
+            <td style="font-family:var(--mono);color:var(--success)">${parseFloat(it.received_qty || 0)}</td>
+            <td style="font-family:var(--mono);color:${rem > 0 ? 'var(--accent)' : 'var(--muted)'}"><strong>${rem}</strong></td>
           </tr>`;
         }).join('')}</tbody>
-      </table>
+      </table></div>
     </div>`).join('');
 }
 
@@ -171,75 +338,167 @@ function openRec(poId) {
   const p = pos.find(x => x.id === poId);
   if (!p) return;
   document.getElementById('recPoId').value = p.id;
-  document.getElementById('recTitle').textContent = `Mal Kabul — ${p.po_no} (${p.supplier_name})`;
+  document.getElementById('recTitle').textContent = `📦 Mal Kabul — ${p.po_no} (${p.supplier_name})`;
   document.getElementById('recWbNo').value = '';
   document.getElementById('recAttach').value = '';
   document.getElementById('recNote').value = '';
-  document.getElementById('recItemsBox').innerHTML = (p.items || []).map(it => {
+
+  currentRecItems = (p.items || []).filter(it => parseFloat(it.ordered_qty) - parseFloat(it.received_qty || 0) > 0);
+  document.getElementById('recItemsBox').innerHTML = currentRecItems.map((it, idx) => {
     const rem = Math.max(0, parseFloat(it.ordered_qty) - parseFloat(it.received_qty || 0));
-    if (rem <= 0) return '';
-    return `<div style="display:grid;grid-template-columns:1fr 110px;gap:0.5rem;align-items:center;margin-bottom:0.45rem;background:var(--card);padding:0.5rem;border-radius:7px">
-      <div><strong>${it.description}</strong><div class="mono" style="font-size:0.7rem;color:var(--dim)">Kalan: ${rem} ${it.unit}</div></div>
-      <input type="number" class="rec-qty" data-po-item="${it.id}" data-pid="${it.product_id || ''}" data-desc="${it.description}" data-unit="${it.unit}" value="${rem}" min="0" max="${rem}" step="any">
+    return `<div class="rec-item-row">
+      <div><strong>${esc(it.description)}</strong><div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">Bekleyen Kalan: ${rem} ${esc(it.unit || 'adet')}</div></div>
+      <input type="number" class="rec-qty" data-idx="${idx}" value="${rem}" min="0" max="${rem}" step="any">
     </div>`;
   }).join('');
-  document.getElementById('receiveModal').classList.add('open');
+  openModal('receiveModal');
 }
-function closeRec() { document.getElementById('receiveModal').classList.remove('open'); }
 
 async function submitReceive() {
-  const waybill_no = document.getElementById('recWbNo').value.trim();
-  if (!waybill_no) { alert('İrsaliye numarası zorunludur'); return; }
-  const items = Array.from(document.querySelectorAll('.rec-qty')).map(inp => ({
-    po_item_id: Number(inp.dataset.poItem),
-    product_id: inp.dataset.pid ? Number(inp.dataset.pid) : null,
-    description: inp.dataset.desc,
-    unit: inp.dataset.unit,
-    quantity: parseFloat(inp.value) || 0
-  })).filter(x => x.quantity > 0);
-  if (!items.length) { alert('En az bir kalem için teslim miktarı girin'); return; }
+  await withButtonLock('recSaveBtn', 'İşleniyor...', async () => {
+    const waybill_no = document.getElementById('recWbNo').value.trim();
+    if (!waybill_no) { toast('İrsaliye numarası zorunludur', 'error'); return; }
+    const items = Array.from(document.querySelectorAll('.rec-qty')).map(inp => {
+      const it = currentRecItems[Number(inp.dataset.idx)];
+      return {
+        po_item_id: it.id,
+        product_id: it.product_id || null,
+        description: it.description,
+        unit: it.unit || 'adet',
+        quantity: parseFloat(inp.value) || 0
+      };
+    }).filter(x => x.quantity > 0);
+    if (!items.length) { toast('En az bir kalem için miktar girin', 'error'); return; }
 
-  await api('/api/warehouse/waybills/receive', {
-    method: 'POST',
-    body: JSON.stringify({
+    const r = await api('/api/warehouse/waybills/receive', 'POST', {
       waybill_no,
       po_id: Number(document.getElementById('recPoId').value),
       attachment_url: document.getElementById('recAttach').value.trim() || null,
       quality_note: document.getElementById('recNote').value.trim(),
       items
-    })
+    });
+    if (!r) return;
+    closeModal('receiveModal');
+    await loadAll();
+    renderCurrent();
+    toast('Mal kabul onaylandı, stoklar güncellendi ✓', 'success');
   });
-  closeRec();
-  toast('Mal kabul tamamlandı, stoklar güncellendi ✓');
-  loadPendingPos();
 }
 
-async function loadWaybills() {
-  const rows = await api('/api/warehouse/waybills');
-  document.getElementById('wbTbody').innerHTML = rows.map(w => `
-    <tr>
-      <td class="mono">${String(w.waybill_date).slice(0,10)}</td>
-      <td class="mono"><strong>${w.waybill_no}</strong></td>
-      <td class="mono">${w.po_no || '—'}</td>
-      <td>${w.account_name || '—'}</td>
-      <td>${w.received_by_name || '—'}</td>
-      <td>${w.quality_note || '—'}</td>
-    </tr>`).join('');
+// ── SERBEST MAL KABUL (PO'SUZ) ────────────────────────────────────────────
+function openFreeReceiveModal() {
+  document.getElementById('freeWbNo').value = '';
+  document.getElementById('freeNote').value = '';
+  document.getElementById('freeLinesBox').innerHTML = '';
+  addFreeLine();
+  openModal('freeReceiveModal');
 }
 
-async function loadStock() {
-  [cols, prods] = await Promise.all([api('/api/columns'), api('/api/products')]);
-  document.getElementById('stockHead').innerHTML = cols.map(c => `<th>${c.name}</th>`).join('');
-  renderStock();
+function addFreeLine() {
+  const firstCol = cols[0];
+  const opts = prods.map(p => `<option value="${p.id}">${esc(firstCol ? (p.values?.[firstCol.id] || '#' + p.id) : '#' + p.id)}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'free-line-row';
+  div.innerHTML = `
+    <select class="fl-pid"><option value="">— Depo Ürünü Seçin —</option>${opts}</select>
+    <input type="number" class="fl-qty" value="1" min="0.01" step="any" placeholder="Adet">
+    <input type="text" class="fl-unit" value="adet" placeholder="Birim">
+    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:4px">×</button>
+  `;
+  document.getElementById('freeLinesBox').appendChild(div);
 }
+
+async function submitFreeReceive() {
+  await withButtonLock('freeSaveBtn', 'Kaydediliyor...', async () => {
+    const waybill_no = document.getElementById('freeWbNo').value.trim();
+    if (!waybill_no) { toast('İrsaliye numarası zorunludur', 'error'); return; }
+    const items = Array.from(document.querySelectorAll('#freeLinesBox .free-line-row')).map(r => {
+      const sel = r.querySelector('.fl-pid');
+      const pid = sel.value ? Number(sel.value) : null;
+      const desc = sel.options[sel.selectedIndex]?.text || 'Malzeme';
+      return { product_id: pid, description: desc, quantity: parseFloat(r.querySelector('.fl-qty').value) || 0, unit: r.querySelector('.fl-unit').value.trim() || 'adet' };
+    }).filter(x => x.product_id && x.quantity > 0);
+    if (!items.length) { toast('En az bir ürün ve geçerli miktar seçin', 'error'); return; }
+
+    const r = await api('/api/warehouse/waybills/receive', 'POST', {
+      waybill_no, quality_note: document.getElementById('freeNote').value.trim(), items
+    });
+    if (!r) return;
+    closeModal('freeReceiveModal');
+    await loadAll();
+    renderCurrent();
+    toast('Serbest mal kabul stoğa işlendi ✓', 'success');
+  });
+}
+
+// ── 2. İRSALİYE GEÇMİŞİ ───────────────────────────────────────────────────
+function renderWaybills() {
+  const q = (document.getElementById('wbSearch')?.value || '').toLowerCase();
+  let list = waybills;
+  if (q) list = list.filter(w => (w.waybill_no || '').toLowerCase().includes(q) || (w.po_no || '').toLowerCase().includes(q) || (w.account_name || '').toLowerCase().includes(q));
+  document.getElementById('wbTbody').innerHTML = list.length ? list.map(w => `<tr>
+    <td style="font-family:var(--mono);font-size:.72rem">${String(w.waybill_date).slice(0,10)}</td>
+    <td style="font-family:var(--mono);font-weight:700;color:var(--accent)">${esc(w.waybill_no)}</td>
+    <td style="font-family:var(--mono)">${esc(w.po_no || 'Serbest')}</td>
+    <td>${esc(w.account_name || '—')}</td>
+    <td>${esc(w.received_by_name || '—')}</td>
+    <td style="font-size:.78rem;color:var(--text2)">${esc(w.quality_note || '—')}</td>
+    <td><span class="badge ${w.is_invoiced ? 'badge-ok' : 'badge-low'}">${w.is_invoiced ? 'Faturalandı' : 'Bekliyor'}</span></td>
+  </tr>`).join('') : '<tr><td colspan="7" class="empty">İrsaliye kaydı bulunamadı</td></tr>';
+}
+
+// ── 3. CANLI DEPO STOKLARI ────────────────────────────────────────────────
 function renderStock() {
-  const q = (document.getElementById('stockSearch').value || '').toLowerCase();
-  const list = q ? prods.filter(p => cols.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q))) : prods;
-  document.getElementById('stockBody').innerHTML = list.slice(0, 150).map(p => `<tr>${cols.map(c => `<td>${p.values?.[c.id] ?? ''}</td>`).join('')}</tr>`).join('');
+  const numCol = cols.find(c => c.data_type === 'number');
+  const minS = numCol?.min_stock || 5;
+  const q = (document.getElementById('stockSearch')?.value || '').toLowerCase();
+  const onlyLow = document.getElementById('onlyLowStock')?.checked;
+
+  document.getElementById('stockHead').innerHTML = cols.map(c => `<th>${esc(c.name)}</th>`).join('');
+  let list = prods;
+  if (onlyLow && numCol) list = list.filter(p => parseFloat(p.values?.[numCol.id] || 0) < minS);
+  if (q) list = list.filter(p => cols.some(c => String(p.values?.[c.id] || '').toLowerCase().includes(q)));
+
+  document.getElementById('stockBody').innerHTML = list.length ? list.slice(0, 200).map(p => `<tr>${cols.map(c => {
+    const val = p.values?.[c.id] ?? '';
+    const isLow = c.data_type === 'number' && parseFloat(val) < (c.min_stock || 5);
+    return `<td>${isLow ? `<span class="badge badge-low">${esc(String(val))}</span>` : esc(String(val))}</td>`;
+  }).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length || 1}" class="empty">Ürün bulunamadı</td></tr>`;
 }
 
-api('/api/me').then(u => { if (u) document.getElementById('userLabel').textContent = u.display_name || u.username; });
-loadPendingPos();
+// ── UTILS ─────────────────────────────────────────────────────────────────
+async function withButtonLock(btnId, loadingText, fn) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return await fn();
+  if (btn.disabled) return;
+  const orig = btn.innerHTML; btn.disabled = true; if (loadingText) btn.innerHTML = loadingText;
+  try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = orig; }
+}
+function openModal(id) { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast'); if (!el) return;
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.className = '', 3000);
+}
+let timers = {};
+function handleSearchInput(inp, cb) {
+  const c = inp.parentElement.querySelector('.search-clear-btn'); if (c) c.style.display = inp.value ? 'block' : 'none';
+  clearTimeout(timers[inp.id || 's']); timers[inp.id || 's'] = setTimeout(() => cb && cb(), 180);
+}
+function clearSearchInput(id, cb) {
+  const inp = document.getElementById(id); if (!inp) return;
+  inp.value = ''; const c = inp.parentElement.querySelector('.search-clear-btn'); if (c) c.style.display = 'none'; cb && cb(); inp.focus();
+}
+async function logout() { localStorage.removeItem('stok_token'); await fetch('/api/logout', { method: 'POST' }); window.location.href = '/'; }
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
