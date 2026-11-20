@@ -314,3 +314,319 @@ init();
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satınalma ERP — Sekizli Makina & Vinç</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #04070b; --panel: #0d131e; --card: #151f30; --border: #1e2d42;
+      --green: #1a6b56; --glow: #3cd4a0; --accent: #e8b84b; --danger: #ff4d4d;
+      --text: #f8fafc; --dim: #94a3b8; --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .topbar { background: var(--panel); border-bottom: 2px solid var(--green); padding: 0.75rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem; position: sticky; top: 0; z-index: 40; }
+    .brand { display: flex; align-items: center; gap: 0.7rem; }
+    .brand img { height: 26px; background: #fff; padding: 2px 6px; border-radius: 5px; }
+    .tabs { display: flex; gap: 0.4rem; padding: 0.7rem 1.25rem; background: #080d14; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tab { background: var(--panel); border: 1px solid var(--border); color: var(--dim); padding: 0.5rem 0.9rem; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+    .tab.active { background: var(--green); border-color: var(--glow); color: #fff; }
+    .wrap { max-width: 1380px; margin: 0 auto; padding: 1.1rem; }
+    .view { display: none; } .view.active { display: block; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+    .head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 0.55rem 0.65rem; background: var(--card); color: var(--dim); font-size: 0.72rem; text-transform: uppercase; }
+    td { padding: 0.55rem 0.65rem; border-bottom: 1px solid rgba(30,45,66,0.5); }
+    .mono { font-family: var(--mono); } .right { text-align: right; }
+    .btn { background: var(--green); color: #fff; border: 1px solid var(--glow); padding: 0.45rem 0.85rem; border-radius: 7px; font-weight: 700; font-size: 0.78rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; }
+    .btn-sec { background: var(--card); border-color: var(--border); color: var(--text); }
+    .btn-warn { background: rgba(232,184,75,0.18); border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: 0.28rem 0.55rem; font-size: 0.72rem; }
+    .badge { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 5px; }
+    .b-green { background: rgba(60,212,160,0.15); color: var(--glow); }
+    .b-warn { background: rgba(232,184,75,0.15); color: var(--accent); }
+    .b-danger { background: rgba(255,77,77,0.15); color: var(--danger); }
+    input, select { background: #080d14; border: 1px solid var(--border); color: #fff; padding: 0.48rem 0.6rem; border-radius: 7px; font-size: 0.82rem; width: 100%; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.6rem; margin-bottom: 0.75rem; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 999; padding: 1rem; }
+    .modal-bg.open { display: flex; }
+    .modal { background: var(--panel); border: 1px solid var(--green); border-radius: 12px; width: 100%; max-width: 780px; max-height: 90vh; overflow-y: auto; padding: 1.15rem; }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--green); color: #fff; padding: 0.65rem 1rem; border-radius: 8px; font-weight: 700; display: none; z-index: 2000; }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img src="/logo.png" alt="Sekizli" onerror="this.style.display='none'">
+    <div>
+      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--glow)">SEKİZLİ TEDARİK ZİNCİRİ</div>
+      <div style="font-weight:800;font-size:1rem">Satınalma ERP Paneli</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <a class="btn btn-sec btn-sm" href="/warehouse.html">📦 Depo Mal Kabul</a>
+    <button class="btn btn-sec btn-sm" onclick="logout()">Çıkış</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" onclick="showView('bom', this)">⚡ BOM Eksik Patlatma</button>
+  <button class="tab" onclick="showView('pos', this)">📄 Sipariş Emirleri (PO)</button>
+  <button class="tab" onclick="showView('rfq', this)">⚖️ Teklif Kıyaslama (RFQ)</button>
+  <button class="tab" onclick="showView('suppliers', this)">🏢 Tedarikçiler (Cari)</button>
+</nav>
+
+<main class="wrap">
+  <!-- 1. BOM EKSİK PATLATMA -->
+  <section id="view-bom" class="view active">
+    <div class="card">
+      <div class="head">
+        <strong>⚡ Vinç Reçetesinden (BOM) Otomatik Eksik Malzeme Analizi</strong>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <select id="bomMachineSel" style="width:280px" onchange="loadBomShortage()"></select>
+          <button class="btn btn-warn" id="btnCreateReqs" style="display:none" onclick="createBomRequests()">🚀 Eksikleri Talep Et</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Malzeme</th><th>Gerekli</th><th>Depo Stok</th><th>Açık Sipariş</th><th>Net Eksik</th></tr></thead>
+          <tbody id="bomTbody"><tr><td colspan="5" style="color:var(--dim)">Analiz için yukarıdan bir vinç seçin.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. SİPARİŞ EMİRLERİ (PO) -->
+  <section id="view-pos" class="view">
+    <div class="card">
+      <div class="head">
+        <strong>📄 Satınalma Siparişleri (PO)</strong>
+        <button class="btn" onclick="openPoModal()">+ Çoklu Kalem Sipariş (PO) Aç</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>PO No</th><th>Tarih</th><th>Tedarikçi</th><th>Durum</th><th class="right">Genel Toplam</th><th>Çıktı</th></tr></thead>
+          <tbody id="poTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. TEKLİF KIYASLAMA (RFQ) -->
+  <section id="view-rfq" class="view">
+    <div class="card">
+      <div class="head">
+        <strong>⚖️ Tedarikçi Teklifleri (RFQ)</strong>
+        <button class="btn" onclick="openRfqModal()">+ Teklif Gir</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Tarih</th><th>Tedarikçi</th><th>Malzeme</th><th>Miktar</th><th class="right">Birim Fiyat</th><th>Termin</th></tr></thead>
+          <tbody id="rfqTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. TEDARİKÇİLER (CARİ) -->
+  <section id="view-suppliers" class="view">
+    <div class="card">
+      <div class="head">
+        <strong>🏢 Tedarikçi Cari Kartları</strong>
+        <button class="btn" onclick="openSupModal()">+ Yeni Tedarikçi</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Kod</th><th>Firma Ünvanı</th><th>VKN</th><th>Telefon</th><th>Vade</th><th class="right">Bakiye</th></tr></thead>
+          <tbody id="supTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ÇOKLU SATIR PO MODALI -->
+<div class="modal-bg" id="poModal"><div class="modal">
+  <div class="head"><h3>Yeni Satınalma Siparişi (PO)</h3><button class="btn btn-sec btn-sm" onclick="closeM('poModal')">✕</button></div>
+  <div class="grid">
+    <div><label style="font-size:0.72rem;color:var(--dim)">Tedarikçi *</label><select id="poSup"></select></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Vinç / Proje (Ops.)</label><select id="poMach"></select></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Döviz</label><select id="poCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Termin Tarihi</label><input id="poExp" type="date"></div>
+  </div>
+  <div id="poLines"></div>
+  <div style="display:flex;justify-content:space-between;margin-top:0.8rem">
+    <button class="btn btn-sec btn-sm" onclick="addPoLine()">+ Satır Ekle</button>
+    <button class="btn" onclick="savePo()">💾 Siparişi Oluştur</button>
+  </div>
+</div></div>
+
+<!-- RFQ MODALI -->
+<div class="modal-bg" id="rfqModal"><div class="modal" style="max-width:540px">
+  <div class="head"><h3>Tedarikçi Teklifi Gir (RFQ)</h3><button class="btn btn-sec btn-sm" onclick="closeM('rfqModal')">✕</button></div>
+  <div class="grid">
+    <div><label style="font-size:0.72rem;color:var(--dim)">Tedarikçi *</label><select id="rfqSup"></select></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Malzeme *</label><input id="rfqProd"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Miktar *</label><input id="rfqQty" type="number" value="1"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Birim Fiyat *</label><input id="rfqPrice" type="number" step="0.01"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Döviz</label><select id="rfqCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Termin (Gün)</label><input id="rfqDays" type="number" value="3"></div>
+  </div>
+  <button class="btn" onclick="saveRfq()">💾 Teklifi Kaydet</button>
+</div></div>
+
+<!-- TEDARİKÇİ MODALI -->
+<div class="modal-bg" id="supModal"><div class="modal" style="max-width:540px">
+  <div class="head"><h3>Yeni Tedarikçi (Cari)</h3><button class="btn btn-sec btn-sm" onclick="closeM('supModal')">✕</button></div>
+  <div class="grid">
+    <div><label style="font-size:0.72rem;color:var(--dim)">Firma Ünvanı *</label><input id="supName"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">VKN</label><input id="supVkn"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Telefon</label><input id="supPhone"></div>
+    <div><label style="font-size:0.72rem;color:var(--dim)">Vade (Gün)</label><input id="supTerm" type="number" value="30"></div>
+  </div>
+  <button class="btn" onclick="saveSup()">💾 Tedarikçiyi Kaydet</button>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const token = localStorage.getItem('stok_token') || '';
+if (!token) window.location.href = '/';
+let machines = [], suppliers = [], lastShortages = [];
+
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
+function openM(id) { document.getElementById(id).classList.add('open'); }
+function closeM(id) { document.getElementById(id).classList.remove('open'); }
+function logout() { localStorage.removeItem('stok_token'); window.location.href = '/'; }
+async function api(url, opts = {}) {
+  const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } });
+  if (res.status === 401) { window.location.href = '/'; return; }
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Hata'); throw new Error(data.error); }
+  return data;
+}
+
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'pos') loadPos();
+  if (id === 'rfq') loadRfq();
+  if (id === 'suppliers') loadSuppliers();
+}
+
+async function init() {
+  [machines, suppliers] = await Promise.all([api('/api/machines'), api('/api/accounting/accounts?type=supplier')]);
+  bomMachineSel.innerHTML = '<option value="">— Vinç Reçetesi Seçin —</option>' + machines.map(m => `<option value="${m.id}">${m.machine_name}</option>`).join('');
+}
+
+async function loadBomShortage() {
+  const mid = bomMachineSel.value;
+  if (!mid) return;
+  const data = await api('/api/purchasing/bom-shortage/' + mid);
+  lastShortages = data.items.filter(x => x.shortage_qty > 0);
+  btnCreateReqs.style.display = lastShortages.length ? 'inline-flex' : 'none';
+  bomTbody.innerHTML = data.items.map(x => `
+    <tr>
+      <td><strong>${x.product_name}</strong></td>
+      <td class="mono">${x.required_qty} ${x.unit}</td>
+      <td class="mono">${x.stock_qty}</td>
+      <td class="mono">${x.open_po_qty}</td>
+      <td class="mono"><span class="badge ${x.shortage_qty > 0 ? 'b-danger' : 'b-green'}">${x.shortage_qty > 0 ? x.shortage_qty + ' EKSİK' : 'Yeterli'}</span></td>
+    </tr>`).join('');
+}
+async function createBomRequests() {
+  await api(`/api/purchasing/bom-shortage/${bomMachineSel.value}/create-requests`, { method: 'POST', body: JSON.stringify({ items: lastShortages }) });
+  toast(`${lastShortages.length} eksik kalem için satınalma talebi açıldı ✓`);
+}
+
+async function loadPos() {
+  const rows = await api('/api/purchasing/orders');
+  poTbody.innerHTML = rows.map(p => `
+    <tr>
+      <td class="mono"><strong>${p.po_no}</strong></td>
+      <td class="mono">${String(p.order_date).slice(0,10)}</td>
+      <td>${p.supplier_name}</td>
+      <td><span class="badge ${p.status === 'approved' || p.status === 'completed' ? 'b-green' : 'b-warn'}">${p.status}</span></td>
+      <td class="right mono">${Number(p.grand_total || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ${p.currency}</td>
+      <td><a class="btn btn-sec btn-sm" target="_blank" href="/po/${p.id}/print?token=${encodeURIComponent(token)}">📄 PDF Form</a></td>
+    </tr>`).join('');
+}
+
+function openPoModal() {
+  poSup.innerHTML = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  poMach.innerHTML = '<option value="">Genel Stok</option>' + machines.map(m => `<option value="${m.id}">${m.machine_name}</option>`).join('');
+  poLines.innerHTML = '';
+  addPoLine();
+  openM('poModal');
+}
+function addPoLine() {
+  const div = document.createElement('div');
+  div.className = 'grid po-line';
+  div.style.cssText = 'background:var(--card);padding:0.5rem;border-radius:7px';
+  div.innerHTML = `<input class="pl-desc" placeholder="Malzeme açıklaması *"><input class="pl-qty" type="number" value="1" placeholder="Miktar"><input class="pl-price" type="number" step="0.01" placeholder="Birim Fiyat"><input class="pl-vat" type="number" value="20" placeholder="KDV %">`;
+  poLines.appendChild(div);
+}
+async function savePo() {
+  const items = Array.from(document.querySelectorAll('.po-line')).map(r => ({
+    description: r.querySelector('.pl-desc').value.trim(),
+    ordered_qty: parseFloat(r.querySelector('.pl-qty').value) || 0,
+    unit_price: parseFloat(r.querySelector('.pl-price').value) || 0,
+    vat_rate: parseFloat(r.querySelector('.pl-vat').value) || 20
+  })).filter(x => x.description && x.ordered_qty > 0);
+  if (!items.length) { alert('En az bir geçerli satır girin'); return; }
+  await api('/api/purchasing/orders', {
+    method: 'POST', body: JSON.stringify({ account_id: poSup.value, machine_id: poMach.value || null, currency: poCur.value, expected_date: poExp.value || null, items })
+  });
+  closeM('poModal'); toast('Sipariş oluşturuldu ✓'); loadPos();
+}
+
+async function loadRfq() {
+  const rows = await api('/api/purchasing/rfq');
+  rfqTbody.innerHTML = rows.map(q => `
+    <tr>
+      <td class="mono">${String(q.created_at).slice(0,10)}</td>
+      <td><strong>${q.supplier_name}</strong></td>
+      <td>${q.product_name}</td>
+      <td class="mono">${q.quantity}</td>
+      <td class="right mono">${Number(q.unit_price).toFixed(2)} ${q.currency}</td>
+      <td>${q.delivery_days} gün</td>
+    </tr>`).join('');
+}
+function openRfqModal() { rfqSup.innerHTML = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); openM('rfqModal'); }
+async function saveRfq() {
+  const res = await api('/api/purchasing/rfq', {
+    method: 'POST', body: JSON.stringify({ account_id: rfqSup.value, product_name: rfqProd.value, quantity: rfqQty.value, unit_price: rfqPrice.value, currency: rfqCur.value, delivery_days: rfqDays.value })
+  });
+  closeM('rfqModal');
+  toast(res.variance_pct !== null ? `Teklif kaydedildi (Son alışa göre %${res.variance_pct} fark)` : 'Teklif kaydedildi ✓');
+  loadRfq();
+}
+
+async function loadSuppliers() {
+  suppliers = await api('/api/accounting/accounts?type=supplier');
+  supTbody.innerHTML = suppliers.map(s => `
+    <tr>
+      <td class="mono">${s.code}</td><td><strong>${s.name}</strong></td><td class="mono">${s.tax_no || '—'}</td>
+      <td>${s.phone || '—'}</td><td>${s.payment_term_days} gün</td>
+      <td class="right mono">${Number(s.balance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ${s.currency}</td>
+    </tr>`).join('');
+}
+function openSupModal() { openM('supModal'); }
+async function saveSup() {
+  await api('/api/accounting/accounts', {
+    method: 'POST', body: JSON.stringify({ name: supName.value, account_type: 'supplier', tax_no: supVkn.value, phone: supPhone.value, payment_term_days: supTerm.value })
+  });
+  closeM('supModal'); toast('Tedarikçi eklendi ✓'); loadSuppliers();
+}
+
+init();
+</script>
+</body>
+</html>
