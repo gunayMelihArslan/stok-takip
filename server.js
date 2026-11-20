@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const helmet = require('helmet');
 const { query, withTransaction, init, pool } = require('./db');
+const { initAccountingDB, registerAccountingPhase1 } = require('./accounting');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -2262,6 +2263,7 @@ app.put('/api/users/change-password',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
+registerAccountingPhase1(app, { auth, logActivity, broadcast });
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 async function start() {
@@ -2312,6 +2314,7 @@ async function start() {
     console.error('DB Migration Error:', err);
   }
 
+  await initAccountingDB();
   app.listen(PORT, '0.0.0.0', () => console.log(`🏭 Stok Takip → http://localhost:${PORT}`));
 }
 start().catch(err => { console.error('Hata:', err); process.exit(1); });
