@@ -246,7 +246,7 @@ function registerAccountingPhase3(app, { auth, logActivity, broadcast }) {
 
   app.post('/api/purchasing/orders', auth, requireRoles('admin', 'purchasing'), async (req, res) => {
     try {
-      const { account_id, machine_id, order_date, expected_date, currency, fx_rate, notes, items } = req.body;
+      const { account_id, machine_id, order_date, expected_date, currency, fx_rate, notes, items, purchase_request_ids } = req.body;
       if (!account_id || !Array.isArray(items) || !items.length) {
         return res.status(400).json({ error: 'Tedarikçi ve en az bir sipariş kalemi zorunludur' });
       }
@@ -301,6 +301,22 @@ function registerAccountingPhase3(app, { auth, logActivity, broadcast }) {
             INSERT INTO po_items(po_id, product_id, description, unit, ordered_qty, unit_price, discount_rate, vat_rate, line_total)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
           `, [po.id, it.product_id || null, it.description || 'Malzeme', it.unit || 'adet', it.qty, it.price, it.discRate, it.vatRate, it.lineTotal]);
+        }
+
+        if (Array.isArray(purchase_request_ids) && purchase_request_ids.length) {
+          for (const reqId of purchase_request_ids) {
+            await client.query(`
+              UPDATE purchase_requests
+              SET status = 'ordered',
+                  admin_note = CASE
+                    WHEN COALESCE(admin_note, '') = '' THEN $1
+                    ELSE admin_note || ' | ' || $1
+                  END,
+                  product_values = COALESCE(product_values, '{}'::jsonb) || jsonb_build_object('po_id', $2::int, 'po_no', $3::text),
+                  updated_at = NOW()
+              WHERE id = $4
+            `, [`Resmi PO: ${poNo}`, po.id, poNo, Number(reqId)]);
+          }
         }
 
         await logActivity(req.user.id, `Satınalma Siparişi Oluşturuldu (${poNo})`, 'purchase_order', po.id, { grandTotal, currency: cur, status }, req, client);
