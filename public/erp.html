@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sekizli ERP — Satınalma, Depo & Ön Muhasebe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #04070b; --panel: #0d131e; --card: #151f30; --border: #1e2d42;
+      --green: #1a6b56; --glow: #3cd4a0; --accent: #e8b84b; --danger: #ff4d4d;
+      --info: #38bdf8; --text: #f8fafc; --dim: #94a3b8; --muted: #64748b;
+      --sans: 'Inter', -apple-system, sans-serif; --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Üst Bar */
+    .topbar {
+      background: var(--panel); border-bottom: 2px solid var(--green); padding: 0.75rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 0.75rem; }
+    .brand img { height: 28px; background: #fff; padding: 3px 8px; border-radius: 6px; }
+    .brand-title { font-weight: 800; font-size: 1.05rem; letter-spacing: -0.01em; }
+    .brand-sub { font-family: var(--mono); font-size: 0.68rem; color: var(--glow); display: block; }
+    .top-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .rate-pill {
+      font-family: var(--mono); font-size: 0.75rem; background: var(--card); border: 1px solid var(--border);
+      padding: 0.35rem 0.65rem; border-radius: 6px; color: var(--accent);
+    }
+
+    /* Sekme Menüsü */
+    .nav-tabs {
+      display: flex; gap: 0.4rem; padding: 0.75rem 1.25rem; background: #080d14;
+      border-bottom: 1px solid var(--border); overflow-x: auto;
+    }
+    .tab-btn {
+      background: var(--panel); border: 1px solid var(--border); color: var(--dim);
+      padding: 0.5rem 0.9rem; border-radius: 8px; font-weight: 700; font-size: 0.8rem;
+      cursor: pointer; white-space: nowrap; transition: 0.2s;
+    }
+    .tab-btn.active { background: var(--green); border-color: var(--glow); color: #fff; }
+    .tab-btn:hover:not(.active) { border-color: var(--dim); color: #fff; }
+
+    /* Ana Alan */
+    .container { flex: 1; padding: 1.25rem; max-width: 1480px; width: 100%; margin: 0 auto; }
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    /* KPI Kartları */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.85rem; margin-bottom: 1.25rem; }
+    .kpi-card {
+      background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--glow);
+      border-radius: 10px; padding: 0.9rem 1rem;
+    }
+    .kpi-card.warn { border-top-color: var(--accent); }
+    .kpi-card.danger { border-top-color: var(--danger); }
+    .kpi-card.info { border-top-color: var(--info); }
+    .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--dim); font-weight: 700; letter-spacing: 0.04em; }
+    .kpi-val { font-family: var(--mono); font-size: 1.35rem; font-weight: 800; margin-top: 0.3rem; }
+
+    /* Panel & Tablo */
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1.1rem; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+    .panel-title { font-size: 0.95rem; font-weight: 800; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 0.6rem 0.7rem; background: var(--card); color: var(--dim); font-size: 0.72rem; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.6rem 0.7rem; border-bottom: 1px solid rgba(30,45,66,0.5); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .mono { font-family: var(--mono); }
+    .right { text-align: right; }
+
+    /* Butonlar & Rozetler */
+    .btn {
+      background: var(--green); color: #fff; border: 1px solid var(--glow); padding: 0.45rem 0.85rem;
+      border-radius: 7px; font-weight: 700; font-size: 0.78rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn:hover { filter: brightness(1.12); }
+    .btn-sec { background: var(--card); border-color: var(--border); color: var(--text); }
+    .btn-warn { background: rgba(232,184,75,0.18); border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: rgba(255,77,77,0.16); border-color: var(--danger); color: var(--danger); }
+    .btn-sm { padding: 0.28rem 0.55rem; font-size: 0.72rem; }
+
+    .badge { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 5px; display: inline-block; }
+    .b-green { background: rgba(60,212,160,0.15); color: var(--glow); }
+    .b-warn { background: rgba(232,184,75,0.15); color: var(--accent); }
+    .b-danger { background: rgba(255,77,77,0.16); color: var(--danger); }
+    .b-info { background: rgba(56,189,248,0.15); color: var(--info); }
+
+    /* Form & Modal */
+    input, select, textarea {
+      background: #080d14; border: 1px solid var(--border); color: #fff; padding: 0.5rem 0.65rem;
+      border-radius: 7px; font-family: var(--sans); font-size: 0.82rem; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--glow); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem; margin-bottom: 0.75rem; }
+    .field label { display: block; font-size: 0.7rem; color: var(--dim); margin-bottom: 0.25rem; font-weight: 600; }
+
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--green); border-radius: 14px;
+      width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 1.25rem;
+    }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+    .toast {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; background: var(--green); color: #fff;
+      padding: 0.7rem 1.1rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); display: none; z-index: 2000;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="/logo.png" alt="Sekizli" onerror="this.style.display='none'">
+    <div>
+      <span class="brand-sub">SEKİZLİ MAKİNA & VİNÇ ERP</span>
+      <span class="brand-title">Satınalma, Depo & Ön Muhasebe</span>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="rate-pill" id="rateUsd">USD: —</span>
+    <span class="rate-pill" id="rateEur">EUR: —</span>
+    <button class="btn btn-sec btn-sm" onclick="syncTcmb()">🔄 TCMB Güncelle</button>
+    <a class="btn btn-sec btn-sm" href="/admin.html">← Admin Paneli</a>
+  </div>
+</header>
+
+<nav class="nav-tabs">
+  <button class="tab-btn active" onclick="switchTab('overview', this)">📊 Özet & Vade Takvimi</button>
+  <button class="tab-btn" onclick="switchTab('accounts', this)">🏢 Cari Hesaplar</button>
+  <button class="tab-btn" onclick="switchTab('treasury', this)">🏦 Kasa / Banka & İşlemler</button>
+  <button class="tab-btn" onclick="switchTab('purchasing', this)">🛒 Satınalma (PO) & Mal Kabul</button>
+  <button class="tab-btn" onclick="switchTab('invoices', this)">🧾 Faturalar & Çek/Senet</button>
+  <button class="tab-btn" onclick="switchTab('reports', this)">📈 Proje Kârlılık & Mali Müşavir</button>
+</nav>
+
+<main class="container">
+
+  <!-- 1. ÖZET & VADE TAKVİMİ -->
+  <section id="tab-overview" class="tab-view active">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Kasa & Banka (TRY)</div><div class="kpi-val" id="kpiTreasuryTry">0,00 ₺</div></div>
+      <div class="kpi-card info"><div class="kpi-label">Toplam Alacak (TRY)</div><div class="kpi-val" id="kpiRecTry">0,00 ₺</div></div>
+      <div class="kpi-card danger"><div class="kpi-label">Toplam Borç (TRY)</div><div class="kpi-val" id="kpiPayTry">0,00 ₺</div></div>
+      <div class="kpi-card warn"><div class="kpi-label">Aktif Cari Sayısı</div><div class="kpi-val" id="kpiAccCount">0</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">📅 Önümüzdeki 45 Gün — Vade & Nakit Akışı Takvimi</span>
+        <button class="btn btn-sec btn-sm" onclick="loadOverview()">Yenile</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Vade Tarihi</th><th>Tür</th><th>Akış</th><th>Evrak No</th><th>Cari</th><th class="right">Tutar</th></tr></thead>
+          <tbody id="cashflowTbody"><tr><td colspan="6" style="color:var(--muted)">Yükleniyor...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. CARİ HESAPLAR -->
+  <section id="tab-accounts" class="tab-view">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">🏢 Cari Hesap Listesi</span>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <input id="accSearch" placeholder="Cari adı, kod veya VKN ara..." style="width:220px" oninput="loadAccounts()">
+          <button class="btn" onclick="openModal('modalAccount')">+ Yeni Cari</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kod</th><th>Ünvan</th><th>Tür</th><th>VKN</th><th>Vade</th><th class="right">Net Bakiye</th><th>İşlem</th></tr></thead>
+          <tbody id="accountsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. KASA / BANKA & TAHSİLAT-TEDİYE-VİRMAN -->
+  <section id="tab-treasury" class="tab-view">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">🏦 Kasa, Banka & POS Hesapları</span>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+          <button class="btn" onclick="openTxModal('receipt')">+ Tahsilat Al</button>
+          <button class="btn btn-warn" onclick="openTxModal('payment')">- Ödeme (Tediye) Yap</button>
+          <button class="btn btn-sec" onclick="openModal('modalTransfer')">⇄ Virman</button>
+          <button class="btn btn-sec" onclick="openModal('modalTreasury')">+ Yeni Hesap</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Hesap Adı</th><th>Tür</th><th>Banka / IBAN</th><th>Döviz</th><th class="right">Güncel Bakiye</th></tr></thead>
+          <tbody id="treasuryTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. SATINALMA (PO) & MAL KABUL -->
+  <section id="tab-purchasing" class="tab-view">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">🛒 Satınalma Siparişleri (PO)</span>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+          <button class="btn" onclick="openPoModal()">+ Yeni Sipariş (PO)</button>
+          <button class="btn btn-warn" onclick="openWaybillModal()">📦 Mal Kabul (İrsaliye)</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO No</th><th>Tarih</th><th>Tedarikçi</th><th>Vinç / Proje</th><th>Durum</th><th class="right">Toplam</th><th>İşlem</th></tr></thead>
+          <tbody id="poTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">📦 Son İrsaliye / Mal Kabul Kayıtları</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tarih</th><th>İrsaliye No</th><th>Bağlı PO</th><th>Tedarikçi</th><th>Teslim Alan</th><th>Fatura</th></tr></thead>
+          <tbody id="waybillTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. FATURALAR & ÇEK/SENET -->
+  <section id="tab-invoices" class="tab-view">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">🧾 Alış & Satış Faturaları</span>
+        <button class="btn" onclick="openInvoiceModal()">+ Yeni Fatura</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tarih</th><th>Vade</th><th>Fatura No</th><th>Yön</th><th>Cari</th><th class="right">Genel Toplam</th><th>Durum</th><th>İşlem</th></tr></thead>
+          <tbody id="invoiceTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">💳 Çek & Senet Portföyü</span>
+        <button class="btn btn-sec" onclick="openChequeModal()">+ Çek / Senet Ekle</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Vade</th><th>Evrak No</th><th>Yön</th><th>Cari / Banka</th><th class="right">Tutar</th><th>Durum</th><th>İşlem</th></tr></thead>
+          <tbody id="chequeTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. PROJE KÂRLILIK, MASRAF & MALİ MÜŞAVİR -->
+  <section id="tab-reports" class="tab-view">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">📑 Mali Müşavir Paketleri & Dönem Kilitleme</span>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+          <button class="btn btn-sec" onclick="downloadCsv('/api/accounting/export/invoices-csv')">⬇ Fatura Listesi (CSV)</button>
+          <button class="btn btn-sec" onclick="downloadCsv('/api/accounting/export/trial-balance-csv')">⬇ Cari Mizan (CSV)</button>
+          <button class="btn btn-warn" onclick="openExpenseModal()">+ Masraf / Avans Gir</button>
+          <button class="btn btn-danger" onclick="openModal('modalLock')">🔒 Dönem Kilitle</button>
+        </div>
+      </div>
+      <div class="kpi-grid" id="vatSummaryGrid" style="margin-bottom:0"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">🏗️ Vinç (Proje) Bazlı Net Kârlılık Analizi</span>
+        <button class="btn btn-sec btn-sm" onclick="loadReports()">Yenile</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Vinç / Proje</th><th>Firma</th><th class="right">BOM Maliyeti</th><th class="right">Ek Masraf/Fat.</th><th class="right">Satış Geliri</th><th class="right">Net Kâr (₺)</th><th class="right">Marj</th></tr></thead>
+          <tbody id="profitTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- MODALLAR -->
+<div class="modal-bg" id="modalAccount"><div class="modal">
+  <div class="modal-head"><h3>Yeni Cari Hesap</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalAccount')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Ünvan *</label><input id="accName"></div>
+    <div class="field"><label>Tür</label><select id="accType"><option value="both">Karma (Müşteri+Tedarikçi)</option><option value="supplier">Tedarikçi</option><option value="customer">Müşteri</option></select></div>
+    <div class="field"><label>Vergi Dairesi</label><input id="accTaxOffice"></div>
+    <div class="field"><label>VKN / TCKN</label><input id="accTaxNo"></div>
+    <div class="field"><label>Yetkili / Tel</label><input id="accPhone"></div>
+    <div class="field"><label>Para Birimi</label><select id="accCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div class="field"><label>Varsayılan Vade (Gün)</label><input id="accTerm" type="number" value="30"></div>
+    <div class="field"><label>Açılış Bakiyesi</label><input id="accOpen" type="number" step="0.01" value="0"></div>
+  </div>
+  <button class="btn" onclick="saveAccount()">💾 Cariyi Kaydet</button>
+</div></div>
+
+<div class="modal-bg" id="modalTreasury"><div class="modal">
+  <div class="modal-head"><h3>Yeni Kasa / Banka Hesabı</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalTreasury')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Hesap Adı *</label><input id="trName" placeholder="Örn: Garanti TL Hesabı"></div>
+    <div class="field"><label>Tür</label><select id="trType"><option value="bank">Banka</option><option value="cash">Kasa</option><option value="pos">POS</option><option value="card">Kredi Kartı</option></select></div>
+    <div class="field"><label>IBAN</label><input id="trIban"></div>
+    <div class="field"><label>Döviz</label><select id="trCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div class="field"><label>Açılış Bakiyesi</label><input id="trOpen" type="number" step="0.01" value="0"></div>
+  </div>
+  <button class="btn" onclick="saveTreasury()">💾 Hesabı Kaydet</button>
+</div></div>
+
+<div class="modal-bg" id="modalTx"><div class="modal">
+  <div class="modal-head"><h3 id="txModalTitle">Tahsilat / Ödeme</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalTx')">✕</button></div>
+  <input type="hidden" id="txMode">
+  <div class="form-grid">
+    <div class="field"><label>Cari Hesap *</label><select id="txAcc"></select></div>
+    <div class="field"><label>Kasa / Banka *</label><select id="txTreasury"></select></div>
+    <div class="field"><label>Tutar *</label><input id="txAmt" type="number" step="0.01"></div>
+    <div class="field"><label>Döviz</label><select id="txCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div class="field"><label>Tarih</label><input id="txDate" type="date"></div>
+    <div class="field"><label>Açıklama</label><input id="txDesc"></div>
+  </div>
+  <button class="btn" onclick="saveTx()">💾 İşlemi Kaydet</button>
+</div></div>
+
+<div class="modal-bg" id="modalTransfer"><div class="modal">
+  <div class="modal-head"><h3>Hesaplar Arası Virman</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalTransfer')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Kaynak Hesap</label><select id="tfFrom"></select></div>
+    <div class="field"><label>Hedef Hesap</label><select id="tfTo"></select></div>
+    <div class="field"><label>Çıkan Tutar</label><input id="tfAmt" type="number" step="0.01"></div>
+    <div class="field"><label>Açıklama</label><input id="tfDesc"></div>
+  </div>
+  <button class="btn" onclick="saveTransfer()">⇄ Virmanı Onayla</button>
+</div></div>
+
+<div class="modal-bg" id="modalStatement"><div class="modal" style="max-width:860px">
+  <div class="modal-head"><h3 id="stTitle">Cari Ekstre</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalStatement')">✕</button></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tarih</th><th>Tür</th><th>Açıklama</th><th class="right">Borç</th><th class="right">Alacak</th><th class="right">Bakiye</th></tr></thead>
+      <tbody id="stTbody"></tbody>
+    </table>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="modalPo"><div class="modal">
+  <div class="modal-head"><h3>Yeni Satınalma Siparişi (PO)</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalPo')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Tedarikçi *</label><select id="poAcc"></select></div>
+    <div class="field"><label>Döviz</label><select id="poCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div class="field"><label>Malzeme / Açıklama *</label><input id="poDesc" placeholder="Örn: Schneider ATV320 15kW"></div>
+    <div class="field"><label>Miktar *</label><input id="poQty" type="number" step="0.01" value="1"></div>
+    <div class="field"><label>Birim Fiyat *</label><input id="poPrice" type="number" step="0.01"></div>
+    <div class="field"><label>KDV %</label><input id="poVat" type="number" value="20"></div>
+  </div>
+  <button class="btn" onclick="savePo()">💾 Siparişi Oluştur</button>
+</div></div>
+
+<div class="modal-bg" id="modalWaybill"><div class="modal">
+  <div class="modal-head"><h3>Depo Mal Kabul (İrsaliye)</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalWaybill')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>İrsaliye No *</label><input id="wbNo" placeholder="IRS20260001"></div>
+    <div class="field"><label>Bağlı Sipariş (PO)</label><select id="wbPo"></select></div>
+    <div class="field"><label>Açıklama / Malzeme</label><input id="wbDesc"></div>
+    <div class="field"><label>Teslim Alınan Miktar *</label><input id="wbQty" type="number" step="0.01" value="1"></div>
+  </div>
+  <button class="btn" onclick="saveWaybill()">📦 Mal Kabulü Onayla</button>
+</div></div>
+
+<div class="modal-bg" id="modalInvoice"><div class="modal">
+  <div class="modal-head"><h3>Yeni Fatura Kaydı</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalInvoice')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Fatura No *</label><input id="invNo"></div>
+    <div class="field"><label>Yön *</label><select id="invDir"><option value="purchase">Alış Faturası</option><option value="sales">Satış Faturası</option></select></div>
+    <div class="field"><label>Cari *</label><select id="invAcc"></select></div>
+    <div class="field"><label>Döviz</label><select id="invCur"><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+    <div class="field"><label>Kalem Açıklaması *</label><input id="invDesc"></div>
+    <div class="field"><label>Miktar *</label><input id="invQty" type="number" step="0.01" value="1"></div>
+    <div class="field"><label>Birim Fiyat *</label><input id="invPrice" type="number" step="0.01"></div>
+    <div class="field"><label>KDV %</label><input id="invVat" type="number" value="20"></div>
+    <div class="field"><label>Tevkifat (Ops.)</label><input id="invWh" placeholder="Örn: 5/10"></div>
+  </div>
+  <button class="btn" onclick="saveInvoice()">💾 Faturayı Kaydet</button>
+</div></div>
+
+<div class="modal-bg" id="modalCheque"><div class="modal">
+  <div class="modal-head"><h3>Yeni Çek / Senet</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalCheque')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Evrak No *</label><input id="chqNo"></div>
+    <div class="field"><label>Yön</label><select id="chqDir"><option value="received">Müşteri Çeki (Alınan)</option><option value="issued">Kendi Çekimiz (Verilen)</option></select></div>
+    <div class="field"><label>Cari *</label><select id="chqAcc"></select></div>
+    <div class="field"><label>Banka</label><input id="chqBank"></div>
+    <div class="field"><label>Vade Tarihi *</label><input id="chqDue" type="date"></div>
+    <div class="field"><label>Tutar *</label><input id="chqAmt" type="number" step="0.01"></div>
+  </div>
+  <button class="btn" onclick="saveCheque()">💾 Portföye Ekle</button>
+</div></div>
+
+<div class="modal-bg" id="modalExpense"><div class="modal">
+  <div class="modal-head"><h3>Masraf / Personel Avans Girişi</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalExpense')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Kategori</label><select id="expCat"><option value="santiye">Şantiye / Harcırah</option><option value="nakliye">Nakliye</option><option value="yakit">Yakıt</option><option value="avans">Personel Avans</option><option value="diger">Diğer</option></select></div>
+    <div class="field"><label>Kasa / Banka</label><select id="expTreasury"></select></div>
+    <div class="field"><label>Tutar (TRY) *</label><input id="expAmt" type="number" step="0.01"></div>
+    <div class="field"><label>Açıklama</label><input id="expDesc"></div>
+  </div>
+  <button class="btn" onclick="saveExpense()">💾 Masrafı Kaydet</button>
+</div></div>
+
+<div class="modal-bg" id="modalLock"><div class="modal">
+  <div class="modal-head"><h3>Muhasebe Dönemi Kilitle</h3><button class="btn btn-sec btn-sm" onclick="closeModal('modalLock')">✕</button></div>
+  <div class="form-grid">
+    <div class="field"><label>Yıl</label><input id="lockYear" type="number" value="2026"></div>
+    <div class="field"><label>Ay (1-12)</label><input id="lockMonth" type="number" min="1" max="12" value="10"></div>
+    <div class="field"><label>Not</label><input id="lockNote" placeholder="Mali müşavire teslim edildi"></div>
+  </div>
+  <button class="btn btn-danger" onclick="saveLock()">🔒 Dönemi Kilitle</button>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const token = localStorage.getItem('stok_token') || '';
+if (!token) window.location.href = '/';
+
+let cachedAccounts = [], cachedTreasury = [], cachedPos = [];
+
+function fmt(n, cur = 'TRY') {
+  const sym = cur === 'EUR' ? '€' : cur === 'USD' ? '$' : '₺';
+  return Number(n || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + sym;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2800);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+async function api(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(opts.headers || {}) }
+  });
+  if (res.status === 401) { window.location.href = '/'; return; }
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'İşlem başarısız'); throw new Error(data.error); }
+  return data;
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'overview') loadOverview();
+  if (id === 'accounts') loadAccounts();
+  if (id === 'treasury') loadTreasury();
+  if (id === 'purchasing') loadPurchasing();
+  if (id === 'invoices') loadInvoicesAndCheques();
+  if (id === 'reports') loadReports();
+}
+
+async function loadRates() {
+  try {
+    const rates = await api('/api/accounting/rates');
+    rates.forEach(r => {
+      if (r.currency === 'USD') document.getElementById('rateUsd').textContent = `USD: ${parseFloat(r.selling).toFixed(4)} ₺`;
+      if (r.currency === 'EUR') document.getElementById('rateEur').textContent = `EUR: ${parseFloat(r.selling).toFixed(4)} ₺`;
+    });
+  } catch {}
+}
+async function syncTcmb() { await api('/api/accounting/rates/sync', { method: 'POST' }); toast('TCMB kurları güncellendi'); loadRates(); }
+
+async function loadOverview() {
+  try {
+    const sum = await api('/api/accounting/summary');
+    const tryTr = (sum.treasury_by_currency || []).find(t => t.currency === 'TRY');
+    document.getElementById('kpiTreasuryTry').textContent = fmt(tryTr?.total_balance || 0);
+    document.getElementById('kpiRecTry').textContent = fmt(sum.receivables_by_currency?.TRY || 0);
+    document.getElementById('kpiPayTry').textContent = fmt(sum.payables_by_currency?.TRY || 0);
+    document.getElementById('kpiAccCount').textContent = sum.total_accounts || 0;
+
+    const cf = await api('/api/accounting/cashflow-calendar?days=45');
+    document.getElementById('cashflowTbody').innerHTML = cf.timeline.length ? cf.timeline.map(x => `
+      <tr>
+        <td class="mono">${String(x.due_date).slice(0,10)}</td>
+        <td>${x.type === 'invoice' ? 'Fatura' : 'Çek/Senet'}</td>
+        <td><span class="badge ${x.flow === 'inflow' ? 'b-green' : 'b-danger'}">${x.flow === 'inflow' ? 'Giriş (+)' : 'Çıkış (-)'}</span></td>
+        <td class="mono">${x.ref_no}</td>
+        <td>${x.account_name}</td>
+        <td class="right mono">${fmt(x.amount, x.currency)}</td>
+      </tr>`).join('') : '<tr><td colspan="6" style="color:var(--muted)">Önümüzdeki 45 günde açık vade yok.</td></tr>';
+  } catch {}
+}
+
+async function loadAccounts() {
+  const q = document.getElementById('accSearch')?.value || '';
+  cachedAccounts = await api('/api/accounting/accounts?q=' + encodeURIComponent(q));
+  document.getElementById('accountsTbody').innerHTML = cachedAccounts.map(a => {
+    const bal = parseFloat(a.balance || 0);
+    const cls = bal > 0 ? 'b-green' : bal < 0 ? 'b-danger' : 'b-info';
+    return `<tr>
+      <td class="mono">${a.code || ''}</td>
+      <td><strong>${a.name}</strong></td>
+      <td>${a.account_type}</td>
+      <td class="mono">${a.tax_no || '—'}</td>
+      <td>${a.payment_term_days || 0} gün</td>
+      <td class="right mono"><span class="badge ${cls}">${fmt(bal, a.currency)}</span></td>
+      <td>
+        <button class="btn btn-sec btn-sm" onclick="viewStatement(${a.id})">Ekstre</button>
+        <a class="btn btn-sec btn-sm" target="_blank" href="/accounting/accounts/${a.id}/reconciliation?token=${encodeURIComponent(token)}">PDF Mutabakat</a>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveAccount() {
+  await api('/api/accounting/accounts', {
+    method: 'POST', body: JSON.stringify({
+      name: accName.value, account_type: accType.value, tax_office: accTaxOffice.value,
+      tax_no: accTaxNo.value, phone: accPhone.value, currency: accCur.value,
+      payment_term_days: accTerm.value, opening_balance: accOpen.value
+    })
+  });
+  closeModal('modalAccount'); toast('Cari kaydedildi'); loadAccounts();
+}
+
+async function viewStatement(id) {
+  const data = await api(`/api/accounting/accounts/${id}/statement`);
+  document.getElementById('stTitle').textContent = `Cari Ekstre — ${data.account.name}`;
+  document.getElementById('stTbody').innerHTML = data.entries.map(e => `
+    <tr style="${e.is_voided ? 'opacity:0.4;text-decoration:line-through' : ''}">
+      <td class="mono">${String(e.entry_date).slice(0,10)}</td>
+      <td>${e.ref_type}</td>
+      <td>${e.description || ''}</td>
+      <td class="right mono">${fmt(e.debit, e.currency)}</td>
+      <td class="right mono">${fmt(e.credit, e.currency)}</td>
+      <td class="right mono"><strong>${fmt(e.running_balance, e.currency)}</strong></td>
+    </tr>`).join('');
+  openModal('modalStatement');
+}
+
+async function loadTreasury() {
+  cachedTreasury = await api('/api/accounting/treasury');
+  document.getElementById('treasuryTbody').innerHTML = cachedTreasury.map(t => `
+    <tr>
+      <td><strong>${t.name}</strong></td>
+      <td>${t.account_type}</td>
+      <td class="mono">${t.iban || '—'}</td>
+      <td>${t.currency}</td>
+      <td class="right mono"><strong>${fmt(t.balance, t.currency)}</strong></td>
+    </tr>`).join('');
+  const opts = cachedTreasury.map(t => `<option value="${t.id}">${t.name} (${t.currency})</option>`).join('');
+  tfFrom.innerHTML = opts; tfTo.innerHTML = opts;
+}
+
+async function saveTreasury() {
+  await api('/api/accounting/treasury', {
+    method: 'POST', body: JSON.stringify({ name: trName.value, account_type: trType.value, iban: trIban.value, currency: trCur.value, opening_balance: trOpen.value })
+  });
+  closeModal('modalTreasury'); toast('Hesap eklendi'); loadTreasury();
+}
+
+async function openTxModal(mode) {
+  if (!cachedAccounts.length) cachedAccounts = await api('/api/accounting/accounts');
+  if (!cachedTreasury.length) cachedTreasury = await api('/api/accounting/treasury');
+  txMode.value = mode;
+  txModalTitle.textContent = mode === 'receipt' ? 'Tahsilat Al (Müşteriden)' : 'Ödeme / Tediye Yap (Tedarikçiye)';
+  txAcc.innerHTML = cachedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  txTreasury.innerHTML = cachedTreasury.map(t => `<option value="${t.id}">${t.name} (${t.currency})</option>`).join('');
+  txDate.value = new Date().toISOString().slice(0, 10);
+  openModal('modalTx');
+}
+async function saveTx() {
+  await api(`/api/accounting/transactions/${txMode.value}`, {
+    method: 'POST', body: JSON.stringify({
+      account_id: txAcc.value, treasury_account_id: txTreasury.value, amount: txAmt.value,
+      currency: txCur.value, entry_date: txDate.value, description: txDesc.value
+    })
+  });
+  closeModal('modalTx'); toast('İşlem deftere işlendi'); loadTreasury(); loadOverview();
+}
+async function saveTransfer() {
+  await api('/api/accounting/transactions/transfer', {
+    method: 'POST', body: JSON.stringify({ from_treasury_id: tfFrom.value, to_treasury_id: tfTo.value, amount: tfAmt.value, description: tfDesc.value })
+  });
+  closeModal('modalTransfer'); toast('Virman tamamlandı'); loadTreasury();
+}
+
+async function loadPurchasing() {
+  cachedPos = await api('/api/purchasing/orders');
+  document.getElementById('poTbody').innerHTML = cachedPos.map(p => `
+    <tr>
+      <td class="mono"><strong>${p.po_no}</strong></td>
+      <td class="mono">${String(p.order_date).slice(0,10)}</td>
+      <td>${p.supplier_name}</td>
+      <td>${p.machine_name || '—'}</td>
+      <td><span class="badge ${p.status === 'completed' ? 'b-green' : p.status === 'pending_approval' ? 'b-warn' : 'b-info'}">${p.status}</span></td>
+      <td class="right mono">${p.grand_total !== undefined ? fmt(p.grand_total, p.currency) : 'Gizli'}</td>
+      <td>
+        ${p.status === 'pending_approval' ? `<button class="btn btn-sm" onclick="approvePo(${p.id})">Onayla</button>` : ''}
+        <a class="btn btn-sec btn-sm" target="_blank" href="/po/${p.id}/print?token=${encodeURIComponent(token)}">PDF</a>
+      </td>
+    </tr>`).join('');
+  const wbs = await api('/api/warehouse/waybills');
+  document.getElementById('waybillTbody').innerHTML = wbs.map(w => `
+    <tr>
+      <td class="mono">${String(w.waybill_date).slice(0,10)}</td>
+      <td class="mono"><strong>${w.waybill_no}</strong></td>
+      <td class="mono">${w.po_no || '—'}</td>
+      <td>${w.account_name || '—'}</td>
+      <td>${w.received_by_name || '—'}</td>
+      <td><span class="badge ${w.is_invoiced ? 'b-green' : 'b-warn'}">${w.is_invoiced ? 'Faturalandı' : 'Bekliyor'}</span></td>
+    </tr>`).join('');
+}
+
+async function openPoModal() {
+  if (!cachedAccounts.length) cachedAccounts = await api('/api/accounting/accounts');
+  poAcc.innerHTML = cachedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  openModal('modalPo');
+}
+async function savePo() {
+  await api('/api/purchasing/orders', {
+    method: 'POST', body: JSON.stringify({
+      account_id: poAcc.value, currency: poCur.value,
+      items: [{ description: poDesc.value, ordered_qty: poQty.value, unit_price: poPrice.value, vat_rate: poVat.value }]
+    })
+  });
+  closeModal('modalPo'); toast('Sipariş oluşturuldu'); loadPurchasing();
+}
+async function approvePo(id) { await api(`/api/purchasing/orders/${id}/approve`, { method: 'POST', body: JSON.stringify({ approve: true }) }); toast('Sipariş onaylandı'); loadPurchasing(); }
+
+async function openWaybillModal() {
+  if (!cachedPos.length) cachedPos = await api('/api/purchasing/orders');
+  wbPo.innerHTML = '<option value="">Serbest Mal Kabul</option>' + cachedPos.map(p => `<option value="${p.id}">${p.po_no} — ${p.supplier_name}</option>`).join('');
+  openModal('modalWaybill');
+}
+async function saveWaybill() {
+  await api('/api/warehouse/waybills/receive', {
+    method: 'POST', body: JSON.stringify({
+      waybill_no: wbNo.value, po_id: wbPo.value || null,
+      items: [{ description: wbDesc.value || 'Malzeme', quantity: wbQty.value }]
+    })
+  });
+  closeModal('modalWaybill'); toast('Mal kabul ve stok girişi tamamlandı'); loadPurchasing();
+}
+
+async function loadInvoicesAndCheques() {
+  const invs = await api('/api/accounting/invoices');
+  document.getElementById('invoiceTbody').innerHTML = invs.map(i => `
+    <tr style="${i.is_voided ? 'opacity:0.4;text-decoration:line-through' : ''}">
+      <td class="mono">${String(i.invoice_date).slice(0,10)}</td>
+      <td class="mono">${i.due_date ? String(i.due_date).slice(0,10) : '—'}</td>
+      <td class="mono"><strong>${i.invoice_no}</strong> ${i.has_price_variance ? '<span class="badge b-danger">Fiyat Farkı!</span>' : ''}</td>
+      <td><span class="badge ${i.direction === 'sales' ? 'b-green' : 'b-warn'}">${i.direction}</span></td>
+      <td>${i.account_name}</td>
+      <td class="right mono">${fmt(i.grand_total, i.currency)}</td>
+      <td>${i.is_voided ? 'İptal' : i.payment_status}</td>
+      <td>${!i.is_voided ? `<button class="btn btn-danger btn-sm" onclick="voidInvoice(${i.id})">Storno</button>` : ''}</td>
+    </tr>`).join('');
+
+  const chqs = await api('/api/accounting/cheques');
+  document.getElementById('chequeTbody').innerHTML = chqs.map(c => `
+    <tr>
+      <td class="mono">${String(c.due_date).slice(0,10)}</td>
+      <td class="mono"><strong>${c.doc_no}</strong></td>
+      <td>${c.direction === 'received' ? 'Alınan' : 'Verilen'}</td>
+      <td>${c.account_name} (${c.bank_name || '—'})</td>
+      <td class="right mono">${fmt(c.amount, c.currency)}</td>
+      <td><span class="badge b-info">${c.status}</span></td>
+      <td>${c.status === 'portfolio' ? `<button class="btn btn-sm" onclick="markChequePaid(${c.id})">Tahsil/Öde</button>` : ''}</td>
+    </tr>`).join('');
+}
+
+async function openInvoiceModal() {
+  if (!cachedAccounts.length) cachedAccounts = await api('/api/accounting/accounts');
+  invAcc.innerHTML = cachedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  openModal('modalInvoice');
+}
+async function saveInvoice() {
+  await api('/api/accounting/invoices', {
+    method: 'POST', body: JSON.stringify({
+      invoice_no: invNo.value, direction: invDir.value, account_id: invAcc.value, currency: invCur.value,
+      items: [{ description: invDesc.value, quantity: invQty.value, unit_price: invPrice.value, vat_rate: invVat.value, withholding_ratio: invWh.value || null }]
+    })
+  });
+  closeModal('modalInvoice'); toast('Fatura kaydedildi'); loadInvoicesAndCheques();
+}
+async function voidInvoice(id) { if (!confirm('Fatura storno (iptal) edilsin mi?')) return; await api(`/api/accounting/invoices/${id}/void`, { method: 'POST' }); toast('Fatura iptal edildi'); loadInvoicesAndCheques(); }
+
+async function openChequeModal() {
+  if (!cachedAccounts.length) cachedAccounts = await api('/api/accounting/accounts');
+  chqAcc.innerHTML = cachedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  openModal('modalCheque');
+}
+async function saveCheque() {
+  await api('/api/accounting/cheques', {
+    method: 'POST', body: JSON.stringify({ doc_no: chqNo.value, direction: chqDir.value, account_id: chqAcc.value, bank_name: chqBank.value, due_date: chqDue.value, amount: chqAmt.value })
+  });
+  closeModal('modalCheque'); toast('Çek portföye eklendi'); loadInvoicesAndCheques();
+}
+async function markChequePaid(id) {
+  await api(`/api/accounting/cheques/${id}/status`, { method: 'POST', body: JSON.stringify({ new_status: 'paid' }) });
+  toast('Çek tahsil/ödendi olarak işlendi'); loadInvoicesAndCheques();
+}
+
+async function loadReports() {
+  const vat = await api('/api/accounting/reports/vat-summary');
+  document.getElementById('vatSummaryGrid').innerHTML = `
+    <div class="kpi-card info"><div class="kpi-label">Hesaplanan KDV (${vat.period})</div><div class="kpi-val">${fmt(vat.calculated_vat_try)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">İndirilecek KDV</div><div class="kpi-val">${fmt(vat.deductible_vat_try)}</div></div>
+    <div class="kpi-card ${vat.net_vat_try > 0 ? 'danger' : 'warn'}"><div class="kpi-label">${vat.net_vat_try > 0 ? 'Ödenecek KDV' : 'Devreden KDV'}</div><div class="kpi-val">${fmt(Math.abs(vat.net_vat_try))}</div></div>
+  `;
+  const prof = await api('/api/accounting/reports/project-profitability');
+  document.getElementById('profitTbody').innerHTML = prof.projects.map(p => `
+    <tr>
+      <td><strong>${p.machine_name}</strong></td>
+      <td>${p.firm_name}</td>
+      <td class="right mono">${fmt(p.bom_cost_try)}</td>
+      <td class="right mono">${fmt(p.extra_cost_try)}</td>
+      <td class="right mono">${fmt(p.revenue_try)}</td>
+      <td class="right mono"><span class="badge ${p.net_profit_try >= 0 ? 'b-green' : 'b-danger'}">${fmt(p.net_profit_try)}</span></td>
+      <td class="right mono">%${p.margin_pct}</td>
+    </tr>`).join('');
+}
+
+async function openExpenseModal() {
+  if (!cachedTreasury.length) cachedTreasury = await api('/api/accounting/treasury');
+  expTreasury.innerHTML = cachedTreasury.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  openModal('modalExpense');
+}
+async function saveExpense() {
+  await api('/api/accounting/expenses', {
+    method: 'POST', body: JSON.stringify({ category: expCat.value, treasury_account_id: expTreasury.value, amount: expAmt.value, description: expDesc.value })
+  });
+  closeModal('modalExpense'); toast('Masraf kaydedildi'); loadReports();
+}
+async function saveLock() {
+  await api('/api/accounting/fiscal-locks', { method: 'POST', body: JSON.stringify({ year: lockYear.value, month: lockMonth.value, note: lockNote.value }) });
+  closeModal('modalLock'); toast('Dönem kilitlendi');
+}
+function downloadCsv(path) { window.open(path + '?token=' + encodeURIComponent(token), '_blank'); }
+
+// Başlangıç
+loadRates();
+loadOverview();
+</script>
+</body>
+</html>
