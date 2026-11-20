@@ -8,6 +8,7 @@ const { initAccountingDB, registerAccountingPhase1 } = require('./accounting');
 const { registerAccountingPhase2 } = require('./accounting-phase2');
 const { registerAccountingPhase3 } = require('./accounting-phase3');
 const { registerAccountingPhase4 } = require('./accounting-phase4');
+const { registerAccountingPhase5 } = require('./accounting-phase5');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -2270,6 +2271,7 @@ registerAccountingPhase1(app, { auth, logActivity, broadcast });
 registerAccountingPhase2(app, { auth, logActivity, broadcast });
 registerAccountingPhase3(app, { auth, logActivity, broadcast });
 registerAccountingPhase4(app, { auth, logActivity, broadcast });
+registerAccountingPhase5(app, { auth, logActivity, broadcast });
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 async function start() {
